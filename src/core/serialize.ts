@@ -78,6 +78,14 @@ interface WorkLayer {
 
 export class SerializeError extends Error {}
 
+/**
+ * Allocation guards: protocol definitions can come from imported files, so
+ * field lengths are untrusted. Real packets are ≤64 KiB; these caps only
+ * exist to stop a hostile definition from hanging the tab.
+ */
+const MAX_FIELD_BITS = 1 << 20; // 128 KiB per field
+const MAX_PACKET_BYTES = 1 << 18; // 256 KiB per packet
+
 export function serializeStack(stack: StackInstance, registry: Registry): SerializedPacket {
   const issues: SerializeIssue[] = [];
   const trailing = stack.trailingPayload ?? new Uint8Array(0);
@@ -106,6 +114,11 @@ export function serializeStack(stack: StackInstance, registry: Registry): Serial
   }
 
   const totalBytes = innerBytes;
+  if (totalBytes > MAX_PACKET_BYTES) {
+    throw new SerializeError(
+      `packet would be ${totalBytes} bytes; the limit is ${MAX_PACKET_BYTES}. Check field lengths in the stack's protocol definitions.`,
+    );
+  }
   const buf = new Uint8Array(totalBytes);
   let offset = 0;
   for (const layer of work) {
@@ -311,6 +324,8 @@ function layoutLayer(layer: WorkLayer, issues: SerializeIssue[]): void {
       }
 
       if (bitLength < 0) throw new ValueError(`negative length for "${f.id}"`);
+      if (bitLength > MAX_FIELD_BITS)
+        throw new ValueError(`field "${f.id}" is ${bitLength} bits; the limit is ${MAX_FIELD_BITS}`);
       if (bitLength === 0) continue; // zero-length optional field (e.g. empty options)
 
       if (bytes !== null && bytes.length * 8 !== bitLength) {

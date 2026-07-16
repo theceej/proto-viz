@@ -15,7 +15,15 @@ export interface ExtractedText {
 
 export class ExtractError extends Error {}
 
+/** Uploads beyond this are almost certainly not protocol specs. */
+const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
+
 export async function extractSpecText(file: File): Promise<ExtractedText> {
+  if (file.size > MAX_UPLOAD_BYTES) {
+    throw new ExtractError(
+      `File is ${Math.round(file.size / 1024 / 1024)} MB; the limit is 20 MB. Protocol specs are text — extract the relevant section if yours is larger.`,
+    );
+  }
   const bytes = new Uint8Array(await file.arrayBuffer());
   const format = detectFormat(file.name, bytes);
 
@@ -93,7 +101,8 @@ async function extractPdf(bytes: Uint8Array): Promise<string> {
   const workerUrl = (await import('pdfjs-dist/build/pdf.worker.min.mjs?url')).default;
   pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
-  const doc = await pdfjs.getDocument({ data: bytes }).promise;
+  // isEvalSupported: false — never let embedded font programs reach eval.
+  const doc = await pdfjs.getDocument({ data: bytes, isEvalSupported: false }).promise;
   const pages: string[] = [];
   for (let p = 1; p <= doc.numPages; p++) {
     const page = await doc.getPage(p);

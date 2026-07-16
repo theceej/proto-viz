@@ -93,6 +93,27 @@ vitest's node environment:
   confidence scoring.
 - `ui/` — React + Tailwind interface; zustand stores; IndexedDB persistence.
 
+## Security
+
+proto-viz has no server: uploads, custom protocols, and generated PCAPs never
+leave the browser. The inputs it parses are still treated as untrusted:
+
+- Uploaded specs are size-capped (20 MB); HTML/DOCX content is parsed with
+  the inert `DOMParser` (never injected into the page), and pdf.js runs with
+  `isEvalSupported: false`. Legacy binary `.doc` is rejected outright.
+- Imported library JSON is schema-validated with sanity caps (protocol/field
+  counts, name lengths, field widths), and the serializer enforces
+  per-field and per-packet allocation limits, so a hostile definition file
+  can't hang the tab.
+- The production build ships a same-origin Content-Security-Policy
+  (`script-src 'self'`, `object-src 'none'`, …) as a `<meta>` tag, since
+  GitHub Pages can't set headers.
+- CI runs `npm audit` and CodeQL on every push and weekly
+  (`.github/workflows/security.yml`); Dependabot watches npm and Actions.
+
+To report a vulnerability, please open a GitHub security advisory rather
+than a public issue.
+
 ## License
 
 Copyright (C) 2026 proto-viz contributors.

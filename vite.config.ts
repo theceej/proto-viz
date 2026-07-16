@@ -3,10 +3,45 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
+/**
+ * Content-Security-Policy for the production build. GitHub Pages can't set
+ * response headers, so it ships as a <meta> tag. Everything is same-origin;
+ * 'unsafe-inline' styles are needed for React style attributes only.
+ * Injected at build time only — the dev server needs HMR inline scripts.
+ */
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data:",
+  "font-src 'self'",
+  "worker-src 'self'",
+  "connect-src 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+].join('; ');
+
 // Relative base so the built app works on GitHub Pages subpaths and any static server.
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   base: process.env.BASE_URL ?? './',
-  plugins: [react(), tailwindcss()],
+  plugins: [
+    react(),
+    tailwindcss(),
+    {
+      name: 'inject-csp',
+      transformIndexHtml: {
+        order: 'post' as const,
+        handler: (html: string) =>
+          command === 'build'
+            ? html.replace(
+                '<meta charset="UTF-8" />',
+                `<meta charset="UTF-8" />\n    <meta http-equiv="Content-Security-Policy" content="${CSP}" />`,
+              )
+            : html,
+      },
+    },
+  ],
   build: { target: 'es2022' },
   test: {
     environment: 'node',
@@ -18,4 +53,4 @@ export default defineConfig({
       reporter: ['text-summary', 'text'],
     },
   },
-});
+}));
