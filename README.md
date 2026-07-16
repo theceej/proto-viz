@@ -91,3 +91,14 @@ vitest's node environment:
 - `import/` — text extraction per format and the ASCII-diagram parser with
   confidence scoring.
 - `ui/` — React + Tailwind interface; zustand stores; IndexedDB persistence.
+
+## License
+
+Copyright (C) 2026 proto-viz contributors.
+
+This program is free software: you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the Free
+Software Foundation, version 3. It is distributed in the hope that it will
+be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+[LICENSE](LICENSE) file for the full text.
