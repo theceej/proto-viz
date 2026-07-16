@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useStackStore } from '../../store/stackStore';
 import { randomStack } from '../../core/random';
 import { usePacket } from '../usePacket';
+import { useEscape } from '../a11y';
 import SavedStacks from '../components/SavedStacks';
 import StackStrip from '../components/StackStrip';
 import ValidationPanel from '../components/ValidationPanel';
@@ -96,10 +97,18 @@ export default function BuilderPage() {
       )}
 
       <div className="flex min-h-0 flex-1 border-t border-zinc-800">
-        <div className="w-[26rem] shrink-0 overflow-auto border-r border-zinc-800">
+        <div
+          className="w-[26rem] shrink-0 overflow-auto border-r border-zinc-800"
+          role="region"
+          aria-label="Field editor"
+        >
           <FieldEditor layers={stack.layers} packet={packet} registry={registry} />
         </div>
-        <div className="min-w-0 flex-1 overflow-auto">
+        <div
+          className="min-w-0 flex-1 overflow-auto"
+          role="region"
+          aria-label="Packet diagrams"
+        >
           {packet && packet.layers.length > 0 ? (
             <div className="flex flex-col gap-5 p-5">
               {packet.layers.map((layout, i) => {
@@ -153,7 +162,12 @@ export default function BuilderPage() {
             <EmptyState />
           )}
         </div>
-        <div className="w-[27rem] shrink-0 overflow-auto border-l border-zinc-800">
+        <div
+          className="w-[27rem] shrink-0 overflow-auto border-l border-zinc-800"
+          role="region"
+          aria-label="Hex dump"
+          tabIndex={0}
+        >
           {packet && <HexView packet={packet} />}
         </div>
       </div>
@@ -164,10 +178,13 @@ export default function BuilderPage() {
 function PresetsMenu() {
   const [open, setOpen] = useState(false);
   const setStack = useStackStore((s) => s.setStack);
+  useEscape(open, () => setOpen(false));
   return (
     <div className="relative">
       <button
         className="flex cursor-pointer items-center gap-1 rounded-md border border-zinc-700 px-2.5 py-1 text-[12px] text-zinc-300 hover:border-zinc-500"
+        aria-expanded={open}
+        aria-haspopup="menu"
         onClick={() => setOpen((o) => !o)}
       >
         Presets

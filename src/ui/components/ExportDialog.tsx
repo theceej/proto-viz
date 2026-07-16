@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { AlertTriangle, Download, Info, X } from 'lucide-react';
+import { useEscape, useModalFocus } from '../a11y';
 import type { StackInstance } from '../../core/model';
 import type { Registry } from '../../core/registry';
 import type { ValidationIssue } from '../../core/validate';
@@ -24,6 +25,9 @@ export default function ExportDialog({
   const [scenarioId, setScenarioId] = useState('single');
   const [filename, setFilename] = useState('proto-viz.pcap');
   const [error, setError] = useState<string | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useEscape(true, onClose);
+  useModalFocus(dialogRef);
 
   const plan = useMemo(() => planExport(stack, registry), [stack, registry]);
   const options = useMemo(() => applicableScenarios(stack, registry), [stack, registry]);
@@ -63,13 +67,20 @@ export default function ExportDialog({
       onClick={onClose}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="export-dialog-title"
         className="w-[26rem] rounded-xl border border-zinc-700 bg-zinc-900 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <header className="flex items-center border-b border-zinc-800 px-5 py-3">
-          <h2 className="text-[14px] font-semibold text-zinc-100">Export PCAP</h2>
+          <h2 id="export-dialog-title" className="text-[14px] font-semibold text-zinc-100">
+            Export PCAP
+          </h2>
           <button
-            className="ml-auto cursor-pointer rounded p-1 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200"
+            className="ml-auto cursor-pointer rounded p-1.5 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200"
+            aria-label="Close export dialog"
             onClick={onClose}
           >
             <X className="size-4" />
@@ -137,17 +148,17 @@ export default function ExportDialog({
             </div>
           </div>
 
-          <div>
-            <label className="mb-1.5 block text-[11px] font-semibold tracking-widest text-zinc-500 uppercase">
+          <label className="block">
+            <span className="mb-1.5 block text-[11px] font-semibold tracking-widest text-zinc-500 uppercase">
               Filename
-            </label>
+            </span>
             <input
               className="w-full rounded border border-zinc-700 bg-zinc-950/60 px-2 py-1 font-mono text-[13px] text-zinc-200 outline-none focus:border-cyan-600"
               value={filename}
               spellCheck={false}
               onChange={(e) => setFilename(e.target.value)}
             />
-          </div>
+          </label>
 
           {error && <p className="text-[12px] text-rose-400">{error}</p>}
         </div>

@@ -97,6 +97,21 @@ vitest's node environment:
   confidence scoring.
 - `ui/` — React + Tailwind interface; zustand stores; IndexedDB persistence.
 
+## Accessibility
+
+The app targets WCAG 2.2 AA. Both themes pass axe-core's WCAG 2.x A/AA
+ruleset with zero violations; text and borders meet contrast minimums in
+dark and light mode. Everything is keyboard-operable: bit-grid fields are
+focusable toggle buttons that drive the cross-view highlight, layers
+reorder via their drag handle (Space to lift, arrows to move), dialogs
+trap and restore focus and close on Escape, and validation results are
+announced via a polite live region. The hex view's per-byte hover is
+pointer-only, but every byte's field is equally reachable through the
+diagram and field editor.
+
+To re-run the automated audit: build, serve `dist/`, and run axe-core
+(installed as a dev dependency) against each route.
+
 ## Security
 
 proto-viz has no server: uploads, custom protocols, and generated PCAPs never

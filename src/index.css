@@ -9,6 +9,14 @@ html {
   color-scheme: dark;
   /* ink for text sitting on highlighted (accent-filled) hex bytes */
   --hex-active-ink: #ffffff;
+
+  /*
+   * WCAG 1.4.3/1.4.11: brighten the dim end of the zinc ramp so secondary
+   * text hits >=4.5:1 and component borders >=3:1 against zinc-950.
+   */
+  --color-zinc-500: #9494a0; /* ~6.5:1 on zinc-950 */
+  --color-zinc-600: #83838e; /* ~5.1:1 on zinc-950 */
+  --color-zinc-700: #64646f; /* ~3.2:1 on zinc-950 (borders) */
 }
 
 /*
@@ -24,16 +32,16 @@ html.light {
   --color-zinc-950: #f7f7f8;
   --color-zinc-900: #efeff1;
   --color-zinc-800: #e0e0e4;
-  --color-zinc-700: #c9c9cf;
-  --color-zinc-600: #9d9da7;
-  --color-zinc-500: #71717a;
+  --color-zinc-700: #8b8b93; /* ~3.2:1 on the light surface (borders) */
+  --color-zinc-600: #68686f; /* ~4.9:1 (secondary text, incl. tinted panels) */
+  --color-zinc-500: #67676f; /* ~5.2:1 */
   --color-zinc-400: #52525b;
   --color-zinc-300: #3f3f46;
   --color-zinc-200: #27272a;
   --color-zinc-100: #18181b;
   --color-zinc-50: #09090b;
 
-  --color-cyan-300: #0e7490;
+  --color-cyan-300: #155e75;
   --color-cyan-400: #0891b2;
   --color-sky-400: #0284c7;
   --color-amber-300: #b45309;
@@ -41,7 +49,7 @@ html.light {
   --color-rose-300: #be123c;
   --color-rose-400: #e11d48;
   --color-emerald-300: #047857;
-  --color-emerald-400: #059669;
+  --color-emerald-400: #047857;
   --color-violet-300: #6d28d9;
   --color-fuchsia-300: #a21caf;
 }

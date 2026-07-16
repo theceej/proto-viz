@@ -212,6 +212,7 @@ export default function ImportWizard() {
               <div key={i} className="mb-1.5 flex items-center gap-2">
                 <select
                   className="rounded border border-zinc-700 bg-zinc-900 px-2 py-1 text-[13px] text-zinc-200"
+                  aria-label={`Claim ${i + 1} namespace`}
                   value={claim.namespaceId}
                   onChange={(e) =>
                     setClaims(claims.map((c, j) => (j === i ? { ...c, namespaceId: e.target.value } : c)))
@@ -226,13 +227,15 @@ export default function ImportWizard() {
                 <input
                   className="w-28 rounded border border-zinc-700 bg-zinc-950/60 px-2 py-1 font-mono text-[13px] text-zinc-200 outline-none focus:border-cyan-600"
                   placeholder="value"
+                  aria-label={`Claim ${i + 1} value`}
                   value={claim.value}
                   onChange={(e) =>
                     setClaims(claims.map((c, j) => (j === i ? { ...c, value: e.target.value } : c)))
                   }
                 />
                 <button
-                  className="cursor-pointer text-zinc-500 hover:text-rose-400"
+                  className="cursor-pointer p-1.5 text-zinc-500 hover:text-rose-400"
+                  aria-label="Remove this encapsulation claim"
                   onClick={() => setClaims(claims.filter((_, j) => j !== i))}
                 >
                   <Trash2 className="size-3.5" />
@@ -303,10 +306,19 @@ function UploadStep({ onFile, error }: { onFile: (f: File) => void; error: strin
   return (
     <div>
       <div
-        className={`flex h-52 cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed transition-colors ${
+        role="button"
+        tabIndex={0}
+        aria-label="Upload a protocol spec (TXT, HTML, DOCX, or PDF)"
+        className={`flex h-52 cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed transition-colors focus-visible:border-cyan-500 focus-visible:outline-2 focus-visible:outline-cyan-400 ${
           dragging ? 'border-cyan-500 bg-cyan-500/5' : 'border-zinc-700 hover:border-zinc-500'
         }`}
         onClick={() => inputRef.current?.click()}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            inputRef.current?.click();
+          }
+        }}
         onDragOver={(e) => {
           e.preventDefault();
           setDragging(true);
@@ -503,6 +515,7 @@ function ReviewStep({
                     className={`w-full rounded border bg-zinc-950/60 px-2 py-0.5 text-zinc-200 outline-none focus:border-cyan-600 ${
                       f.flags.includes('unnamed') ? 'border-amber-600' : 'border-zinc-800'
                     }`}
+                    aria-label={`Field ${i + 1} name`}
                     value={f.name}
                     onChange={(e) => update(i, { name: e.target.value })}
                   />
@@ -512,6 +525,7 @@ function ReviewStep({
                     className={`w-16 rounded border bg-zinc-950/60 px-2 py-0.5 font-mono text-zinc-200 outline-none focus:border-cyan-600 ${
                       f.flags.includes('misaligned') ? 'border-amber-600' : 'border-zinc-800'
                     }`}
+                    aria-label={`${f.name || `Field ${i + 1}`} bit length`}
                     value={f.bitLength}
                     onChange={(e) => {
                       const n = Number(e.target.value);
@@ -522,6 +536,7 @@ function ReviewStep({
                 <td className="px-2 py-1">
                   <select
                     className="rounded border border-zinc-800 bg-zinc-950/60 px-1 py-0.5 text-zinc-200"
+                    aria-label={`${f.name || `Field ${i + 1}`} type`}
                     value={f.type}
                     onChange={(e) => update(i, { type: e.target.value as FieldType })}
                   >
@@ -538,7 +553,8 @@ function ReviewStep({
                 </td>
                 <td className="px-2 py-1">
                   <button
-                    className="cursor-pointer text-zinc-600 hover:text-rose-400"
+                    className="cursor-pointer p-1.5 text-zinc-600 hover:text-rose-400"
+                    aria-label={`Remove field ${f.name || i + 1}`}
                     onClick={() => setFields(fields.filter((_, j) => j !== i))}
                   >
                     <Trash2 className="size-3.5" />

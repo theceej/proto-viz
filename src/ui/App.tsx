@@ -51,6 +51,12 @@ export default function App() {
 
   return (
     <HashRouter>
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-cyan-700 focus:px-3 focus:py-2 focus:text-sm focus:text-white"
+      >
+        Skip to content
+      </a>
       <div className="flex h-screen">
         <aside
           className={`flex shrink-0 flex-col border-r border-zinc-800 bg-zinc-900/60 transition-[width] duration-150 ${
@@ -58,7 +64,7 @@ export default function App() {
           }`}
         >
           <div className={`flex items-center gap-2.5 pt-5 pb-6 ${collapsed ? 'justify-center px-0' : 'px-5'}`}>
-            <div className="grid size-8 shrink-0 place-items-center rounded-lg bg-cyan-700/80 font-mono text-sm font-bold text-cyan-50">
+            <div className="grid size-8 shrink-0 place-items-center rounded-lg bg-cyan-700 font-mono text-sm font-bold text-white">
               pv
             </div>
             {!collapsed && (
@@ -107,6 +113,7 @@ export default function App() {
               <button
                 className="cursor-pointer rounded-md p-2 text-zinc-500 hover:bg-zinc-800/60 hover:text-zinc-200"
                 title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
                 onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
               >
                 {theme === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />}
@@ -117,6 +124,7 @@ export default function App() {
                 target="_blank"
                 rel="noreferrer noopener"
                 title="View source on GitHub"
+                aria-label="View source on GitHub (opens in a new tab)"
               >
                 <GithubIcon className="size-4" />
               </a>
@@ -125,6 +133,8 @@ export default function App() {
                   collapsed ? '' : 'ml-auto'
                 }`}
                 title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                aria-expanded={!collapsed}
                 onClick={() => setCollapsed(!collapsed)}
               >
                 {collapsed ? (
@@ -136,7 +146,7 @@ export default function App() {
             </div>
           </div>
         </aside>
-        <main className="min-w-0 flex-1 overflow-auto">
+        <main id="main" className="min-w-0 flex-1 overflow-auto">
           <Routes>
             <Route path="/" element={<Navigate to="/builder" replace />} />
             <Route path="/builder" element={<BuilderPage />} />

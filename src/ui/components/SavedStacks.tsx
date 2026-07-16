@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Bookmark, FolderOpen, Trash2 } from 'lucide-react';
+import { useEscape } from '../a11y';
 import type { StackInstance } from '../../core/model';
 import type { Registry } from '../../core/registry';
 import { useStackStore } from '../../store/stackStore';
@@ -27,6 +28,8 @@ export default function SavedStacks({
   useEffect(() => {
     if (open) void loadSavedStacks().then(setSaved);
   }, [open]);
+  useEscape(saving, () => setSaving(false));
+  useEscape(open, () => setOpen(false));
 
   const defaultName = stack.layers
     .map((l) => registry.get(l.protocolId)?.name ?? l.protocolId)
@@ -56,6 +59,8 @@ export default function SavedStacks({
           className="flex cursor-pointer items-center gap-1 rounded-md border border-zinc-700 px-2.5 py-1 text-[12px] text-zinc-300 hover:border-zinc-500 disabled:cursor-not-allowed disabled:opacity-40"
           disabled={stack.layers.length === 0}
           title="Save this stack in your browser"
+          aria-expanded={saving}
+          aria-haspopup="dialog"
           onClick={() => {
             setSaving((s) => !s);
             setName('');
@@ -78,6 +83,7 @@ export default function SavedStacks({
                 autoFocus
                 className="min-w-0 flex-1 rounded border border-zinc-700 bg-zinc-950/60 px-2 py-1 text-[12px] text-zinc-200 outline-none focus:border-cyan-600"
                 placeholder={defaultName}
+                aria-label="Name for the saved stack"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />
@@ -96,6 +102,8 @@ export default function SavedStacks({
         <button
           className="flex cursor-pointer items-center gap-1 rounded-md border border-zinc-700 px-2.5 py-1 text-[12px] text-zinc-300 hover:border-zinc-500"
           title="Load a saved stack"
+          aria-expanded={open}
+          aria-haspopup="menu"
           onClick={() => setOpen((o) => !o)}
         >
           <FolderOpen className="size-3.5" />
@@ -132,8 +140,8 @@ export default function SavedStacks({
                     </span>
                   </button>
                   <button
-                    className="cursor-pointer rounded p-1 text-zinc-600 opacity-0 transition-opacity group-hover:opacity-100 hover:text-rose-400"
-                    title="Delete saved stack"
+                    className="cursor-pointer rounded p-1.5 text-zinc-600 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 hover:text-rose-400"
+                    aria-label={`Delete saved stack ${s.name}`}
                     onClick={() => {
                       void deleteSavedStack(s.id).then(() =>
                         setSaved((prev) => prev.filter((x) => x.id !== s.id)),

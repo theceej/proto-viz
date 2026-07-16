@@ -130,6 +130,8 @@ function FieldRow({
       <button
         className="w-32 shrink-0 cursor-pointer truncate text-left text-[12px] text-zinc-400 hover:text-zinc-200"
         title={field.description}
+        aria-label={`Highlight ${field.name} in the packet views`}
+        aria-pressed={isActive(locked, layer.uid, field.id)}
         onClick={() => toggleLocked({ layerUid: layer.uid, fieldId: field.id })}
       >
         {field.name}
@@ -157,7 +159,9 @@ function FieldRow({
 
       {isComputed && (
         <button
-          className="shrink-0 cursor-pointer text-zinc-500 hover:text-zinc-200"
+          className="shrink-0 cursor-pointer p-1.5 text-zinc-500 hover:text-zinc-200"
+          aria-label={`${field.name}: ${pinned ? 'restore automatic value' : 'pin a manual value'}`}
+          aria-pressed={pinned}
           title={
             pinned
               ? 'Pinned: manual value overrides the computed one. Click to restore auto.'
@@ -177,7 +181,8 @@ function FieldRow({
       )}
       {!isComputed && hasOverride && (
         <button
-          className="shrink-0 cursor-pointer text-zinc-500 hover:text-zinc-200"
+          className="shrink-0 cursor-pointer p-1.5 text-zinc-500 hover:text-zinc-200"
+          aria-label={`Reset ${field.name} to default`}
           title="Reset to default"
           onClick={() => clearOverride(layer.uid, field.id)}
         >
@@ -200,7 +205,11 @@ function FieldInput({
   onCommit: (v: FieldValue) => void;
 }) {
   if (field.type === 'flags') {
-    return <FlagsInput field={field} value={value} onCommit={onCommit} />;
+    return (
+      <div role="group" aria-label={field.name}>
+        <FlagsInput field={field} value={value} onCommit={onCommit} />
+      </div>
+    );
   }
   return <TextValueInput field={field} value={value} enumTable={enumTable} onCommit={onCommit} />;
 }
@@ -222,21 +231,21 @@ function FlagsInput({
     n = 0;
   }
   return (
-    <div className="flex flex-wrap gap-x-2.5 gap-y-0.5">
+    <div className="flex flex-wrap gap-x-3 gap-y-1">
       {(field.flags ?? []).map((f) => {
         const mask = 1 << (width - 1 - f.bit);
         const on = (n & mask) !== 0;
         return (
           <label
             key={f.bit}
-            className={`flex cursor-pointer items-center gap-1 font-mono text-[11px] ${
+            className={`flex cursor-pointer items-center gap-1 py-0.5 font-mono text-[11px] ${
               on ? 'text-cyan-300' : 'text-zinc-500'
             }`}
             title={f.description}
           >
             <input
               type="checkbox"
-              className="size-3 accent-cyan-500"
+              className="size-4 accent-cyan-500"
               checked={on}
               onChange={() => onCommit(on ? n & ~mask : n | mask)}
             />
@@ -288,6 +297,8 @@ function TextValueInput({
         }`}
         value={draft}
         list={listId}
+        aria-label={field.name}
+        aria-invalid={invalid || undefined}
         spellCheck={false}
         onChange={(e) => {
           const text = e.target.value;
@@ -417,8 +428,9 @@ function PayloadSection() {
         <span className="font-mono text-[11px] text-zinc-500">{payload.length} bytes</span>
         <div className="ml-auto flex items-center gap-1">
           <button
-            className="mr-1 cursor-pointer rounded p-1 text-zinc-500 hover:text-fuchsia-300"
+            className="mr-1 cursor-pointer rounded p-1.5 text-zinc-500 hover:text-fuchsia-300"
             title="Fill with random bytes"
+            aria-label="Fill payload with random bytes"
             onClick={randomize}
           >
             <Dices className="size-3.5" />
@@ -441,6 +453,8 @@ function PayloadSection() {
           invalid ? 'text-rose-400' : ''
         }`}
         placeholder={mode === 'text' ? 'Optional payload text…' : 'de ad be ef…'}
+        aria-label={`Payload (${mode})`}
+        aria-invalid={invalid || undefined}
         value={draft}
         spellCheck={false}
         onChange={(e) => {

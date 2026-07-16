@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import {
   DndContext,
+  KeyboardSensor,
   PointerSensor,
   closestCenter,
   useSensor,
@@ -10,10 +11,11 @@ import {
 import {
   SortableContext,
   horizontalListSortingStrategy,
+  sortableKeyboardCoordinates,
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { AlertTriangle, ChevronRight, OctagonX, Plus, X } from 'lucide-react';
+import { AlertTriangle, ChevronRight, GripVertical, OctagonX, Plus, X } from 'lucide-react';
 import type { LayerInstance } from '../../core/model';
 import type { Registry } from '../../core/registry';
 import { resolveBinding } from '../../core/bindings';
@@ -23,6 +25,7 @@ import {
   type ValidationIssue,
 } from '../../core/validate';
 import { useStackStore } from '../../store/stackStore';
+import { useEscape } from '../a11y';
 import { layerColor } from '../colors';
 
 /** Horizontal stack of layer chips, outermost on the left, with add/reorder. */
@@ -36,7 +39,10 @@ export default function StackStrip({
   validation: ValidationIssue[];
 }) {
   const { moveLayer, removeLayer } = useStackStore();
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   const onDragEnd = (e: DragEndEvent) => {
     const { active, over } = e;
@@ -127,24 +133,32 @@ function LayerChip({
         background: color.fill,
         opacity: isDragging ? 0.6 : 1,
       }}
-      className="group flex cursor-grab items-center gap-1.5 rounded-md border px-2.5 py-1.5 active:cursor-grabbing"
-      {...attributes}
-      {...listeners}
+      className="group flex items-center gap-1 rounded-md border py-1 pr-1 pl-1.5"
     >
-      <span className="size-2 rounded-full" style={{ background: color.accent }} />
-      <span className="text-[13px] font-medium text-zinc-100">{name}</span>
-      {severity === 'error' && <OctagonX className="size-3.5 text-rose-400" />}
-      {severity === 'warning' && <AlertTriangle className="size-3.5 text-amber-400" />}
+      {/* Dedicated drag handle so interactive controls aren't nested inside
+          the sortable widget; keyboard: focus, Space to lift, arrows to move. */}
       <button
-        className="ml-0.5 cursor-pointer rounded p-0.5 text-zinc-500 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-zinc-700/60 hover:text-zinc-200"
-        onClick={(e) => {
-          e.stopPropagation();
-          onRemove();
-        }}
-        onPointerDown={(e) => e.stopPropagation()}
-        title={`Remove ${name}`}
+        className="cursor-grab rounded p-1 text-zinc-500 hover:text-zinc-200 active:cursor-grabbing"
+        aria-label={`Reorder ${name} layer`}
+        {...attributes}
+        {...listeners}
       >
-        <X className="size-3" />
+        <GripVertical className="size-3.5" />
+      </button>
+      <span className="size-2 rounded-full" style={{ background: color.accent }} aria-hidden />
+      <span className="text-[13px] font-medium text-zinc-100">{name}</span>
+      {severity === 'error' && (
+        <OctagonX className="size-3.5 text-rose-400" role="img" aria-label="has errors" />
+      )}
+      {severity === 'warning' && (
+        <AlertTriangle className="size-3.5 text-amber-400" role="img" aria-label="has warnings" />
+      )}
+      <button
+        className="cursor-pointer rounded p-1 text-zinc-500 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 hover:bg-zinc-700/60 hover:text-zinc-200"
+        onClick={onRemove}
+        aria-label={`Remove ${name} layer`}
+      >
+        <X className="size-3.5" />
       </button>
     </div>
   );
@@ -160,6 +174,7 @@ function AddLayerButton({
   const [open, setOpen] = useState(false);
   const addLayer = useStackStore((s) => s.addLayer);
   const ref = useRef<HTMLDivElement>(null);
+  useEscape(open, () => setOpen(false));
 
   const options = useMemo(
     () => getValidNextProtocols({ layers }, registry),
@@ -174,6 +189,8 @@ function AddLayerButton({
     <div className="relative" ref={ref}>
       <button
         className="ml-1 flex cursor-pointer items-center gap-1 rounded-md border border-dashed border-zinc-700 px-2.5 py-1.5 text-[13px] text-zinc-400 transition-colors hover:border-cyan-600 hover:text-cyan-300"
+        aria-expanded={open}
+        aria-haspopup="menu"
         onClick={() => setOpen((o) => !o)}
       >
         <Plus className="size-3.5" />

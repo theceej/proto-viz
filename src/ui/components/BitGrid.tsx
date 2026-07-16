@@ -61,10 +61,22 @@ export default function BitGrid({
             isActive(locked, seg.span.layerUid, seg.span.fieldId);
           const label = field?.name ?? seg.span.fieldId;
           const value = field ? formatFieldValueShort(field, seg.span.value) : '';
+          const ref = { layerUid: seg.span.layerUid, fieldId: seg.span.fieldId };
+          // One keyboard stop per field: the labeled segment acts as a
+          // toggle button that locks the cross-view highlight.
+          const interactive = seg.first && !seg.collapsed;
           return (
             <div
               key={i}
-              className="flex cursor-pointer flex-col items-center justify-center overflow-hidden rounded-sm px-1 text-center leading-tight transition-colors duration-75"
+              role={interactive ? 'button' : undefined}
+              tabIndex={interactive ? 0 : undefined}
+              aria-pressed={interactive ? isActive(locked, ref.layerUid, ref.fieldId) : undefined}
+              aria-label={
+                interactive
+                  ? `${def.name} ${label}, ${bitsLabel(seg.span.bitLength)}${value ? `, value ${value}` : ''}`
+                  : undefined
+              }
+              className="flex cursor-pointer flex-col items-center justify-center overflow-hidden rounded-sm px-1 text-center leading-tight transition-colors duration-75 focus-visible:outline-2 focus-visible:outline-cyan-400"
               style={{
                 gridColumn: `${seg.col + 1} / span ${seg.width}`,
                 gridRow: seg.row + 1,
@@ -72,12 +84,20 @@ export default function BitGrid({
                 boxShadow: `inset 0 0 0 1px ${active ? color.accent : color.border}`,
               }}
               title={`${def.name} · ${label} — ${bitsLabel(seg.span.bitLength)}`}
-              onMouseEnter={() =>
-                setHovered({ layerUid: seg.span.layerUid, fieldId: seg.span.fieldId })
-              }
+              onMouseEnter={() => setHovered(ref)}
               onMouseLeave={() => setHovered(null)}
-              onClick={() =>
-                toggleLocked({ layerUid: seg.span.layerUid, fieldId: seg.span.fieldId })
+              onFocus={interactive ? () => setHovered(ref) : undefined}
+              onBlur={interactive ? () => setHovered(null) : undefined}
+              onClick={() => toggleLocked(ref)}
+              onKeyDown={
+                interactive
+                  ? (e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        toggleLocked(ref);
+                      }
+                    }
+                  : undefined
               }
             >
               {seg.collapsed ? (

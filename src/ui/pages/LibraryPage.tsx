@@ -114,8 +114,10 @@ export default function LibraryPage() {
             <div className="relative">
               <Search className="absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-zinc-500" />
               <input
+                type="search"
                 className="w-56 rounded-md border border-zinc-700 bg-zinc-900 py-1 pr-2 pl-7 text-[13px] text-zinc-200 outline-none placeholder:text-zinc-600 focus:border-cyan-600"
                 placeholder="Search protocols…"
+                aria-label="Search protocols"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
               />
@@ -203,8 +205,9 @@ function DetailPanel({ def, onClose }: { def: ProtocolDefinition; onClose: () =>
         <div className="ml-auto flex items-center gap-1">
           {def.source === 'custom' && (
             <button
-              className="cursor-pointer rounded p-1 text-zinc-500 hover:bg-zinc-800 hover:text-rose-400"
+              className="cursor-pointer rounded p-1.5 text-zinc-500 hover:bg-zinc-800 hover:text-rose-400"
               title="Delete this custom protocol"
+              aria-label={`Delete custom protocol ${def.name}`}
               onClick={() => {
                 removeCustom(def.id);
                 void deleteCustomProtocol(def.id);
@@ -215,7 +218,8 @@ function DetailPanel({ def, onClose }: { def: ProtocolDefinition; onClose: () =>
             </button>
           )}
           <button
-            className="cursor-pointer rounded p-1 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200"
+            className="cursor-pointer rounded p-1.5 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200"
+            aria-label="Close protocol details"
             onClick={onClose}
           >
             <X className="size-4" />

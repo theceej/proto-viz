@@ -27,20 +27,28 @@ export default function ValidationPanel({
 
   if (items.length === 0) {
     return (
-      <div className="flex items-center gap-1.5 px-6 pb-2 text-[12px] text-emerald-400/90">
-        <CheckCircle2 className="size-3.5" />
+      <div
+        role="status"
+        aria-live="polite"
+        className="flex items-center gap-1.5 px-6 pb-2 text-[12px] text-emerald-400"
+      >
+        <CheckCircle2 className="size-3.5" aria-hidden />
         Stack is valid.
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-1 px-6 pb-2">
+    <div role="status" aria-live="polite" className="flex flex-col gap-1 px-6 pb-2">
       {items.map((item, i) => {
         const { icon: Icon, cls } = STYLES[item.severity];
         return (
           <div key={i} className="flex items-start gap-1.5 text-[12px] text-zinc-300">
-            <Icon className={`mt-0.5 size-3.5 shrink-0 ${cls}`} />
+            <Icon
+              className={`mt-0.5 size-3.5 shrink-0 ${cls}`}
+              role="img"
+              aria-label={item.severity}
+            />
             <span>
               {item.message}
               {item.suggestion && <span className="text-zinc-500"> {item.suggestion}</span>}
