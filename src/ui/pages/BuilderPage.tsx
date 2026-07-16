@@ -13,10 +13,23 @@ import { bitsLabel } from '../format';
 
 const PRESETS: { name: string; ids: string[]; payload?: string }[] = [
   { name: 'TCP over Ethernet', ids: ['ethernet', 'ipv4', 'tcp'] },
-  { name: 'UDP datagram', ids: ['ethernet', 'ipv4', 'udp'], payload: 'hello' },
+  { name: 'HTTP request', ids: ['ethernet', 'ipv4', 'tcp', 'http1'] },
+  { name: 'DNS query', ids: ['ethernet', 'ipv4', 'udp', 'dns'] },
   { name: 'ICMP ping', ids: ['ethernet', 'ipv4', 'icmp'], payload: 'abcdefgh' },
+  { name: 'IPv6 ping', ids: ['ethernet', 'ipv6', 'icmpv6'], payload: 'abcdefgh' },
+  { name: 'DHCP discover', ids: ['ethernet', 'ipv4', 'udp', 'dhcp'] },
   { name: 'VLAN-tagged TCP', ids: ['ethernet', 'vlan-8021q', 'ipv4', 'tcp'] },
   { name: 'Q-in-Q', ids: ['ethernet', 'vlan-8021q', 'vlan-8021q', 'ipv4', 'udp'] },
+  {
+    name: 'VXLAN overlay',
+    ids: ['ethernet', 'ipv4', 'udp', 'vxlan', 'ethernet', 'ipv4', 'udp'],
+    payload: 'inner payload',
+  },
+  { name: 'GRE tunnel (IP-in-IP)', ids: ['ethernet', 'ipv4', 'gre', 'ipv4', 'icmp'] },
+  { name: 'MPLS label stack', ids: ['ethernet', 'mpls', 'ipv4', 'udp'] },
+  { name: 'HTTPS (TLS record)', ids: ['ethernet', 'ipv4', 'tcp', 'tls', 'http1'] },
+  { name: 'BGP keepalive', ids: ['ethernet', 'ipv4', 'tcp', 'bgp'] },
+  { name: 'PPPoE session', ids: ['ethernet', 'pppoe', 'ipv4', 'udp'] },
 ];
 
 export default function BuilderPage() {

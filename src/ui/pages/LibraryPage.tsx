@@ -1,12 +1,21 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowDownToLine, ArrowUpFromLine, Search, Trash2, X } from 'lucide-react';
+import {
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  Download,
+  Search,
+  Trash2,
+  Upload,
+  X,
+} from 'lucide-react';
 import type { LayerHint, ProtocolDefinition } from '../../core/model';
 import { serializeStack } from '../../core/serialize';
 import { carriersOf } from '../../core/bindings';
 import { newLayer } from '../../core/model';
 import { useLibraryStore } from '../../store/libraryStore';
-import { deleteCustomProtocol } from '../../store/persistence';
+import { deleteCustomProtocol, saveCustomProtocol } from '../../store/persistence';
+import { exportLibraryJson, importLibraryJson } from '../../store/libraryJson';
 import BitGrid from '../components/BitGrid';
 import { layerColor } from '../colors';
 import { bitsLabel } from '../format';
@@ -22,9 +31,34 @@ const LAYER_LABEL: Record<LayerHint, string> = {
 
 export default function LibraryPage() {
   const registry = useLibraryStore((s) => s.registry);
+  const custom = useLibraryStore((s) => s.custom);
+  const addCustom = useLibraryStore((s) => s.addCustom);
   const [query, setQuery] = useState('');
   const { protocolId } = useParams();
   const navigate = useNavigate();
+
+  const exportLibrary = () => {
+    const url = URL.createObjectURL(
+      new Blob([exportLibraryJson(custom)], { type: 'application/json' }),
+    );
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'proto-viz-library.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const importLibrary = async (file: File) => {
+    try {
+      const defs = importLibraryJson(await file.text());
+      for (const def of defs) {
+        addCustom(def);
+        await saveCustomProtocol(def);
+      }
+    } catch (e) {
+      alert((e as Error).message);
+    }
+  };
 
   const selected = protocolId ? registry.get(protocolId) : undefined;
 
@@ -51,14 +85,41 @@ export default function LibraryPage() {
           <h1 className="text-[15px] font-semibold tracking-tight text-zinc-100">
             Protocol Library
           </h1>
-          <div className="relative ml-auto">
-            <Search className="absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-zinc-500" />
-            <input
-              className="w-56 rounded-md border border-zinc-700 bg-zinc-900 py-1 pr-2 pl-7 text-[13px] text-zinc-200 outline-none placeholder:text-zinc-600 focus:border-cyan-600"
-              placeholder="Search protocols…"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
+          <div className="ml-auto flex items-center gap-2">
+            {custom.length > 0 && (
+              <button
+                className="flex cursor-pointer items-center gap-1 rounded-md border border-zinc-700 px-2 py-1 text-[12px] text-zinc-300 hover:border-zinc-500"
+                title="Download your custom protocols as JSON"
+                onClick={exportLibrary}
+              >
+                <Download className="size-3.5" /> Export
+              </button>
+            )}
+            <label
+              className="flex cursor-pointer items-center gap-1 rounded-md border border-zinc-700 px-2 py-1 text-[12px] text-zinc-300 hover:border-zinc-500"
+              title="Import a proto-viz library JSON file"
+            >
+              <Upload className="size-3.5" /> Import
+              <input
+                type="file"
+                accept=".json"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) void importLibrary(file);
+                  e.target.value = '';
+                }}
+              />
+            </label>
+            <div className="relative">
+              <Search className="absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-zinc-500" />
+              <input
+                className="w-56 rounded-md border border-zinc-700 bg-zinc-900 py-1 pr-2 pl-7 text-[13px] text-zinc-200 outline-none placeholder:text-zinc-600 focus:border-cyan-600"
+                placeholder="Search protocols…"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+            </div>
           </div>
         </header>
         <div className="flex flex-col gap-6 p-6">
