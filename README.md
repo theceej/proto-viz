@@ -40,10 +40,11 @@ your browser. Nothing is uploaded anywhere.
 
 ```bash
 npm install
-npm run dev        # development server
-npm test           # vitest unit suite
-npm run build      # static production build in dist/
-npx serve dist     # serve the production build locally
+npm run dev            # development server
+npm test               # vitest unit suite (236 tests)
+npm run test:coverage  # suite + V8 coverage report (~90% lines on core logic)
+npm run build          # static production build in dist/
+npx serve dist         # serve the production build locally
 ```
 
 The build is fully static — host `dist/` on GitHub Pages (a deploy workflow

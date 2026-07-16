@@ -42,11 +42,11 @@ export function parseIPv6(s: string): Uint8Array {
   const parseGroups = (part: string): number[] => {
     if (part === '') return [];
     return part.split(':').map((g) => {
-      // Embedded IPv4 tail, e.g. ::ffff:192.0.2.1
+      // Embedded IPv4 tail, e.g. ::ffff:192.0.2.1. Encoded as a negative
+      // marker for the flattening step; unsigned math (no <<24 sign overflow).
       if (g.includes('.')) {
         const v4 = parseIPv4(g);
-        // caller flattens; return marker handled below
-        return -1 - ((v4[0]! << 24) | (v4[1]! << 16) | (v4[2]! << 8) | v4[3]!);
+        return -1 - (v4[0]! * 0x1000000 + v4[1]! * 0x10000 + v4[2]! * 0x100 + v4[3]!);
       }
       if (!/^[0-9a-fA-F]{1,4}$/.test(g)) throw new ValueError(`invalid IPv6 address "${s}"`);
       return parseInt(g, 16);
@@ -58,7 +58,7 @@ export function parseIPv6(s: string): Uint8Array {
     for (const g of groups) {
       if (g < 0) {
         const v4 = -1 - g;
-        out.push((v4 >>> 16) & 0xffff, v4 & 0xffff);
+        out.push(Math.floor(v4 / 0x10000), v4 % 0x10000);
       } else out.push(g);
     }
     return out;

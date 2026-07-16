@@ -11,5 +11,11 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['src/**/*.test.ts'],
+    coverage: {
+      provider: 'v8',
+      include: ['src/core/**', 'src/protocols/**', 'src/import/**', 'src/store/**', 'src/ui/format.ts'],
+      exclude: ['src/**/*.test.ts', 'src/store/persistence.ts'],
+      reporter: ['text-summary', 'text'],
+    },
   },
 });

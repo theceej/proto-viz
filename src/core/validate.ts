@@ -91,6 +91,14 @@ export function validateStack(stack: StackInstance, registry: Registry): Validat
         message: noBindingMessage(outer, inner),
         suggestion: carrierSuggestion(inner, registry),
       });
+      if (outer.layerHint === 'application') {
+        issues.push({
+          severity: 'warning',
+          layerIndex: i + 1,
+          code: 'layer-after-application',
+          message: `${inner.name} appears after application-layer ${outer.name}; that is unusual.`,
+        });
+      }
       continue;
     }
 
@@ -124,14 +132,6 @@ export function validateStack(stack: StackInstance, registry: Registry): Validat
       }
     }
 
-    if (outer.layerHint === 'application') {
-      issues.push({
-        severity: 'warning',
-        layerIndex: i + 1,
-        code: 'layer-after-application',
-        message: `${inner.name} appears after application-layer ${outer.name}; that is unusual.`,
-      });
-    }
   }
 
   return issues;
