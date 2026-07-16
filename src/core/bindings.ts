@@ -20,6 +20,7 @@ export const NS = {
   greProto: 'gre-proto', // GRE protocol type field (EtherType-coded)
   pppProto: 'ppp-proto',
   vxlanPayload: 'vxlan-payload', // opaque: VXLAN always carries Ethernet
+  mplsPayload: 'mpls-payload', // opaque: MPLS has no payload-type field
   l2tpPayload: 'l2tp-payload',
   tlsPayload: 'tls-payload', // opaque: TLS fragment content
   icmpPayload: 'icmp-payload', // opaque: quoted datagram inside ICMP errors

@@ -90,6 +90,61 @@ export const enumTables: EnumTable[] = [
     values: { 1: 'Request', 2: 'Reply' },
   },
   {
+    id: 'dns-type',
+    name: 'DNS record types',
+    values: { 1: 'A', 2: 'NS', 5: 'CNAME', 6: 'SOA', 12: 'PTR', 15: 'MX', 16: 'TXT', 28: 'AAAA', 33: 'SRV', 255: 'ANY' },
+  },
+  {
+    id: 'dns-class',
+    name: 'DNS classes',
+    values: { 1: 'IN', 3: 'CH', 4: 'HS', 255: 'ANY' },
+  },
+  {
+    id: 'dhcp-op',
+    name: 'DHCP op codes',
+    values: { 1: 'BOOTREQUEST', 2: 'BOOTREPLY' },
+  },
+  {
+    id: 'tls-content',
+    name: 'TLS content types',
+    values: { 20: 'ChangeCipherSpec', 21: 'Alert', 22: 'Handshake', 23: 'ApplicationData' },
+  },
+  {
+    id: 'tls-version',
+    name: 'TLS versions',
+    values: { 0x0301: 'TLS 1.0', 0x0302: 'TLS 1.1', 0x0303: 'TLS 1.2 (also used by 1.3 records)' },
+  },
+  {
+    id: 'ntp-mode',
+    name: 'NTP modes',
+    values: { 1: 'Symmetric active', 2: 'Symmetric passive', 3: 'Client', 4: 'Server', 5: 'Broadcast' },
+  },
+  {
+    id: 'ospf-type',
+    name: 'OSPF packet types',
+    values: { 1: 'Hello', 2: 'Database Description', 3: 'LS Request', 4: 'LS Update', 5: 'LS Ack' },
+  },
+  {
+    id: 'bgp-type',
+    name: 'BGP message types',
+    values: { 1: 'OPEN', 2: 'UPDATE', 3: 'NOTIFICATION', 4: 'KEEPALIVE' },
+  },
+  {
+    id: 'ppp-proto',
+    name: 'PPP protocol numbers',
+    values: { 0x0021: 'IPv4', 0x0057: 'IPv6', 0xc021: 'LCP', 0xc023: 'PAP', 0xc223: 'CHAP', 0x8021: 'IPCP' },
+  },
+  {
+    id: 'pppoe-code',
+    name: 'PPPoE codes',
+    values: { 0x00: 'Session data', 0x09: 'PADI', 0x07: 'PADO', 0x19: 'PADR', 0x65: 'PADS', 0xa7: 'PADT' },
+  },
+  {
+    id: 'igmp-type',
+    name: 'IGMP message types',
+    values: { 0x11: 'Membership query', 0x12: 'v1 membership report', 0x16: 'v2 membership report', 0x17: 'Leave group', 0x22: 'v3 membership report' },
+  },
+  {
     id: 'dscp',
     name: 'DSCP values',
     values: { 0: 'Default (CS0)', 8: 'CS1', 16: 'CS2', 24: 'CS3', 32: 'CS4', 40: 'CS5', 46: 'EF', 48: 'CS6', 56: 'CS7' },

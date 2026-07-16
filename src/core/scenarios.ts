@@ -7,6 +7,7 @@
 import type { FieldValue, LayerInstance, StackInstance } from './model';
 import type { Registry } from './registry';
 import { serializeStack } from './serialize';
+import { encodeDnsName } from './values';
 
 /**
  * Post-serialization field values per layer uid — the source of truth for
@@ -193,23 +194,73 @@ export const scenarios: Scenario[] = [
   {
     id: 'dns-query-response',
     name: 'DNS query + response',
-    description: 'A query and its response (QR bit flipped, answer added).',
+    description: 'A query and its response (QR bit set, one A-record answer added).',
     applicableWhen: (stack) => has(stack, 'dns'),
-    generate: (stack, registry) => [
-      {
-        label: 'query',
-        atUsec: 0,
-        stack: cloneWith(stack, registry, { set: { dns: { flags: 0x0100 } } }),
-      },
-      {
-        label: 'response',
-        atUsec: 24_000,
-        stack: cloneWith(stack, registry, {
-          flip: true,
-          set: { dns: { flags: 0x8180, ancount: 1 } },
-        }),
-      },
-    ],
+    generate: (stack, registry) => {
+      // Build an uncompressed A-record answer echoing the question name.
+      const dnsLayer = stack.layers.find((l) => l.protocolId === 'dns');
+      const qname =
+        (dnsLayer?.overrides['qname'] as string | undefined) ??
+        (registry.get('dns')?.fields.find((f) => f.id === 'qname')?.default as string) ??
+        'example.com';
+      const name = encodeDnsName(qname);
+      const answer = Uint8Array.from([
+        ...name,
+        0, 1, // TYPE A
+        0, 1, // CLASS IN
+        0, 0, 1, 44, // TTL 300
+        0, 4, // RDLENGTH
+        192, 0, 2, 1, // 192.0.2.1
+      ]);
+      return [
+        {
+          label: 'query',
+          atUsec: 0,
+          stack: cloneWith(stack, registry, { set: { dns: { qr: 0, rd: 1 } } }),
+        },
+        {
+          label: 'response',
+          atUsec: 24_000,
+          stack: cloneWith(stack, registry, {
+            flip: true,
+            set: { dns: { qr: 1, rd: 1, ra: 1, ancount: 1, records: answer } },
+          }),
+        },
+      ];
+    },
+  },
+  {
+    id: 'dhcp-dora',
+    name: 'DHCP DORA exchange',
+    description: 'Discover, Offer, Request, Ack — the full address-assignment handshake.',
+    applicableWhen: (stack) => has(stack, 'dhcp'),
+    generate: (stack, registry) => {
+      const msg = (type: number) => Uint8Array.from([53, 1, type, 255]);
+      const client = (type: number) => ({
+        dhcp: { op: 1, options: msg(type) },
+      });
+      const server = (type: number) => ({
+        dhcp: { op: 2, yiaddr: '192.0.2.50', options: msg(type) },
+      });
+      return [
+        { label: 'DISCOVER', atUsec: 0, stack: cloneWith(stack, registry, { set: client(1) }) },
+        {
+          label: 'OFFER',
+          atUsec: 30_000,
+          stack: cloneWith(stack, registry, { flip: true, set: server(2) }),
+        },
+        {
+          label: 'REQUEST',
+          atUsec: 60_000,
+          stack: cloneWith(stack, registry, { set: client(3) }),
+        },
+        {
+          label: 'ACK',
+          atUsec: 90_000,
+          stack: cloneWith(stack, registry, { flip: true, set: server(5) }),
+        },
+      ];
+    },
   },
 ];
 

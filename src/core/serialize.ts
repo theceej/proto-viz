@@ -220,6 +220,13 @@ export function serializeStack(stack: StackInstance, registry: Registry): Serial
         chunks.push(scopeBytes);
         let sum = spec.algorithm === 'inet16' ? inet16(...chunks) : crc32c(...chunks);
         if (spec.zeroSubstitute && sum === 0) sum = 0xffff;
+        if (spec.littleEndian && span.bitLength === 32) {
+          const b0 = sum & 0xff;
+          const b1 = (sum >>> 8) & 0xff;
+          const b2 = (sum >>> 16) & 0xff;
+          const b3 = sum >>> 24;
+          sum = ((b0 << 24) | (b1 << 16) | (b2 << 8) | b3) >>> 0;
+        }
 
         if (span.pinned) {
           const pinnedNum = valueToNumber(rf.def, span.value);

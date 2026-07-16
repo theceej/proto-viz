@@ -141,6 +141,7 @@ export const ipv4: ProtocolDefinition = {
     { namespaceId: NS.ipProto, value: 4 }, // IP-in-IP
     { namespaceId: NS.greProto, value: 0x0800 },
     { namespaceId: NS.pppProto, value: 0x0021 },
+    { namespaceId: NS.mplsPayload },
     { namespaceId: NS.icmpPayload },
   ],
 };

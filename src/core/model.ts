@@ -41,6 +41,8 @@ export type ComputedSpec =
       pseudoHeader?: 'ipv4' | 'ipv6' | 'auto';
       /** RFC 768: a computed checksum of zero is transmitted as all ones. */
       zeroSubstitute?: boolean;
+      /** Store the value little-endian (SCTP's CRC32c, RFC 4960 appendix B). */
+      littleEndian?: boolean;
     }
   /**
    * Value auto-set from the *next* layer's encapsulation claim in the
