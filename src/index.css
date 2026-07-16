@@ -7,6 +7,43 @@
 
 html {
   color-scheme: dark;
+  /* ink for text sitting on highlighted (accent-filled) hex bytes */
+  --hex-active-ink: #ffffff;
+}
+
+/*
+ * Light mode: the app is authored dark-first with zinc utilities, and
+ * Tailwind v4 resolves utilities through these variables — so remapping the
+ * zinc ramp (inverted) and darkening the accent shades re-themes every
+ * component at once.
+ */
+html.light {
+  color-scheme: light;
+  --hex-active-ink: #18181b;
+
+  --color-zinc-950: #f7f7f8;
+  --color-zinc-900: #efeff1;
+  --color-zinc-800: #e0e0e4;
+  --color-zinc-700: #c9c9cf;
+  --color-zinc-600: #9d9da7;
+  --color-zinc-500: #71717a;
+  --color-zinc-400: #52525b;
+  --color-zinc-300: #3f3f46;
+  --color-zinc-200: #27272a;
+  --color-zinc-100: #18181b;
+  --color-zinc-50: #09090b;
+
+  --color-cyan-300: #0e7490;
+  --color-cyan-400: #0891b2;
+  --color-sky-400: #0284c7;
+  --color-amber-300: #b45309;
+  --color-amber-400: #d97706;
+  --color-rose-300: #be123c;
+  --color-rose-400: #e11d48;
+  --color-emerald-300: #047857;
+  --color-emerald-400: #059669;
+  --color-violet-300: #6d28d9;
+  --color-fuchsia-300: #a21caf;
 }
 
 body {

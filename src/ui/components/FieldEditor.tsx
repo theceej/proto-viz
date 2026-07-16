@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Dices, Lock, LockOpen, RotateCcw } from 'lucide-react';
 import { randomPayload } from '../../core/random';
 import type { EnumTable, FieldDef, FieldValue, LayerInstance } from '../../core/model';
@@ -263,11 +263,20 @@ function TextValueInput({
   const [draft, setDraft] = useState(external);
   const [invalid, setInvalid] = useState(false);
 
-  // Adopt external changes (e.g. binding re-set the value) unless mid-edit.
-  useEffect(() => {
-    setDraft(external);
-    setInvalid(false);
-  }, [external]);
+  // Render-time adjustment: adopt external changes (e.g. a binding re-set
+  // the value) — but leave the draft alone when it already represents the
+  // committed value, so typing "10000" isn't reformatted to "0x2710" mid-edit.
+  const [prevExternal, setPrevExternal] = useState(external);
+  if (external !== prevExternal) {
+    setPrevExternal(external);
+    const parsed = tryParse(field, draft);
+    const draftStillMatches =
+      parsed !== null && toEditString(field, parsed.value) === external;
+    if (!draftStillMatches) {
+      setDraft(external);
+      setInvalid(false);
+    }
+  }
 
   const listId = enumTable ? `enum-${field.id}-${enumTable.id}` : undefined;
 
@@ -368,20 +377,23 @@ function PayloadSection() {
   const [invalid, setInvalid] = useState(false);
   // Payload values this component itself committed; anything else is an
   // external change (preset, saved stack, random) and must resync the draft.
-  const lastLocal = useRef(payload);
+  const [lastLocal, setLastLocal] = useState(payload);
 
   const formatFor = (m: 'text' | 'hex', bytes: Uint8Array) =>
     m === 'text'
       ? new TextDecoder().decode(bytes)
       : [...bytes].map((b) => b.toString(16).padStart(2, '0')).join(' ');
 
-  useEffect(() => {
-    if (payload !== lastLocal.current) {
-      lastLocal.current = payload;
+  // Render-time adjustment (not an effect): when the payload changed and it
+  // wasn't this component's own commit, resync the draft text.
+  const [prevPayload, setPrevPayload] = useState(payload);
+  if (payload !== prevPayload) {
+    setPrevPayload(payload);
+    if (payload !== lastLocal) {
       setDraft(formatFor(mode, payload));
       setInvalid(false);
     }
-  }, [payload, mode]);
+  }
 
   const switchMode = (m: 'text' | 'hex') => {
     setMode(m);
@@ -391,7 +403,7 @@ function PayloadSection() {
 
   const randomize = () => {
     const bytes = randomPayload();
-    lastLocal.current = bytes;
+    setLastLocal(bytes);
     setPayload(bytes);
     setMode('hex');
     setDraft(formatFor('hex', bytes));
@@ -436,13 +448,13 @@ function PayloadSection() {
           setDraft(text);
           if (mode === 'text') {
             const bytes = new TextEncoder().encode(text);
-            lastLocal.current = bytes;
+            setLastLocal(bytes);
             setPayload(bytes);
             setInvalid(false);
           } else {
             try {
               const bytes = parseHexBytes(text);
-              lastLocal.current = bytes;
+              setLastLocal(bytes);
               setPayload(bytes);
               setInvalid(false);
             } catch {

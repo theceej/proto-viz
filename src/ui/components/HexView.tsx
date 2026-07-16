@@ -67,7 +67,7 @@ export default function HexView({ packet }: { packet: SerializedPacket }) {
                   className={`cursor-pointer rounded-sm px-[3px] ${i === 8 ? 'ml-2' : ''}`}
                   style={{
                     background: active ? c.fillHover : c.tint,
-                    color: active ? '#fff' : undefined,
+                    color: active ? 'var(--hex-active-ink)' : undefined,
                   }}
                   onMouseEnter={() => setHovered(refOfByte(b))}
                   onMouseLeave={() => setHovered(null)}
@@ -89,7 +89,11 @@ export default function HexView({ packet }: { packet: SerializedPacket }) {
               return (
                 <span
                   key={i}
-                  style={active ? { background: colorOfByte(b).fillHover, color: '#fff' } : undefined}
+                  style={
+                    active
+                      ? { background: colorOfByte(b).fillHover, color: 'var(--hex-active-ink)' }
+                      : undefined
+                  }
                 >
                   {ch >= 0x20 && ch < 0x7f ? String.fromCharCode(ch) : '·'}
                 </span>
