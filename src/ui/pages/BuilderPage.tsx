@@ -7,6 +7,7 @@ import ValidationPanel from '../components/ValidationPanel';
 import BitGrid from '../components/BitGrid';
 import HexView from '../components/HexView';
 import FieldEditor from '../components/FieldEditor';
+import ExportDialog from '../components/ExportDialog';
 import { layerColor, PAYLOAD_COLOR } from '../colors';
 import { bitsLabel } from '../format';
 
@@ -20,6 +21,7 @@ const PRESETS: { name: string; ids: string[]; payload?: string }[] = [
 
 export default function BuilderPage() {
   const { stack, registry, packet, serializeError, validation } = usePacket();
+  const [exporting, setExporting] = useState(false);
 
   return (
     <div className="flex h-full flex-col">
@@ -35,15 +37,24 @@ export default function BuilderPage() {
             </span>
           )}
           <button
-            className="flex cursor-not-allowed items-center gap-1.5 rounded-md bg-zinc-800 px-3 py-1.5 text-[13px] text-zinc-500"
-            title="PCAP export arrives in the next milestone"
-            disabled
+            className="flex cursor-pointer items-center gap-1.5 rounded-md bg-cyan-700 px-3 py-1.5 text-[13px] font-medium text-white hover:bg-cyan-600 disabled:cursor-not-allowed disabled:bg-zinc-800 disabled:text-zinc-500"
+            disabled={stack.layers.length === 0}
+            onClick={() => setExporting(true)}
           >
             <Download className="size-3.5" />
             Export PCAP
           </button>
         </div>
       </header>
+
+      {exporting && (
+        <ExportDialog
+          stack={stack}
+          registry={registry}
+          validation={validation}
+          onClose={() => setExporting(false)}
+        />
+      )}
 
       <StackStrip layers={stack.layers} registry={registry} validation={validation} />
       <ValidationPanel validation={validation} serializeIssues={packet?.issues ?? []} />

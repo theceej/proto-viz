@@ -5,6 +5,7 @@ interface StackState {
   layers: LayerInstance[];
   trailingPayload: Uint8Array;
   addLayer(protocolId: string): void;
+  insertLayer(protocolId: string, index: number): void;
   removeLayer(uid: string): void;
   moveLayer(fromIndex: number, toIndex: number): void;
   setOverride(uid: string, fieldId: string, value: FieldValue): void;
@@ -27,6 +28,13 @@ export const useStackStore = create<StackState>((set) => ({
   trailingPayload: new Uint8Array(0),
 
   addLayer: (protocolId) => set((s) => ({ layers: [...s.layers, newLayer(protocolId)] })),
+
+  insertLayer: (protocolId, index) =>
+    set((s) => {
+      const layers = [...s.layers];
+      layers.splice(index, 0, newLayer(protocolId));
+      return { layers };
+    }),
 
   removeLayer: (uid) => set((s) => ({ layers: s.layers.filter((l) => l.uid !== uid) })),
 
