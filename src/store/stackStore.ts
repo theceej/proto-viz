@@ -14,6 +14,13 @@ interface StackState {
   unpinField(uid: string, fieldId: string): void;
   setPayload(bytes: Uint8Array): void;
   setStack(protocolIds: string[], payload?: Uint8Array): void;
+  /** Replace the stack with fully-specified layers (fresh uids are assigned). */
+  restoreStack(
+    layers: Pick<LayerInstance, 'protocolId' | 'overrides' | 'pinned'>[],
+    payload?: Uint8Array,
+  ): void;
+  /** Replace the stack with already-constructed layer instances (random stacks). */
+  replaceLayers(layers: LayerInstance[], payload?: Uint8Array): void;
   clear(): void;
 }
 
@@ -89,6 +96,19 @@ export const useStackStore = create<StackState>((set) => ({
       layers: protocolIds.map(newLayer),
       trailingPayload: payload ?? new Uint8Array(0),
     }),
+
+  restoreStack: (layers, payload) =>
+    set({
+      layers: layers.map((l) => ({
+        ...newLayer(l.protocolId),
+        overrides: { ...l.overrides },
+        pinned: [...l.pinned],
+      })),
+      trailingPayload: payload ?? new Uint8Array(0),
+    }),
+
+  replaceLayers: (layers, payload) =>
+    set({ layers, trailingPayload: payload ?? new Uint8Array(0) }),
 
   clear: () => set({ layers: [], trailingPayload: new Uint8Array(0) }),
 }));

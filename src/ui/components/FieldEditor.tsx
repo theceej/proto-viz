@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Lock, LockOpen, RotateCcw } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Dices, Lock, LockOpen, RotateCcw } from 'lucide-react';
+import { randomPayload } from '../../core/random';
 import type { EnumTable, FieldDef, FieldValue, LayerInstance } from '../../core/model';
 import type { Registry } from '../../core/registry';
 import type { SerializedPacket } from '../../core/serialize';
@@ -365,15 +366,36 @@ function PayloadSection() {
   const [mode, setMode] = useState<'text' | 'hex'>('text');
   const [draft, setDraft] = useState(() => new TextDecoder().decode(payload));
   const [invalid, setInvalid] = useState(false);
+  // Payload values this component itself committed; anything else is an
+  // external change (preset, saved stack, random) and must resync the draft.
+  const lastLocal = useRef(payload);
+
+  const formatFor = (m: 'text' | 'hex', bytes: Uint8Array) =>
+    m === 'text'
+      ? new TextDecoder().decode(bytes)
+      : [...bytes].map((b) => b.toString(16).padStart(2, '0')).join(' ');
+
+  useEffect(() => {
+    if (payload !== lastLocal.current) {
+      lastLocal.current = payload;
+      setDraft(formatFor(mode, payload));
+      setInvalid(false);
+    }
+  }, [payload, mode]);
 
   const switchMode = (m: 'text' | 'hex') => {
     setMode(m);
     setInvalid(false);
-    setDraft(
-      m === 'text'
-        ? new TextDecoder().decode(payload)
-        : [...payload].map((b) => b.toString(16).padStart(2, '0')).join(' '),
-    );
+    setDraft(formatFor(m, payload));
+  };
+
+  const randomize = () => {
+    const bytes = randomPayload();
+    lastLocal.current = bytes;
+    setPayload(bytes);
+    setMode('hex');
+    setDraft(formatFor('hex', bytes));
+    setInvalid(false);
   };
 
   return (
@@ -381,7 +403,14 @@ function PayloadSection() {
       <header className="flex items-center gap-2 border-b border-zinc-800 border-l-3 border-l-zinc-500 px-3 py-2">
         <span className="text-[13px] font-semibold text-zinc-100">Payload</span>
         <span className="font-mono text-[11px] text-zinc-500">{payload.length} bytes</span>
-        <div className="ml-auto flex gap-1">
+        <div className="ml-auto flex items-center gap-1">
+          <button
+            className="mr-1 cursor-pointer rounded p-1 text-zinc-500 hover:text-fuchsia-300"
+            title="Fill with random bytes"
+            onClick={randomize}
+          >
+            <Dices className="size-3.5" />
+          </button>
           {(['text', 'hex'] as const).map((m) => (
             <button
               key={m}
@@ -406,11 +435,15 @@ function PayloadSection() {
           const text = e.target.value;
           setDraft(text);
           if (mode === 'text') {
-            setPayload(new TextEncoder().encode(text));
+            const bytes = new TextEncoder().encode(text);
+            lastLocal.current = bytes;
+            setPayload(bytes);
             setInvalid(false);
           } else {
             try {
-              setPayload(parseHexBytes(text));
+              const bytes = parseHexBytes(text);
+              lastLocal.current = bytes;
+              setPayload(bytes);
               setInvalid(false);
             } catch {
               setInvalid(true);

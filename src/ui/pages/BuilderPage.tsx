@@ -1,7 +1,9 @@
-import { ChevronDown, Download } from 'lucide-react';
+import { ChevronDown, Dices, Download } from 'lucide-react';
 import { useState } from 'react';
 import { useStackStore } from '../../store/stackStore';
+import { randomStack } from '../../core/random';
 import { usePacket } from '../usePacket';
+import SavedStacks from '../components/SavedStacks';
 import StackStrip from '../components/StackStrip';
 import ValidationPanel from '../components/ValidationPanel';
 import BitGrid from '../components/BitGrid';
@@ -35,6 +37,12 @@ const PRESETS: { name: string; ids: string[]; payload?: string }[] = [
 export default function BuilderPage() {
   const { stack, registry, packet, serializeError, validation } = usePacket();
   const [exporting, setExporting] = useState(false);
+  const replaceLayers = useStackStore((s) => s.replaceLayers);
+
+  const rollRandomStack = () => {
+    const random = randomStack(registry);
+    replaceLayers(random.layers, random.trailingPayload);
+  };
 
   return (
     <div className="flex h-full flex-col">
@@ -43,6 +51,15 @@ export default function BuilderPage() {
           Stack Builder
         </h1>
         <PresetsMenu />
+        <SavedStacks stack={stack} registry={registry} />
+        <button
+          className="flex cursor-pointer items-center gap-1 rounded-md border border-zinc-700 px-2.5 py-1 text-[12px] text-zinc-300 hover:border-fuchsia-500 hover:text-fuchsia-300"
+          title="Generate a random valid stack"
+          onClick={rollRandomStack}
+        >
+          <Dices className="size-3.5" />
+          Random
+        </button>
         <div className="ml-auto flex items-center gap-3">
           {packet && (
             <span className="font-mono text-[12px] text-zinc-500">

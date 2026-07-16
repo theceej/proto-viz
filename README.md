@@ -18,7 +18,11 @@ your browser. Nothing is uploaded anywhere.
   binding model (EtherType / IP protocol / port assignments): illegal
   layerings are explained ("TCP cannot follow Ethernet II: Ethernet selects
   its payload via EtherType, and TCP has no assignment there"), and carrier
-  selector fields are auto-set from the layer above them.
+  selector fields are auto-set from the layer above them. Stacks can be
+  saved to the browser (IndexedDB) and reloaded, including field edits and
+  payload. A dice button generates a random stack via a random walk over
+  the binding graph — always valid by construction — and the payload editor
+  can fill itself with random bytes.
 - **Packet visualisation** — classic RFC-style 32-bit-per-row diagrams, a
   full-packet hex dump with layer tinting, and a typed field editor.
   Hovering a field highlights it in all three views. Computed fields
