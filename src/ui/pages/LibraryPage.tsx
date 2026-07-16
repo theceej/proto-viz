@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowDownToLine, ArrowUpFromLine, Search, X } from 'lucide-react';
+import { ArrowDownToLine, ArrowUpFromLine, Search, Trash2, X } from 'lucide-react';
 import type { LayerHint, ProtocolDefinition } from '../../core/model';
 import { serializeStack } from '../../core/serialize';
 import { carriersOf } from '../../core/bindings';
 import { newLayer } from '../../core/model';
 import { useLibraryStore } from '../../store/libraryStore';
+import { deleteCustomProtocol } from '../../store/persistence';
 import BitGrid from '../components/BitGrid';
 import { layerColor } from '../colors';
 import { bitsLabel } from '../format';
@@ -108,6 +109,7 @@ export default function LibraryPage() {
 
 function DetailPanel({ def, onClose }: { def: ProtocolDefinition; onClose: () => void }) {
   const registry = useLibraryStore((s) => s.registry);
+  const removeCustom = useLibraryStore((s) => s.removeCustom);
 
   // Render the header diagram by serializing a single-layer stack with defaults.
   const preview = useMemo(() => {
@@ -137,12 +139,27 @@ function DetailPanel({ def, onClose }: { def: ProtocolDefinition; onClose: () =>
             {def.references?.length ? ` · ${def.references.join(', ')}` : ''}
           </p>
         </div>
-        <button
-          className="ml-auto cursor-pointer rounded p-1 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200"
-          onClick={onClose}
-        >
-          <X className="size-4" />
-        </button>
+        <div className="ml-auto flex items-center gap-1">
+          {def.source === 'custom' && (
+            <button
+              className="cursor-pointer rounded p-1 text-zinc-500 hover:bg-zinc-800 hover:text-rose-400"
+              title="Delete this custom protocol"
+              onClick={() => {
+                removeCustom(def.id);
+                void deleteCustomProtocol(def.id);
+                onClose();
+              }}
+            >
+              <Trash2 className="size-4" />
+            </button>
+          )}
+          <button
+            className="cursor-pointer rounded p-1 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200"
+            onClick={onClose}
+          >
+            <X className="size-4" />
+          </button>
+        </div>
       </header>
       <div className="flex flex-col gap-5 p-5">
         {def.description && (

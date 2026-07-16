@@ -1,8 +1,11 @@
+import { useEffect } from 'react';
 import { HashRouter, NavLink, Navigate, Route, Routes } from 'react-router-dom';
 import { Boxes, FileUp, Layers } from 'lucide-react';
 import LibraryPage from './pages/LibraryPage';
 import BuilderPage from './pages/BuilderPage';
 import ImportWizard from './pages/ImportWizard';
+import { useLibraryStore } from '../store/libraryStore';
+import { loadCustomProtocols } from '../store/persistence';
 
 const NAV = [
   { to: '/builder', label: 'Stack Builder', icon: Layers },
@@ -11,6 +14,13 @@ const NAV = [
 ];
 
 export default function App() {
+  const setCustom = useLibraryStore((s) => s.setCustom);
+  useEffect(() => {
+    loadCustomProtocols().then((defs) => {
+      if (defs.length > 0) setCustom(defs);
+    });
+  }, [setCustom]);
+
   return (
     <HashRouter>
       <div className="flex h-screen">
