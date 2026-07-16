@@ -7,8 +7,7 @@ import ImportWizard from './pages/ImportWizard';
 import { useLibraryStore } from '../store/libraryStore';
 import { loadCustomProtocols } from '../store/persistence';
 
-// TODO: update once the repository is published.
-const GITHUB_URL = 'https://github.com/chris-jordan-sterland/proto-viz';
+const GITHUB_URL = 'https://github.com/theceej/proto-viz';
 
 const NAV = [
   { to: '/builder', label: 'Stack Builder', icon: Layers },
