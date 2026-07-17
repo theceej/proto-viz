@@ -162,6 +162,13 @@ leave the browser. The inputs it parses are still treated as untrusted:
 To report a vulnerability, please open a GitHub security advisory rather
 than a public issue.
 
+## Contributing
+
+Contributions are welcome — especially new protocol definitions, which
+need no UI work at all. [CONTRIBUTING.md](CONTRIBUTING.md) walks through
+the binding model, the definition format, and the three registration
+points step by step.
+
 ## License
 
 Copyright (C) 2026 proto-viz contributors.
