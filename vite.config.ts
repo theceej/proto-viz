@@ -46,6 +46,9 @@ export default defineConfig(({ command }) => ({
   test: {
     environment: 'node',
     include: ['src/**/*.test.ts'],
+    // pdf.js's browser build needs a real Worker; tests run its Node-targeted
+    // legacy build instead (same API, in-process worker).
+    alias: [{ find: /^pdfjs-dist$/, replacement: 'pdfjs-dist/legacy/build/pdf.mjs' }],
     coverage: {
       provider: 'v8',
       include: ['src/core/**', 'src/protocols/**', 'src/import/**', 'src/store/**', 'src/ui/format.ts'],

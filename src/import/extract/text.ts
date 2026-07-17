@@ -103,11 +103,13 @@ export function extractHtml(html: string): string {
 /** pdf.js extraction with line reconstruction from glyph coordinates. */
 async function extractPdf(bytes: Uint8Array): Promise<string> {
   const pdfjs = await import('pdfjs-dist');
-  const workerUrl = (await import('pdfjs-dist/build/pdf.worker.min.mjs?url')).default;
-  pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
+  if (!pdfjs.GlobalWorkerOptions.workerSrc) {
+    pdfjs.GlobalWorkerOptions.workerSrc = (
+      await import('pdfjs-dist/build/pdf.worker.min.mjs?url')
+    ).default;
+  }
 
-  // isEvalSupported: false — never let embedded font programs reach eval.
-  const doc = await pdfjs.getDocument({ data: bytes, isEvalSupported: false }).promise;
+  const doc = await pdfjs.getDocument({ data: bytes }).promise;
   const pages: string[] = [];
   for (let p = 1; p <= doc.numPages; p++) {
     const page = await doc.getPage(p);

@@ -119,8 +119,8 @@ leave the browser. The inputs it parses are still treated as untrusted:
 
 - Uploaded specs are size-capped (20 MB); HTML/DOCX content is sanitized
   with DOMPurify, then parsed with the inert `DOMParser` (never injected
-  into the page), and pdf.js runs with `isEvalSupported: false`. Legacy
-  binary `.doc` is rejected outright.
+  into the page), and pdf.js (v6+, which has no eval path) parses PDFs in
+  a worker. Legacy binary `.doc` is rejected outright.
 - Imported library JSON is schema-validated with sanity caps (protocol/field
   counts, name lengths, field widths), and the serializer enforces
   per-field and per-packet allocation limits, so a hostile definition file
