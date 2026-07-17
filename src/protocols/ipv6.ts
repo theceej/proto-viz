@@ -47,5 +47,6 @@ export const ipv6: ProtocolDefinition = {
     { namespaceId: NS.pppProto, value: 0x0057 },
     { namespaceId: NS.mplsPayload },
     { namespaceId: NS.icmpPayload },
+    { namespaceId: NS.gtpPayload },
   ],
 };

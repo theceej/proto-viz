@@ -33,6 +33,34 @@ const STACKS: Record<string, string[]> = {
   bgp: ['ethernet', 'ipv4', 'tcp', 'bgp'],
   pppoe: ['ethernet', 'pppoe', 'ipv4', 'udp'],
   l2tp: ['ethernet', 'ipv4', 'udp', 'l2tp'],
+  'ethernet-8023': ['ethernet-8023'],
+  stp: ['ethernet-8023', 'stp'],
+  lldp: ['ethernet', 'lldp'],
+  vrrp: ['ethernet', 'ipv4', 'vrrp'],
+  hsrp: ['ethernet', 'ipv4', 'udp', 'hsrp'],
+  ripv2: ['ethernet', 'ipv4', 'udp', 'ripv2'],
+  eigrp: ['ethernet', 'ipv4', 'eigrp'],
+  bfd: ['ethernet', 'ipv4', 'udp', 'bfd'],
+  dhcpv6: ['ethernet', 'ipv6', 'udp', 'dhcpv6'],
+  tftp: ['ethernet', 'ipv4', 'udp', 'tftp'],
+  radius: ['ethernet', 'ipv4', 'udp', 'radius'],
+  netflow5: ['ethernet', 'ipv4', 'udp', 'netflow5'],
+  rtp: ['ethernet', 'ipv4', 'udp', 'rtp'],
+  rtcp: ['ethernet', 'ipv4', 'udp', 'rtcp'],
+  stun: ['ethernet', 'ipv4', 'udp', 'stun'],
+  'ipsec-esp': ['ethernet', 'ipv4', 'ipsec-esp'],
+  'ipsec-ah': ['ethernet', 'ipv4', 'ipsec-ah', 'tcp'],
+  websocket: ['ethernet', 'ipv4', 'tcp', 'websocket'],
+  http2: ['ethernet', 'ipv4', 'tcp', 'tls', 'http2'],
+  mqtt: ['ethernet', 'ipv4', 'tcp', 'mqtt'],
+  coap: ['ethernet', 'ipv4', 'udp', 'coap'],
+  mdns: ['ethernet', 'ipv4', 'udp', 'mdns'],
+  llmnr: ['ethernet', 'ipv4', 'udp', 'llmnr'],
+  wireguard: ['ethernet', 'ipv4', 'udp', 'wireguard'],
+  geneve: ['ethernet', 'ipv4', 'udp', 'geneve', 'ethernet', 'ipv4', 'udp'],
+  gtpu: ['ethernet', 'ipv4', 'udp', 'gtpu', 'ipv4', 'udp'],
+  modbus: ['ethernet', 'ipv4', 'tcp', 'modbus'],
+  smb2: ['ethernet', 'ipv4', 'tcp', 'smb2'],
 };
 
 describe('every builtin protocol', () => {
@@ -173,5 +201,76 @@ describe('protocol-specific spot checks', () => {
     const stack: StackInstance = { layers: STACKS['dhcp']!.map(newLayer) };
     const { layers } = serializeStack(stack, registry);
     expect(layers[3]!.headerBytes).toBe(240 + 4); // + default options TLV
+  });
+
+  it('802.3 length counts LLC header plus BPDU, and DSAP auto-sets to 0x42', () => {
+    const stack: StackInstance = { layers: STACKS['stp']!.map(newLayer) };
+    const { bytes, layers } = serializeStack(stack, registry);
+    const length = (bytes[12]! << 8) | bytes[13]!;
+    expect(length).toBe(bytes.length - 14);
+    expect(bytes[14]).toBe(0x42); // DSAP from binding
+    expect(layers[1]!.headerBytes).toBe(35); // config BPDU
+  });
+
+  it('AH next-header auto-sets to the protected protocol', () => {
+    const stack: StackInstance = { layers: STACKS['ipsec-ah']!.map(newLayer) };
+    const { bytes, layers } = serializeStack(stack, registry);
+    const ahStart = layers[2]!.byteOffset;
+    expect(bytes[ahStart]).toBe(6); // TCP inside
+    expect(bytes[ahStart + 1]).toBe(layers[2]!.headerBytes / 4 - 2);
+  });
+
+  it('TCP checksum inside AH uses protocol 6 in the pseudo-header', () => {
+    const stack: StackInstance = { layers: STACKS['ipsec-ah']!.map(newLayer) };
+    const { bytes, layers } = serializeStack(stack, registry);
+    const tcpStart = layers[3]!.byteOffset;
+    const segment = bytes.length - tcpStart;
+    // ones-complement over pseudo-header (src, dst, 0, 6, len) + TCP segment
+    let sum = 0;
+    const ipStart = layers[1]!.byteOffset;
+    for (const off of [12, 14, 16, 18]) {
+      sum += (bytes[ipStart + off]! << 8) | bytes[ipStart + off + 1]!;
+    }
+    sum += 6 + segment;
+    for (let i = tcpStart; i < bytes.length; i += 2) {
+      sum += (bytes[i]! << 8) | (bytes[i + 1] ?? 0);
+    }
+    while (sum > 0xffff) sum = (sum & 0xffff) + (sum >> 16);
+    expect(sum).toBe(0xffff);
+  });
+
+  it('GENEVE protocol type auto-sets to 0x6558 for inner Ethernet', () => {
+    const stack: StackInstance = { layers: STACKS['geneve']!.map(newLayer) };
+    const { bytes, layers } = serializeStack(stack, registry);
+    const gStart = layers[3]!.byteOffset;
+    expect((bytes[gStart + 2]! << 8) | bytes[gStart + 3]!).toBe(0x6558);
+    expect(layers[4]!.byteOffset).toBe(gStart + 8);
+  });
+
+  it('GTP-U length covers the tunnelled IP packet', () => {
+    const stack: StackInstance = { layers: STACKS['gtpu']!.map(newLayer) };
+    const { bytes, layers } = serializeStack(stack, registry);
+    const gStart = layers[3]!.byteOffset;
+    const length = (bytes[gStart + 2]! << 8) | bytes[gStart + 3]!;
+    expect(length).toBe(bytes.length - gStart - 8);
+  });
+
+  it('VRRP checksum verifies as ones-complement over the packet', () => {
+    const stack: StackInstance = { layers: STACKS['vrrp']!.map(newLayer) };
+    const { bytes, layers } = serializeStack(stack, registry);
+    const start = layers[2]!.byteOffset;
+    let sum = 0;
+    for (let i = start; i < bytes.length; i += 2) {
+      sum += (bytes[i]! << 8) | (bytes[i + 1] ?? 0);
+    }
+    while (sum > 0xffff) sum = (sum & 0xffff) + (sum >> 16);
+    expect(sum).toBe(0xffff);
+  });
+
+  it('mDNS shares the DNS wire format but binds to port 5353', () => {
+    const stack: StackInstance = { layers: STACKS['mdns']!.map(newLayer) };
+    const { bytes, layers } = serializeStack(stack, registry);
+    const udpStart = layers[2]!.byteOffset;
+    expect((bytes[udpStart + 2]! << 8) | bytes[udpStart + 3]!).toBe(5353);
   });
 });

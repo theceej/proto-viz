@@ -21,7 +21,7 @@ import { evalExpr, referencesHeaderBytes, type ExprContext, ExprError } from './
 import { setBits, setBytes, getBits } from './bitio';
 import { valueToBytes, valueToNumber, zeroValue, ValueError } from './values';
 import { inet16, crc32c } from './checksums';
-import { resolveBinding } from './bindings';
+import { NS, resolveBinding } from './bindings';
 
 export interface FieldSpan {
   layerUid: string;
@@ -414,23 +414,36 @@ function buildPseudoHeader(
 
   const segmentLength = buf.length - layer.byteOffset;
 
+  // The pseudo-header carries the transport protocol's own number. When an
+  // intermediate header (IPsec AH, extension headers) sits between IP and the
+  // transport layer, the IP header's protocol field names that intermediate
+  // instead — so prefer this layer's own ip-proto claim.
+  const ownProto = layer.def.encapsulations.find(
+    (c) => c.namespaceId === NS.ipProto && c.value !== undefined,
+  )?.value;
+  const protoByte = (fieldId: string): number | null => {
+    if (ownProto !== undefined) return ownProto;
+    const s = ip.spans.get(fieldId);
+    return s ? Number(getBits(buf, s.bitOffset, s.bitLength)) : null;
+  };
+
   if (ip.def.id === 'ipv4') {
     const src = spanBytes('src');
     const dst = spanBytes('dst');
-    const proto = ip.spans.get('protocol');
-    if (!src || !dst || !proto) return null;
+    const proto = protoByte('protocol');
+    if (!src || !dst || proto === null) return null;
     const pseudo = new Uint8Array(12);
     pseudo.set(src, 0);
     pseudo.set(dst, 4);
-    pseudo[9] = Number(getBits(buf, proto.bitOffset, proto.bitLength));
+    pseudo[9] = proto;
     pseudo[10] = segmentLength >> 8;
     pseudo[11] = segmentLength & 0xff;
     return pseudo;
   } else {
     const src = spanBytes('src');
     const dst = spanBytes('dst');
-    const next = ip.spans.get('nextHeader');
-    if (!src || !dst || !next) return null;
+    const next = protoByte('nextHeader');
+    if (!src || !dst || next === null) return null;
     const pseudo = new Uint8Array(40);
     pseudo.set(src, 0);
     pseudo.set(dst, 16);
@@ -438,7 +451,7 @@ function buildPseudoHeader(
     pseudo[33] = (segmentLength >>> 16) & 0xff;
     pseudo[34] = (segmentLength >>> 8) & 0xff;
     pseudo[35] = segmentLength & 0xff;
-    pseudo[39] = Number(getBits(buf, next.bitOffset, next.bitLength));
+    pseudo[39] = next;
     return pseudo;
   }
 }

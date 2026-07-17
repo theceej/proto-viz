@@ -41,14 +41,48 @@ export const SHARE_PROTOCOL_IDS: readonly string[] = [
   'bgp',
   'pppoe',
   'l2tp',
+  // -- library expansion (indices 23+; 32 and above require format v1) --
+  'ethernet-8023',
+  'stp',
+  'lldp',
+  'vrrp',
+  'hsrp',
+  'ripv2',
+  'eigrp',
+  'bfd',
+  'dhcpv6',
+  'tftp',
+  'radius',
+  'netflow5',
+  'rtp',
+  'rtcp',
+  'stun',
+  'ipsec-esp',
+  'ipsec-ah',
+  'websocket',
+  'http2',
+  'mqtt',
+  'coap',
+  'mdns',
+  'llmnr',
+  'wireguard',
+  'geneve',
+  'gtpu',
+  'modbus',
+  'smb2',
 ];
 
 export class ShareCodeError extends Error {}
 
-const VERSION = 0;
+/**
+ * Format versions: v0 packs protocol indices in 5 bits (the original
+ * 23-protocol library); v1 uses 7-bit indices for the expanded library.
+ * The encoder emits v0 whenever every index fits, so codes for classic
+ * stacks stay short and every code ever issued keeps decoding.
+ */
 const VERSION_BITS = 2;
 const COUNT_BITS = 4;
-const INDEX_BITS = 5;
+const INDEX_BITS: Record<number, number> = { 0: 5, 1: 7 };
 const CRC_BITS = 8;
 const WORD_BITS = 11;
 export const MAX_SHARE_LAYERS = (1 << COUNT_BITS) - 1;
@@ -109,10 +143,11 @@ export function encodeShare(protocolIds: string[]): string {
     return index;
   });
 
+  const version = indices.every((i) => i < 1 << INDEX_BITS[0]!) ? 0 : 1;
   const payload = new Bits();
-  payload.push(VERSION, VERSION_BITS);
+  payload.push(version, VERSION_BITS);
   payload.push(indices.length, COUNT_BITS);
-  for (const index of indices) payload.push(index, INDEX_BITS);
+  for (const index of indices) payload.push(index, INDEX_BITS[version]!);
 
   const bits = new Bits();
   bits.value = payload.value;
@@ -151,13 +186,15 @@ export function decodeShare(text: string): string[] {
     'That does not look like a valid share code — check the words and try again.',
   );
   if (bits.length < VERSION_BITS + COUNT_BITS) throw malformed;
-  if (bits.read(0, VERSION_BITS) !== VERSION) {
+  const version = bits.read(0, VERSION_BITS);
+  const indexBits = INDEX_BITS[version];
+  if (indexBits === undefined) {
     throw new ShareCodeError(
       'This code was made by a newer version of proto-viz — refresh to update.',
     );
   }
   const count = bits.read(VERSION_BITS, COUNT_BITS);
-  const payloadLength = VERSION_BITS + COUNT_BITS + count * INDEX_BITS;
+  const payloadLength = VERSION_BITS + COUNT_BITS + count * indexBits;
   const total = payloadLength + CRC_BITS;
   if (count === 0 || Math.ceil(total / WORD_BITS) !== tokens.length) throw malformed;
 
@@ -169,7 +206,7 @@ export function decodeShare(text: string): string[] {
 
   const ids: string[] = [];
   for (let i = 0; i < count; i++) {
-    const index = bits.read(VERSION_BITS + COUNT_BITS + i * INDEX_BITS, INDEX_BITS);
+    const index = bits.read(VERSION_BITS + COUNT_BITS + i * indexBits, indexBits);
     const id = SHARE_PROTOCOL_IDS[index];
     if (id === undefined) throw malformed;
     ids.push(id);

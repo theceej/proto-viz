@@ -1,0 +1,47 @@
+import type { ProtocolDefinition } from '../core/model';
+import { NS } from '../core/bindings';
+
+/** Header plus one flow record; real exports carry up to 30. */
+export const netflow5: ProtocolDefinition = {
+  id: 'netflow5',
+  name: 'NetFlow v5',
+  fullName: 'Cisco NetFlow version 5 export',
+  layerHint: 'application',
+  source: 'builtin',
+  references: ['Cisco NetFlow v5'],
+  description:
+    'Flow accounting export on UDP 2055: a 24-byte header and fixed 48-byte flow records. Modeled with a single record describing one TCP flow.',
+  fields: [
+    { id: 'version', name: 'Version', type: 'uint', bitLength: 16, default: 5 },
+    { id: 'count', name: 'Count', type: 'uint', bitLength: 16, default: 1, description: 'Flow records in this datagram (1–30).' },
+    { id: 'sysUptime', name: 'SysUptime', type: 'uint', bitLength: 32, default: 3600000, description: 'Milliseconds since exporter boot.' },
+    { id: 'unixSecs', name: 'Unix Secs', type: 'uint', bitLength: 32, default: 1700000000 },
+    { id: 'unixNsecs', name: 'Unix Nsecs', type: 'uint', bitLength: 32, default: 0 },
+    { id: 'flowSequence', name: 'Flow Sequence', type: 'uint', bitLength: 32, default: 1 },
+    { id: 'engineType', name: 'Engine Type', type: 'uint', bitLength: 8, default: 0 },
+    { id: 'engineId', name: 'Engine ID', type: 'uint', bitLength: 8, default: 0 },
+    { id: 'samplingInterval', name: 'Sampling Interval', type: 'uint', bitLength: 16, default: 0 },
+    { id: 'srcAddr', name: 'Src Addr', type: 'ipv4', bitLength: 32, default: '192.0.2.1' },
+    { id: 'dstAddr', name: 'Dst Addr', type: 'ipv4', bitLength: 32, default: '198.51.100.1' },
+    { id: 'nextHop', name: 'Next Hop', type: 'ipv4', bitLength: 32, default: '0.0.0.0' },
+    { id: 'inputIf', name: 'Input IF', type: 'uint', bitLength: 16, default: 1 },
+    { id: 'outputIf', name: 'Output IF', type: 'uint', bitLength: 16, default: 2 },
+    { id: 'dPkts', name: 'Packets', type: 'uint', bitLength: 32, default: 10 },
+    { id: 'dOctets', name: 'Octets', type: 'uint', bitLength: 32, default: 1400 },
+    { id: 'first', name: 'First', type: 'uint', bitLength: 32, default: 3590000, description: 'SysUptime at first packet.' },
+    { id: 'last', name: 'Last', type: 'uint', bitLength: 32, default: 3599000 },
+    { id: 'srcPort', name: 'Src Port', type: 'uint', bitLength: 16, default: 49152, enumRef: 'well-known-port' },
+    { id: 'dstPort', name: 'Dst Port', type: 'uint', bitLength: 16, default: 443, enumRef: 'well-known-port' },
+    { id: 'pad1', name: 'Pad', type: 'uint', bitLength: 8, default: 0 },
+    { id: 'tcpFlags', name: 'TCP Flags', type: 'uint', bitLength: 8, default: 0x1b, description: 'OR of all flags seen in the flow.' },
+    { id: 'protocol', name: 'Protocol', type: 'uint', bitLength: 8, default: 6, enumRef: 'ip-proto' },
+    { id: 'tos', name: 'ToS', type: 'uint', bitLength: 8, default: 0 },
+    { id: 'srcAs', name: 'Src AS', type: 'uint', bitLength: 16, default: 0 },
+    { id: 'dstAs', name: 'Dst AS', type: 'uint', bitLength: 16, default: 0 },
+    { id: 'srcMask', name: 'Src Mask', type: 'uint', bitLength: 8, default: 24 },
+    { id: 'dstMask', name: 'Dst Mask', type: 'uint', bitLength: 8, default: 24 },
+    { id: 'pad2', name: 'Pad', type: 'uint', bitLength: 16, default: 0 },
+  ],
+  providesNamespaces: [],
+  encapsulations: [{ namespaceId: NS.udpDstPort, value: 2055 }],
+};

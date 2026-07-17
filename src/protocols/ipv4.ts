@@ -143,5 +143,6 @@ export const ipv4: ProtocolDefinition = {
     { namespaceId: NS.pppProto, value: 0x0021 },
     { namespaceId: NS.mplsPayload },
     { namespaceId: NS.icmpPayload },
+    { namespaceId: NS.gtpPayload },
   ],
 };

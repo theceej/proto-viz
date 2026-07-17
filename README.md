@@ -9,10 +9,13 @@ your browser. Nothing is uploaded anywhere.
 
 ## Features
 
-- **Protocol library** — 23 built-in protocols with full bit-level field
-  layouts: Ethernet II, 802.1Q, ARP, IPv4, IPv6, ICMP, ICMPv6, IGMP, TCP,
-  UDP, SCTP, DNS, DHCP, HTTP/1.1, TLS record, NTP, GRE, VXLAN, MPLS, OSPF,
-  BGP, PPPoE, L2TP.
+- **Protocol library** — 51 built-in protocols with full bit-level field
+  layouts. Core: Ethernet II, 802.3/LLC, 802.1Q, ARP, IPv4, IPv6, ICMP,
+  ICMPv6, IGMP, TCP, UDP, SCTP. Infrastructure: STP, LLDP, VRRP, HSRP,
+  RIPv2, EIGRP, OSPF, BGP, BFD, NetFlow v5. Applications: DNS, mDNS, LLMNR,
+  DHCP, DHCPv6, HTTP/1.1, HTTP/2, WebSocket, TLS record, NTP, TFTP, RADIUS,
+  STUN, RTP, RTCP, MQTT, CoAP, Modbus TCP, SMB2. Tunnels & VPN: GRE, VXLAN,
+  GENEVE, MPLS, GTP-U, IPsec AH/ESP, WireGuard, PPPoE, L2TP.
 - **Stack builder** — compose arbitrary stacks (VXLAN overlays, Q-in-Q,
   GRE tunnels, MPLS label stacks…). Validity is checked from a generic
   binding model (EtherType / IP protocol / port assignments): illegal

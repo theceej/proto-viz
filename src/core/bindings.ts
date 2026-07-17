@@ -24,6 +24,8 @@ export const NS = {
   l2tpPayload: 'l2tp-payload',
   tlsPayload: 'tls-payload', // opaque: TLS fragment content
   icmpPayload: 'icmp-payload', // opaque: quoted datagram inside ICMP errors
+  llcSap: 'llc-sap', // 802.2 LLC DSAP (802.3 frames select payload by SAP)
+  gtpPayload: 'gtp-payload', // opaque: GTP-U tunnels a user IP packet
 } as const;
 
 export interface ResolvedBinding {

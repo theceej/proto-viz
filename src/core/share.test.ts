@@ -56,6 +56,20 @@ describe('share codes', () => {
     expect(decodeShare('army.borrow.advice')).toEqual(['ethernet', 'ipv4', 'tcp']);
   });
 
+  it('uses format v1 for expanded-library stacks and round-trips them', () => {
+    const expanded = ['ethernet', 'ipv4', 'udp', 'wireguard'];
+    const code = encodeShare(expanded);
+    expect(decodeShare(code)).toEqual(expanded);
+    // 4 layers at 7 bits + header + crc = 42 bits -> 4 words
+    expect(code.split('.')).toHaveLength(4);
+    expect(decodeShare(encodeShare(['ethernet-8023', 'stp']))).toEqual([
+      'ethernet-8023',
+      'stp',
+    ]);
+    // classic stacks stay on the short v0 format
+    expect(encodeShare(['ethernet', 'ipv4', 'tcp']).split('.')).toHaveLength(3);
+  });
+
   it('round-trips 300 random valid stacks', () => {
     const registry = createBuiltinRegistry();
     for (let seed = 1; seed <= 300; seed++) {

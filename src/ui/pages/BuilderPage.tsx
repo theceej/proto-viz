@@ -45,6 +45,11 @@ const PRESETS: { name: string; ids: string[]; payload?: string }[] = [
   { name: 'HTTPS (TLS record)', ids: ['ethernet', 'ipv4', 'tcp', 'tls', 'http1'] },
   { name: 'BGP keepalive', ids: ['ethernet', 'ipv4', 'tcp', 'bgp'] },
   { name: 'PPPoE session', ids: ['ethernet', 'pppoe', 'ipv4', 'udp'] },
+  { name: 'Spanning tree BPDU', ids: ['ethernet-8023', 'stp'] },
+  { name: 'VoIP audio (RTP)', ids: ['ethernet', 'ipv4', 'udp', 'rtp'], payload: 'samples…' },
+  { name: 'WireGuard handshake', ids: ['ethernet', 'ipv4', 'udp', 'wireguard'] },
+  { name: 'Mobile data (GTP-U)', ids: ['ethernet', 'ipv4', 'udp', 'gtpu', 'ipv4', 'tcp'] },
+  { name: 'IPsec AH transport', ids: ['ethernet', 'ipv4', 'ipsec-ah', 'tcp'] },
 ];
 
 export default function BuilderPage() {
