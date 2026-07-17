@@ -6,6 +6,7 @@ import BuilderPage from './pages/BuilderPage';
 import ImportWizard from './pages/ImportWizard';
 import { useLibraryStore } from '../store/libraryStore';
 import { loadCustomProtocols } from '../store/persistence';
+import { usePersistedFlag } from './usePersistedFlag';
 
 const GITHUB_URL = 'https://github.com/theceej/proto-viz';
 
@@ -16,20 +17,6 @@ const NAV = [
 ];
 
 type Theme = 'dark' | 'light';
-
-function usePersistedFlag(key: string, initial: boolean): [boolean, (v: boolean) => void] {
-  const [value, setValue] = useState(() => {
-    const stored = localStorage.getItem(key);
-    return stored === null ? initial : stored === 'true';
-  });
-  return [
-    value,
-    (v: boolean) => {
-      setValue(v);
-      localStorage.setItem(key, String(v));
-    },
-  ];
-}
 
 export default function App() {
   const setCustom = useLibraryStore((s) => s.setCustom);

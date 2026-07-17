@@ -1,4 +1,12 @@
-import { ChevronDown, Dices, Download, Share2, X } from 'lucide-react';
+import {
+  ChevronDown,
+  ChevronsLeftRight,
+  ChevronsRightLeft,
+  Dices,
+  Download,
+  Share2,
+  X,
+} from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useStackStore } from '../../store/stackStore';
@@ -6,6 +14,7 @@ import { randomStack } from '../../core/random';
 import { decodeShare } from '../../core/share';
 import { usePacket } from '../usePacket';
 import { useEscape } from '../a11y';
+import { usePersistedFlag } from '../usePersistedFlag';
 import SavedStacks from '../components/SavedStacks';
 import StackStrip from '../components/StackStrip';
 import ValidationPanel from '../components/ValidationPanel';
@@ -69,6 +78,13 @@ export default function BuilderPage() {
     const random = randomStack(registry);
     replaceLayers(random.layers, random.trailingPayload);
   };
+
+  const [fieldsCollapsed, setFieldsCollapsed] = usePersistedFlag('pv-pane-fields', false);
+  const [diagramsCollapsed, setDiagramsCollapsed] = usePersistedFlag(
+    'pv-pane-diagrams',
+    false,
+  );
+  const [hexCollapsed, setHexCollapsed] = usePersistedFlag('pv-pane-hex', false);
 
   return (
     <div className="flex h-full flex-col">
@@ -149,17 +165,20 @@ export default function BuilderPage() {
       )}
 
       <div className="flex min-h-0 flex-1 border-t border-zinc-800">
-        <div
-          className="w-[26rem] shrink-0 overflow-auto border-r border-zinc-800"
-          role="region"
-          aria-label="Field editor"
+        <Pane
+          title="Field editor"
+          collapsed={fieldsCollapsed}
+          onToggle={setFieldsCollapsed}
+          expandedClass={diagramsCollapsed ? 'min-w-0 flex-1' : 'w-[26rem] shrink-0'}
+          className="border-r border-zinc-800"
         >
           <FieldEditor layers={stack.layers} packet={packet} registry={registry} />
-        </div>
-        <div
-          className="min-w-0 flex-1 overflow-auto"
-          role="region"
-          aria-label="Packet diagrams"
+        </Pane>
+        <Pane
+          title="Packet diagrams"
+          collapsed={diagramsCollapsed}
+          onToggle={setDiagramsCollapsed}
+          expandedClass="min-w-0 flex-1"
         >
           {packet && packet.layers.length > 0 ? (
             <div className="flex flex-col gap-5 p-5">
@@ -213,15 +232,82 @@ export default function BuilderPage() {
           ) : (
             <EmptyState />
           )}
-        </div>
-        <div
-          className="w-[27rem] shrink-0 overflow-auto border-l border-zinc-800"
-          role="region"
-          aria-label="Hex dump"
-          tabIndex={0}
+        </Pane>
+        <Pane
+          title="Hex dump"
+          collapsed={hexCollapsed}
+          onToggle={setHexCollapsed}
+          expandedClass={diagramsCollapsed ? 'min-w-0 flex-1' : 'w-[27rem] shrink-0'}
+          className="border-l border-zinc-800"
+          scrollFocusable
         >
           {packet && <HexView packet={packet} />}
-        </div>
+        </Pane>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Builder pane that collapses to a slim vertical strip. Collapse state
+ * persists per pane; hiding the diagrams pane lets its neighbours grow.
+ */
+function Pane({
+  title,
+  collapsed,
+  onToggle,
+  expandedClass,
+  className = '',
+  scrollFocusable = false,
+  children,
+}: {
+  title: string;
+  collapsed: boolean;
+  onToggle: (collapsed: boolean) => void;
+  expandedClass: string;
+  className?: string;
+  scrollFocusable?: boolean;
+  children: React.ReactNode;
+}) {
+  if (collapsed) {
+    return (
+      <div className={`flex w-9 shrink-0 ${className}`}>
+        <button
+          className="flex w-full cursor-pointer flex-col items-center gap-2 py-2 text-zinc-500 hover:bg-zinc-900 hover:text-zinc-200"
+          aria-label={`Expand ${title.toLowerCase()} pane`}
+          aria-expanded={false}
+          onClick={() => onToggle(false)}
+        >
+          <ChevronsLeftRight className="size-4 shrink-0" aria-hidden />
+          <span className="text-[11px] tracking-wide select-none [writing-mode:vertical-rl]">
+            {title}
+          </span>
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={`flex min-h-0 flex-col ${expandedClass} ${className}`}
+      role="region"
+      aria-label={title}
+    >
+      <div className="flex shrink-0 items-center border-b border-zinc-800/70 py-0.5 pr-1 pl-3">
+        <span className="text-[10px] font-semibold tracking-widest text-zinc-600 uppercase select-none">
+          {title}
+        </span>
+        <button
+          className="ml-auto cursor-pointer rounded p-1.5 text-zinc-600 hover:bg-zinc-800/60 hover:text-zinc-200"
+          aria-label={`Collapse ${title.toLowerCase()} pane`}
+          aria-expanded
+          onClick={() => onToggle(true)}
+        >
+          <ChevronsRightLeft className="size-3.5" aria-hidden />
+        </button>
+      </div>
+      <div className="min-h-0 flex-1 overflow-auto" tabIndex={scrollFocusable ? 0 : undefined}>
+        {children}
       </div>
     </div>
   );
