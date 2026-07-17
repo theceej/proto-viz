@@ -1,7 +1,9 @@
-import { ChevronDown, Dices, Download } from 'lucide-react';
-import { useState } from 'react';
+import { ChevronDown, Dices, Download, Share2, X } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useStackStore } from '../../store/stackStore';
 import { randomStack } from '../../core/random';
+import { decodeShare } from '../../core/share';
 import { usePacket } from '../usePacket';
 import { useEscape } from '../a11y';
 import SavedStacks from '../components/SavedStacks';
@@ -11,6 +13,7 @@ import BitGrid from '../components/BitGrid';
 import HexView from '../components/HexView';
 import FieldEditor from '../components/FieldEditor';
 import ExportDialog from '../components/ExportDialog';
+import ShareDialog from '../components/ShareDialog';
 import { layerColor, PAYLOAD_COLOR } from '../colors';
 import { bitsLabel } from '../format';
 
@@ -38,7 +41,29 @@ const PRESETS: { name: string; ids: string[]; payload?: string }[] = [
 export default function BuilderPage() {
   const { stack, registry, packet, serializeError, validation } = usePacket();
   const [exporting, setExporting] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const replaceLayers = useStackStore((s) => s.replaceLayers);
+  const setStack = useStackStore((s) => s.setStack);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Opening a shared link (#/builder?s=word.word.word) loads that stack once.
+  // A bad code stays in the URL and renders as an error banner until dismissed.
+  const shareParam = searchParams.get('s');
+  const shareLoad = useMemo(() => {
+    if (shareParam === null) return null;
+    try {
+      return { ids: decodeShare(shareParam) };
+    } catch (e) {
+      return { error: (e as Error).message };
+    }
+  }, [shareParam]);
+  useEffect(() => {
+    const ids = shareLoad && 'ids' in shareLoad ? shareLoad.ids : undefined;
+    if (ids) {
+      setStack(ids);
+      setSearchParams({}, { replace: true });
+    }
+  }, [shareLoad, setStack, setSearchParams]);
 
   const rollRandomStack = () => {
     const random = randomStack(registry);
@@ -60,6 +85,14 @@ export default function BuilderPage() {
         >
           <Dices className="size-3.5" />
           Random
+        </button>
+        <button
+          className="flex cursor-pointer items-center gap-1 rounded-md border border-zinc-700 px-2.5 py-1 text-[12px] text-zinc-300 hover:border-cyan-600 hover:text-cyan-300"
+          title="Share this stack as a word code"
+          onClick={() => setSharing(true)}
+        >
+          <Share2 className="size-3.5" />
+          Share
         </button>
         <div className="ml-auto flex items-center gap-3">
           {packet && (
@@ -85,6 +118,25 @@ export default function BuilderPage() {
           validation={validation}
           onClose={() => setExporting(false)}
         />
+      )}
+      {sharing && (
+        <ShareDialog stack={stack} registry={registry} onClose={() => setSharing(false)} />
+      )}
+
+      {shareLoad && 'error' in shareLoad && (
+        <div
+          role="alert"
+          className="flex items-center gap-2 border-b border-zinc-800 bg-rose-500/5 px-6 py-2 text-[12px] text-rose-400"
+        >
+          Could not load the shared stack: {shareLoad.error}
+          <button
+            className="ml-auto cursor-pointer rounded p-1 text-zinc-500 hover:text-zinc-200"
+            aria-label="Dismiss shared-stack error"
+            onClick={() => setSearchParams({}, { replace: true })}
+          >
+            <X className="size-3.5" />
+          </button>
+        </div>
       )}
 
       <StackStrip layers={stack.layers} registry={registry} validation={validation} />

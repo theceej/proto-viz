@@ -22,7 +22,11 @@ your browser. Nothing is uploaded anywhere.
   saved to the browser (IndexedDB) and reloaded, including field edits and
   payload. A dice button generates a random stack via a random walk over
   the binding graph — always valid by construction — and the payload editor
-  can fill itself with random bytes.
+  can fill itself with random bytes. Any stack of built-in protocols can be
+  shared as a short word code (a What3Words-style handle: Ethernet › IPv4 ›
+  TCP becomes `army.borrow.advice`) drawn from the BIP-39 wordlist, with a
+  checksum that rejects mistyped codes; the code also embeds in a link that
+  opens the stack directly.
 - **Packet visualisation** — classic RFC-style 32-bit-per-row diagrams, a
   full-packet hex dump with layer tinting, and a typed field editor.
   Hovering a field highlights it in all three views. Computed fields
@@ -99,15 +103,26 @@ vitest's node environment:
 
 ## Accessibility
 
-The app targets WCAG 2.2 AA. Both themes pass axe-core's WCAG 2.x A/AA
-ruleset with zero violations; text and borders meet contrast minimums in
+The app targets WCAG 2.2 AA. Text and borders meet contrast minimums in
 dark and light mode. Everything is keyboard-operable: bit-grid fields are
 focusable toggle buttons that drive the cross-view highlight, layers
 reorder via their drag handle (Space to lift, arrows to move), dialogs
 trap and restore focus and close on Escape, and validation results are
-announced via a polite live region. The hex view's per-byte hover is
-pointer-only, but every byte's field is equally reachable through the
-diagram and field editor.
+announced via a polite live region.
+
+Two places rely on WCAG 2.5.8's essential/equivalent-control provisions,
+and axe-core flags both mechanically because it can't see the equivalent:
+
+- The hex view's per-byte hover is pointer-only.
+- A packet diagram is bit-proportional by definition, so the narrowest
+  fields (e.g. a 2-bit ECN or a 1-bit flag) render below the 24px target
+  minimum and can't be widened without misaligning every column.
+
+In both cases the same field is reachable through a full-size control:
+the field editor lists every field with a highlight toggle that meets the
+target size, so no function depends on a sub-minimum or pointer-only target.
+Aside from those documented target-size items, both themes pass axe-core's
+WCAG 2.x A/AA ruleset with zero violations.
 
 To re-run the automated audit: build, serve `dist/`, and run axe-core
 (installed as a dev dependency) against each route.
