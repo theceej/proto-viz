@@ -1,9 +1,19 @@
 import { useEffect, useState } from 'react';
 import { HashRouter, NavLink, Navigate, Route, Routes } from 'react-router-dom';
-import { Boxes, FileUp, Layers, Moon, PanelLeftClose, PanelLeftOpen, Sun } from 'lucide-react';
+import {
+  Boxes,
+  CircleHelp,
+  FileUp,
+  Layers,
+  Moon,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Sun,
+} from 'lucide-react';
 import LibraryPage from './pages/LibraryPage';
 import BuilderPage from './pages/BuilderPage';
 import ImportWizard from './pages/ImportWizard';
+import HelpPage from './pages/HelpPage';
 import { useLibraryStore } from '../store/libraryStore';
 import { loadCustomProtocols } from '../store/persistence';
 import { usePersistedFlag } from './usePersistedFlag';
@@ -14,6 +24,7 @@ const NAV = [
   { to: '/builder', label: 'Stack Builder', icon: Layers },
   { to: '/library', label: 'Protocol Library', icon: Boxes },
   { to: '/import', label: 'Import Spec', icon: FileUp },
+  { to: '/help', label: 'Help', icon: CircleHelp },
 ];
 
 type Theme = 'dark' | 'light';
@@ -51,9 +62,7 @@ export default function App() {
           }`}
         >
           <div className={`flex items-center gap-2.5 pt-5 pb-6 ${collapsed ? 'justify-center px-0' : 'px-5'}`}>
-            <div className="grid size-8 shrink-0 place-items-center rounded-lg bg-cyan-700 font-mono text-sm font-bold text-white">
-              pv
-            </div>
+            <LogoMark className="size-8 shrink-0" />
             {!collapsed && (
               <div className="min-w-0">
                 <div className="truncate text-sm font-semibold tracking-tight text-zinc-100">
@@ -90,6 +99,16 @@ export default function App() {
                 Runs entirely in your browser.
                 <br />
                 Nothing is uploaded anywhere.
+                <br />
+                <a
+                  className="mt-1.5 inline-block hover:text-zinc-400 hover:underline"
+                  href={`${GITHUB_URL}/blob/main/LICENSE`}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  title="GNU General Public License v3 (opens in a new tab)"
+                >
+                  GPL-3.0 · © 2026 proto-viz contributors
+                </a>
               </div>
             )}
             <div
@@ -140,10 +159,26 @@ export default function App() {
             <Route path="/library" element={<LibraryPage />} />
             <Route path="/library/:protocolId" element={<LibraryPage />} />
             <Route path="/import" element={<ImportWizard />} />
+            <Route path="/help" element={<HelpPage />} />
           </Routes>
         </main>
       </div>
     </HashRouter>
+  );
+}
+
+/** The proto-viz mark: a miniature packet header. Mirrors public/favicon.svg. */
+function LogoMark({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 32 32" className={className} aria-hidden="true">
+      <rect width="32" height="32" rx="7" fill="#0e7490" />
+      <rect x="5" y="6" width="13" height="5.5" rx="1.5" fill="#e0f2fe" />
+      <rect x="20" y="6" width="7" height="5.5" rx="1.5" fill="#a5f3fc" />
+      <rect x="5" y="13.5" width="22" height="5.5" rx="1.5" fill="#67e8f9" />
+      <rect x="5" y="21" width="5" height="5.5" rx="1.5" fill="#22d3ee" />
+      <rect x="12" y="21" width="4" height="5.5" rx="1.5" fill="#38bdf8" />
+      <rect x="18" y="21" width="9" height="5.5" rx="1.5" fill="#7dd3fc" />
+    </svg>
   );
 }
 
