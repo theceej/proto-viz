@@ -133,8 +133,10 @@ dissector agrees — that has caught real bugs here.
 npm test && npx eslint . && npm run build
 ```
 
-All three must pass. Keep the definition style consistent with neighbouring
-files (field description strings, defaults, ordering).
+All three must pass — CI runs the same steps on every pull request (plus
+`npm audit` and CodeQL), and the checks are required before a PR can
+merge. Keep the definition style consistent with neighbouring files
+(field description strings, defaults, ordering).
 
 ## Other contributions
 
