@@ -9,13 +9,15 @@ your browser. Nothing is uploaded anywhere.
 
 ## Features
 
-- **Protocol library** — 51 built-in protocols with full bit-level field
-  layouts. Core: Ethernet II, 802.3/LLC, 802.1Q, ARP, IPv4, IPv6, ICMP,
-  ICMPv6, IGMP, TCP, UDP, SCTP. Infrastructure: STP, LLDP, VRRP, HSRP,
-  RIPv2, EIGRP, OSPF, BGP, BFD, NetFlow v5. Applications: DNS, mDNS, LLMNR,
-  DHCP, DHCPv6, HTTP/1.1, HTTP/2, WebSocket, TLS record, NTP, TFTP, RADIUS,
-  STUN, RTP, RTCP, MQTT, CoAP, Modbus TCP, SMB2. Tunnels & VPN: GRE, VXLAN,
-  GENEVE, MPLS, GTP-U, IPsec AH/ESP, WireGuard, PPPoE, L2TP.
+- **Protocol library** — 66 built-in protocols with full bit-level field
+  layouts. Core: Ethernet II, 802.3 (LLC and SNAP), 802.1Q, ARP, IPv4, IPv6,
+  ICMP, ICMPv6, IGMP, TCP, UDP, SCTP. Infrastructure: STP, LLDP, CDP, VRRP,
+  HSRP, RIPv1/v2, EIGRP, OSPF, BGP, BFD, PIM, NetFlow v5. Applications:
+  DNS, mDNS, LLMNR, NBNS, DHCP, DHCPv6, HTTP/1.1, HTTP/2, WebSocket, TLS
+  record, NTP, TFTP, RADIUS, STUN, RTP, RTCP, SIP, RTSP, MQTT, CoAP,
+  Modbus TCP, SMB2, FTP, SMTP, POP3, IMAP, Telnet, IRC, Syslog, SSDP.
+  Tunnels & VPN: GRE, VXLAN, GENEVE, MPLS, GTP-U, IPsec AH/ESP, WireGuard,
+  PPPoE, L2TP. RFC references in the library link to the full documents.
 - **Stack builder** — compose arbitrary stacks (VXLAN overlays, Q-in-Q,
   GRE tunnels, MPLS label stacks…). Validity is checked from a generic
   binding model (EtherType / IP protocol / port assignments): illegal
@@ -56,6 +58,14 @@ npm test               # vitest unit suite (236 tests)
 npm run test:coverage  # suite + V8 coverage report (~90% lines on core logic)
 npm run build          # static production build in dist/
 npx serve dist         # serve the production build locally
+```
+
+RFC references link to `https://www.rfc-editor.org/rfc` by default. To use
+a different mirror, set the base URL at build time — both of these serve
+documents at `<base>/rfc<number>`:
+
+```bash
+VITE_RFC_BASE_URL=https://datatracker.ietf.org/doc/html npm run build
 ```
 
 The build is fully static — host `dist/` on GitHub Pages (a deploy workflow

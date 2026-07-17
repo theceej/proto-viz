@@ -50,6 +50,8 @@ import { geneve } from './geneve';
 import { gtpu } from './gtpu';
 import { modbus } from './modbus';
 import { smb2 } from './smb2';
+import { ftp, imap, irc, pop3, rtsp, sip, smtp, ssdp, syslog, telnet } from './textprotocols';
+import { cdp, ethernetSnap, nbns, pim, ripv1 } from './legacy';
 
 export const builtinProtocols: ProtocolDefinition[] = [
   ethernet,
@@ -103,6 +105,21 @@ export const builtinProtocols: ProtocolDefinition[] = [
   gtpu,
   modbus,
   smb2,
+  ftp,
+  smtp,
+  pop3,
+  imap,
+  telnet,
+  irc,
+  sip,
+  rtsp,
+  syslog,
+  ssdp,
+  ripv1,
+  pim,
+  nbns,
+  ethernetSnap,
+  cdp,
 ];
 
 export { enumTables };

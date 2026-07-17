@@ -70,6 +70,21 @@ export const SHARE_PROTOCOL_IDS: readonly string[] = [
   'gtpu',
   'modbus',
   'smb2',
+  'ftp',
+  'smtp',
+  'pop3',
+  'imap',
+  'telnet',
+  'irc',
+  'sip',
+  'rtsp',
+  'syslog',
+  'ssdp',
+  'ripv1',
+  'pim',
+  'nbns',
+  'ethernet-snap',
+  'cdp',
 ];
 
 export class ShareCodeError extends Error {}

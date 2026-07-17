@@ -26,6 +26,7 @@ export const NS = {
   icmpPayload: 'icmp-payload', // opaque: quoted datagram inside ICMP errors
   llcSap: 'llc-sap', // 802.2 LLC DSAP (802.3 frames select payload by SAP)
   gtpPayload: 'gtp-payload', // opaque: GTP-U tunnels a user IP packet
+  snapPid: 'snap-pid', // SNAP protocol ID within an OUI (how CDP is selected)
 } as const;
 
 export interface ResolvedBinding {

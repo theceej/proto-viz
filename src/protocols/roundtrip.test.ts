@@ -61,6 +61,21 @@ const STACKS: Record<string, string[]> = {
   gtpu: ['ethernet', 'ipv4', 'udp', 'gtpu', 'ipv4', 'udp'],
   modbus: ['ethernet', 'ipv4', 'tcp', 'modbus'],
   smb2: ['ethernet', 'ipv4', 'tcp', 'smb2'],
+  ftp: ['ethernet', 'ipv4', 'tcp', 'ftp'],
+  smtp: ['ethernet', 'ipv4', 'tcp', 'smtp'],
+  pop3: ['ethernet', 'ipv4', 'tcp', 'pop3'],
+  imap: ['ethernet', 'ipv4', 'tcp', 'imap'],
+  telnet: ['ethernet', 'ipv4', 'tcp', 'telnet'],
+  irc: ['ethernet', 'ipv4', 'tcp', 'irc'],
+  sip: ['ethernet', 'ipv4', 'udp', 'sip'],
+  rtsp: ['ethernet', 'ipv4', 'tcp', 'rtsp'],
+  syslog: ['ethernet', 'ipv4', 'udp', 'syslog'],
+  ssdp: ['ethernet', 'ipv4', 'udp', 'ssdp'],
+  ripv1: ['ethernet', 'ipv4', 'udp', 'ripv1'],
+  pim: ['ethernet', 'ipv4', 'pim'],
+  nbns: ['ethernet', 'ipv4', 'udp', 'nbns'],
+  'ethernet-snap': ['ethernet-snap'],
+  cdp: ['ethernet-snap', 'cdp'],
 };
 
 describe('every builtin protocol', () => {
@@ -265,6 +280,31 @@ describe('protocol-specific spot checks', () => {
     }
     while (sum > 0xffff) sum = (sum & 0xffff) + (sum >> 16);
     expect(sum).toBe(0xffff);
+  });
+
+  it('CDP travels over SNAP with PID auto-set to 0x2000', () => {
+    const stack: StackInstance = { layers: STACKS['cdp']!.map(newLayer) };
+    const { bytes, layers } = serializeStack(stack, registry);
+    expect(bytes[14]).toBe(0xaa); // DSAP = SNAP
+    expect((bytes[20]! << 8) | bytes[21]!).toBe(0x2000); // PID from binding
+    const length = (bytes[12]! << 8) | bytes[13]!;
+    expect(length).toBe(bytes.length - 14);
+    // CDP checksum verifies as ones-complement over the CDP portion
+    const start = layers[1]!.byteOffset;
+    let sum = 0;
+    for (let i = start; i < bytes.length; i += 2) {
+      sum += (bytes[i]! << 8) | (bytes[i + 1] ?? 0);
+    }
+    while (sum > 0xffff) sum = (sum & 0xffff) + (sum >> 16);
+    expect(sum).toBe(0xffff);
+  });
+
+  it('SIP serializes its text template with CRLF CRLF terminator', () => {
+    const stack: StackInstance = { layers: STACKS['sip']!.map(newLayer) };
+    const { bytes, layers } = serializeStack(stack, registry);
+    const text = new TextDecoder().decode(bytes.subarray(layers[3]!.byteOffset));
+    expect(text.startsWith('INVITE sip:bob@example.com SIP/2.0\r\n')).toBe(true);
+    expect(text.endsWith('\r\n\r\n')).toBe(true);
   });
 
   it('mDNS shares the DNS wire format but binds to port 5353', () => {

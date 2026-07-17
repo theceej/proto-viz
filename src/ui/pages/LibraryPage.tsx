@@ -18,6 +18,7 @@ import { deleteCustomProtocol, saveCustomProtocol } from '../../store/persistenc
 import { exportLibraryJson, importLibraryJson } from '../../store/libraryJson';
 import BitGrid from '../components/BitGrid';
 import { layerColor } from '../colors';
+import { rfcUrl } from '../refs';
 import { bitsLabel } from '../format';
 
 const LAYER_ORDER: LayerHint[] = ['link', 'network', 'transport', 'application', 'tunnel'];
@@ -199,7 +200,27 @@ function DetailPanel({ def, onClose }: { def: ProtocolDefinition; onClose: () =>
           <h2 className="text-[15px] font-semibold text-zinc-100">{def.name}</h2>
           <p className="text-[12px] text-zinc-500">
             {def.fullName}
-            {def.references?.length ? ` · ${def.references.join(', ')}` : ''}
+            {def.references?.map((ref, i) => {
+              const url = rfcUrl(ref);
+              return (
+                <span key={ref}>
+                  {i === 0 ? ' · ' : ', '}
+                  {url ? (
+                    <a
+                      className="underline decoration-zinc-600 hover:text-cyan-300 hover:decoration-cyan-300"
+                      href={url}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      title={`Open ${ref} (opens in a new tab)`}
+                    >
+                      {ref}
+                    </a>
+                  ) : (
+                    ref
+                  )}
+                </span>
+              );
+            })}
           </p>
         </div>
         <div className="ml-auto flex items-center gap-1">
