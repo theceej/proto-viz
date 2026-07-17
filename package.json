@@ -23,6 +23,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@fontsource-variable/jetbrains-mono": "^5.2.8",
+    "dompurify": "^3.4.12",
     "idb": "^8.0.3",
     "lucide-react": "^1.24.0",
     "mammoth": "^1.12.0",

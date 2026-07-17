@@ -3,6 +3,7 @@
  * plain text plus a flag saying whether monospace column alignment survived
  * (the diagram parser depends on it).
  */
+import DOMPurify from 'dompurify';
 import { detectFormat, type SpecFormat } from './detect';
 
 export interface ExtractedText {
@@ -74,7 +75,11 @@ export async function extractSpecText(file: File): Promise<ExtractedText> {
 
 /** DOM-based HTML extraction: <pre> blocks verbatim, block elements as lines. */
 export function extractHtml(html: string): string {
-  const doc = new DOMParser().parseFromString(html, 'text/html');
+  // Uploaded specs are untrusted. The DOMParser document is inert and never
+  // attached to the page, but sanitizing first makes that safety independent
+  // of how the parsed tree is used.
+  const clean = DOMPurify.sanitize(html);
+  const doc = new DOMParser().parseFromString(clean, 'text/html');
   const parts: string[] = [];
   const walk = (node: Node): void => {
     if (node.nodeType === Node.ELEMENT_NODE) {
