@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { newLayer, type StackInstance } from './model';
 import { validateStack } from './validate';
+import { serializeStack } from './serialize';
 import { createBuiltinRegistry } from '../protocols';
 
 const registry = createBuiltinRegistry();
@@ -49,5 +50,44 @@ describe('validateStack edge cases', () => {
     const err = issues.find((i) => i.code === 'no-binding')!;
     expect(err.message).toContain('OSPF');
     expect(err.suggestion).toContain('IP Protocol 89');
+  });
+
+  it('reports Ethernet MTU and IPv4 DF information with header overhead', () => {
+    const value = stack(['ethernet', 'ipv4', 'tcp']);
+    value.trailingPayload = new Uint8Array(2000);
+    const packet = serializeStack(value, registry);
+
+    const issues = validateStack(value, registry, packet);
+    const mtu = issues.find((i) => i.code === 'ethernet-mtu-exceeded')!;
+    expect(mtu.severity).toBe('info');
+    expect(mtu.message).toContain('2040 bytes');
+    expect(mtu.message).toContain('1500');
+    expect(mtu.suggestion).toContain('54 bytes');
+    expect(mtu.suggestion).toContain('Ethernet II 14 + IPv4 20 + TCP 20');
+    expect(mtu.suggestion).toContain('2000 bytes of payload');
+
+    const df = issues.find((i) => i.code === 'ipv4-df-mtu-exceeded')!;
+    expect(df.severity).toBe('info');
+    expect(df.message).toContain('2040 bytes');
+    expect(df.message).toContain('ICMP Fragmentation Needed');
+  });
+
+  it('does not report MTU information for a small payload', () => {
+    const value = stack(['ethernet', 'ipv4', 'tcp']);
+    value.trailingPayload = new Uint8Array(100);
+    const packet = serializeStack(value, registry);
+
+    expect(validateStack(value, registry, packet).some((i) => i.code.includes('mtu'))).toBe(false);
+  });
+
+  it("omits the IPv4 DF note when Don't Fragment is clear", () => {
+    const value = stack(['ethernet', 'ipv4', 'tcp']);
+    value.layers[1]!.overrides.flags = 0;
+    value.trailingPayload = new Uint8Array(2000);
+    const packet = serializeStack(value, registry);
+
+    const issues = validateStack(value, registry, packet);
+    expect(issues.some((i) => i.code === 'ethernet-mtu-exceeded')).toBe(true);
+    expect(issues.some((i) => i.code === 'ipv4-df-mtu-exceeded')).toBe(false);
   });
 });
