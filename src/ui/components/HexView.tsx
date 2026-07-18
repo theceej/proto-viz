@@ -1,4 +1,5 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import { Check, Copy } from 'lucide-react';
 import type { SerializedPacket } from '../../core/serialize';
 import { buildSpanIndex } from '../../core/spanIndex';
 import { isActive, useHighlightStore, type FieldRef } from '../../store/highlightStore';
@@ -44,8 +45,12 @@ export default function HexView({ packet }: { packet: SerializedPacket }) {
     layerOfByte[b]! >= 0 ? layerColor(layerOfByte[b]!) : PAYLOAD_COLOR;
 
   return (
-    <div className="p-4 font-mono text-[12px] leading-5 select-none">
-      {rows.map((off) => (
+    <div>
+      <div className="sticky top-0 z-10 flex justify-end border-b border-zinc-800/50 bg-zinc-950/80 px-2 py-1 backdrop-blur">
+        <CopyHexButton bytes={packet.bytes} />
+      </div>
+      <div className="px-4 pt-2 pb-4 font-mono text-[12px] leading-5 select-none">
+        {rows.map((off) => (
         <div key={off} className="flex gap-3">
           <span className="w-10 shrink-0 text-right text-zinc-600">
             {off.toString(16).padStart(4, '0')}
@@ -101,7 +106,32 @@ export default function HexView({ packet }: { packet: SerializedPacket }) {
             })}
           </span>
         </div>
-      ))}
+        ))}
+      </div>
     </div>
+  );
+}
+
+/** Copies the whole packet as a continuous lowercase hex string. */
+function CopyHexButton({ bytes }: { bytes: Uint8Array }) {
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+    void navigator.clipboard.writeText(hex).then(() => {
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1200);
+    });
+  };
+  return (
+    <button
+      className={`grid size-6 cursor-pointer place-items-center rounded transition-colors ${
+        copied ? 'text-emerald-400' : 'text-zinc-500 hover:bg-zinc-800/60 hover:text-zinc-200'
+      }`}
+      title="Copy the packet as a hex string"
+      aria-label={copied ? 'Packet hex copied' : 'Copy the packet as a hex string'}
+      onClick={copy}
+    >
+      {copied ? <Check className="size-3.5" aria-hidden /> : <Copy className="size-3.5" aria-hidden />}
+    </button>
   );
 }
