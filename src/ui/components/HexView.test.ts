@@ -2,7 +2,7 @@
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import axe from 'axe-core';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SerializedPacket } from '../../core/serialize';
 import { useHighlightStore } from '../../store/highlightStore';
 import HexView from './HexView';
@@ -92,6 +92,40 @@ describe('HexView keyboard access', () => {
     expect(byte(19).getAttribute('aria-label')).toBe(
       'Byte offset 19 (0x13), value 0x13, payload',
     );
+  });
+
+  it('supports pointer highlighting and locking', () => {
+    act(() => byte(2).dispatchEvent(new MouseEvent('mouseover', { bubbles: true })));
+    expect(useHighlightStore.getState().hovered?.fieldId).toBe('header');
+    act(() => byte(2).click());
+    expect(useHighlightStore.getState().locked?.fieldId).toBe('header');
+    act(() => byte(2).dispatchEvent(new MouseEvent('mouseout', { bubbles: true })));
+    expect(useHighlightStore.getState().hovered).toBeNull();
+  });
+
+  it('copies the complete packet hex', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
+
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>('button')!.click();
+      await Promise.resolve();
+    });
+
+    expect(writeText).toHaveBeenCalledWith(
+      '000102030405060708090a0b0c0d0e0f10111213',
+    );
+    expect(container.querySelector('button')!.getAttribute('aria-label')).toBe(
+      'Packet hex copied',
+    );
+  });
+
+  it('renders an explicit empty state', () => {
+    act(() => root.render(createElement(HexView, { packet: { ...packet, bytes: new Uint8Array() } })));
+    expect(container.textContent).toContain('empty packet');
   });
 
   it('has no automated WCAG A/AA violations', async () => {
