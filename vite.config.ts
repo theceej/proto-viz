@@ -2,6 +2,7 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
+import { VitePWA } from 'vite-plugin-pwa';
 
 /**
  * Content-Security-Policy for the production build. GitHub Pages can't set
@@ -28,6 +29,41 @@ export default defineConfig(({ command }) => ({
   plugins: [
     react(),
     tailwindcss(),
+    VitePWA({
+      registerType: 'prompt',
+      includeAssets: ['favicon.svg'],
+      manifest: {
+        name: 'proto-viz — Network Protocol Explorer',
+        short_name: 'proto-viz',
+        description: 'Build, inspect, and export network protocol packets.',
+        theme_color: '#09090b',
+        background_color: '#09090b',
+        display: 'standalone',
+        start_url: './#/builder',
+        scope: './',
+        icons: [
+          { src: 'favicon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
+          { src: 'favicon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'maskable' },
+        ],
+      },
+      workbox: {
+        navigateFallback: 'index.html',
+        globPatterns: ['**/*.{html,js,css,woff2,svg}'],
+        globIgnores: ['**/pdf*.{js,mjs}', '**/mammoth*.js'],
+        cleanupOutdatedCaches: true,
+        runtimeCaching: [
+          {
+            urlPattern: /\/assets\/(?:pdf|mammoth)[^/]*\.(?:js|mjs)$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'optional-import-assets',
+              expiration: { maxEntries: 6, maxAgeSeconds: 30 * 24 * 60 * 60 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+        ],
+      },
+    }),
     {
       name: 'inject-csp',
       transformIndexHtml: {

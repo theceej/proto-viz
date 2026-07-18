@@ -17,6 +17,7 @@ import HelpPage from './pages/HelpPage';
 import { useLibraryStore } from '../store/libraryStore';
 import { loadCustomProtocols } from '../store/persistence';
 import { usePersistedFlag } from './usePersistedFlag';
+import PwaStatus from './components/PwaStatus';
 
 const GITHUB_URL = 'https://github.com/theceej/proto-viz';
 
@@ -53,6 +54,7 @@ export default function App() {
 
   return (
     <HashRouter>
+      <PwaStatus />
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-cyan-700 focus:px-3 focus:py-2 focus:text-sm focus:text-white"

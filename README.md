@@ -107,6 +107,16 @@ server-side rewrites are needed. Note: the pdf.js worker requires an HTTP
 origin, so PDF import doesn't work when opening `index.html` via `file://`;
 use `npx serve dist` instead.
 
+The production build is also an installable progressive web app. After one
+successful load, the builder and protocol library can be reopened offline.
+Updates are installed only after the in-app prompt is accepted, avoiding a
+mix of assets from different releases. The comparatively large PDF and DOCX
+import modules are not part of the initial offline download; each becomes
+available offline after that import format has been used successfully once.
+Uploaded documents, custom protocol data, and generated packet files are not
+stored in the service-worker cache (custom protocols continue to use the
+app's existing IndexedDB storage).
+
 ## Verifying generated PCAPs
 
 Exported files are classic pcap (microsecond, little-endian). To verify:
