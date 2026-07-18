@@ -130,7 +130,7 @@ export default function BuilderPage() {
         <div className="ml-auto flex items-center gap-3">
           {packet && (
             <span className="font-mono text-[12px] text-zinc-500">
-              {packet.bytes.length} bytes
+              {packet.bytes.length} bytes · {packet.payloadOffset} bytes headers
             </span>
           )}
           <button

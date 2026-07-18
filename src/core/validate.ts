@@ -5,7 +5,11 @@
  */
 import type { ProtocolDefinition, StackInstance } from './model';
 import type { Registry } from './registry';
+import type { SerializedPacket } from './serialize';
 import { carriersOf, resolveBinding } from './bindings';
+
+const STANDARD_ETHERNET_MTU = 1500;
+const ETHERNET_PROTOCOL_IDS = new Set(['ethernet', 'ethernet-8023']);
 
 export type Severity = 'error' | 'warning' | 'info';
 
@@ -29,7 +33,11 @@ export interface NextProtocolOption {
   reason?: string;
 }
 
-export function validateStack(stack: StackInstance, registry: Registry): ValidationIssue[] {
+export function validateStack(
+  stack: StackInstance,
+  registry: Registry,
+  packet?: SerializedPacket,
+): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   const layers = stack.layers;
 
@@ -134,7 +142,80 @@ export function validateStack(stack: StackInstance, registry: Registry): Validat
 
   }
 
+  if (packet) addMtuIssues(issues, stack, defs as ProtocolDefinition[], packet);
+
   return issues;
+}
+
+function addMtuIssues(
+  issues: ValidationIssue[],
+  stack: StackInstance,
+  defs: ProtocolDefinition[],
+  packet: SerializedPacket,
+): void {
+  const dfReported = new Set<number>();
+  for (let ethernetIndex = 0; ethernetIndex < defs.length; ethernetIndex++) {
+    if (!ETHERNET_PROTOCOL_IDS.has(defs[ethernetIndex]!.id)) continue;
+
+    const ethernetLayout = packet.layers[ethernetIndex];
+    if (!ethernetLayout) continue;
+    const l2PayloadBytes =
+      packet.bytes.length - ethernetLayout.byteOffset - ethernetLayout.headerBytes;
+    if (l2PayloadBytes <= STANDARD_ETHERNET_MTU) continue;
+
+    const layouts = packet.layers.slice(ethernetIndex);
+    const headerBytes = layouts.reduce((total, layer) => total + layer.headerBytes, 0);
+    const trailingBytes = packet.bytes.length - packet.payloadOffset;
+    const breakdown = layouts
+      .map((layout, offset) => `${defs[ethernetIndex + offset]!.name} ${layout.headerBytes}`)
+      .join(' + ');
+
+    issues.push({
+      severity: 'info',
+      layerIndex: ethernetIndex,
+      code: 'ethernet-mtu-exceeded',
+      message: `${defs[ethernetIndex]!.name} payload is ${l2PayloadBytes} bytes, exceeding the standard Ethernet MTU (${STANDARD_ETHERNET_MTU}); it would require jumbo frames or fragmentation.`,
+      suggestion: `Header overhead is ${headerBytes} bytes (${breakdown}) before ${trailingBytes} bytes of payload.`,
+    });
+
+    const ipv4Index = defs.findIndex(
+      (def, index) => index > ethernetIndex && def.id === 'ipv4',
+    );
+    if (ipv4Index === -1) continue;
+    const ipv4Layout = packet.layers[ipv4Index];
+    if (!ipv4Layout) continue;
+    const ipv4Bytes = packet.bytes.length - ipv4Layout.byteOffset;
+    if (
+      ipv4Bytes <= STANDARD_ETHERNET_MTU ||
+      dfReported.has(ipv4Index) ||
+      !ipv4DfIsSet(stack, packet, ipv4Index)
+    )
+      continue;
+
+    dfReported.add(ipv4Index);
+    issues.push({
+      severity: 'info',
+      layerIndex: ipv4Index,
+      code: 'ipv4-df-mtu-exceeded',
+      message: `IPv4 datagram is ${ipv4Bytes} bytes with Don't Fragment set; on a ${STANDARD_ETHERNET_MTU}-byte MTU path it would be dropped and trigger ICMP Fragmentation Needed.`,
+    });
+  }
+}
+
+function ipv4DfIsSet(
+  stack: StackInstance,
+  packet: SerializedPacket,
+  layerIndex: number,
+): boolean {
+  const layer = stack.layers[layerIndex];
+  if (!layer) return false;
+  const flags = packet.spans.find(
+    (span) => span.layerUid === layer.uid && span.fieldId === 'flags',
+  )?.value;
+  return (
+    (typeof flags === 'number' || typeof flags === 'bigint') &&
+    (BigInt(flags) & 0b010n) !== 0n
+  );
 }
 
 /**

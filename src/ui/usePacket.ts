@@ -22,7 +22,6 @@ export function usePacket(): PacketState {
 
   return useMemo(() => {
     const stack: StackInstance = { layers, trailingPayload };
-    const validation = validateStack(stack, registry);
     let packet: SerializedPacket | null = null;
     let serializeError: string | null = null;
     if (layers.length > 0) {
@@ -32,6 +31,7 @@ export function usePacket(): PacketState {
         serializeError = (e as Error).message;
       }
     }
+    const validation = validateStack(stack, registry, packet ?? undefined);
     return { stack, registry, packet, serializeError, validation };
   }, [layers, trailingPayload, registry]);
 }
