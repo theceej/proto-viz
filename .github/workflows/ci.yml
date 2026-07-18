@@ -10,40 +10,13 @@ permissions:
   contents: read
 
 jobs:
+  verification:
+    uses: ./.github/workflows/verify.yml
+
+  # Preserve the required `test` status-check name while making it represent
+  # the complete shared verification suite.
   test:
+    needs: verification
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npx eslint .
-      - run: npm run test:coverage
-      - run: npm run build
-      - run: npm run check:bundle-size
-
-  e2e:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e
-
-  pcap-validation:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: sudo apt-get update && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y tshark
-      - run: npm run test:tshark
+      - run: echo "All verification jobs passed."
