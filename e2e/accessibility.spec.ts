@@ -15,6 +15,21 @@ async function expectNoWcagViolations(page: Page) {
   expect(results.violations).toEqual([]);
 }
 
+test('core builder and library reload offline after the shell is cached', async ({ page, context }) => {
+  await page.goto('/#/builder');
+  await page.evaluate(() => navigator.serviceWorker.ready);
+  await context.setOffline(true);
+  try {
+    await page.reload();
+    await expect(page.getByRole('heading', { name: 'Stack Builder' })).toBeVisible();
+    await expect(page.getByText(/Offline — the builder/)).toBeVisible();
+    await page.getByRole('link', { name: 'Protocol Library', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Protocol Library' })).toBeVisible();
+  } finally {
+    await context.setOffline(false);
+  }
+});
+
 for (const route of routes) {
   for (const theme of themes) {
     test(`${route} has no automated WCAG A/AA violations in ${theme} mode`, async ({ page }) => {
