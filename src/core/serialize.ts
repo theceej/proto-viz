@@ -392,10 +392,11 @@ function buildPseudoHeader(
 ): Uint8Array | null {
   const layer = work[i]!;
   let ip: WorkLayer | undefined;
+  let ipIndex = -1;
   for (let j = i - 1; j >= 0; j--) {
     const id = work[j]!.def.id;
-    if ((kind === 'ipv4' || kind === 'auto') && id === 'ipv4') { ip = work[j]; break; }
-    if ((kind === 'ipv6' || kind === 'auto') && id === 'ipv6') { ip = work[j]; break; }
+    if ((kind === 'ipv4' || kind === 'auto') && id === 'ipv4') { ip = work[j]; ipIndex = j; break; }
+    if ((kind === 'ipv6' || kind === 'auto') && id === 'ipv6') { ip = work[j]; ipIndex = j; break; }
   }
   if (!ip) {
     issues.push({
@@ -406,10 +407,27 @@ function buildPseudoHeader(
     return null;
   }
 
-  const spanBytes = (fieldId: string): Uint8Array | null => {
-    const s = ip.spans.get(fieldId);
+  const layerSpanBytes = (wl: WorkLayer, fieldId: string): Uint8Array | null => {
+    const s = wl.spans.get(fieldId);
     if (!s) return null;
     return buf.slice(s.bitOffset / 8, s.bitOffset / 8 + s.bitLength / 8);
+  };
+  const spanBytes = (fieldId: string): Uint8Array | null => layerSpanBytes(ip, fieldId);
+
+  // RFC 8200 §8.1: when a Routing header is still en route (Segments Left > 0),
+  // the upper-layer checksum uses the packet's final destination — the last
+  // entry of the Segment List — rather than the address in the IPv6 header,
+  // which at this point still holds the current segment. Find the last such
+  // routing header between the IPv6 header and this layer.
+  const finalDestination = (): Uint8Array | null => {
+    for (let j = i - 1; j > ipIndex; j--) {
+      const wl = work[j]!;
+      if (wl.def.id !== 'ipv6-routing') continue;
+      const sl = wl.spans.get('segmentsLeft');
+      if (!sl || Number(getBits(buf, sl.bitOffset, sl.bitLength)) === 0) return null;
+      return layerSpanBytes(wl, 'segment0');
+    }
+    return null;
   };
 
   const segmentLength = buf.length - layer.byteOffset;
@@ -441,7 +459,7 @@ function buildPseudoHeader(
     return pseudo;
   } else {
     const src = spanBytes('src');
-    const dst = spanBytes('dst');
+    const dst = finalDestination() ?? spanBytes('dst');
     const next = protoByte('nextHeader');
     if (!src || !dst || next === null) return null;
     const pseudo = new Uint8Array(40);

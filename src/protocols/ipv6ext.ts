@@ -56,7 +56,7 @@ export const ipv6Routing: ProtocolDefinition = {
   source: 'builtin',
   references: ['RFC 8200', 'RFC 8754'],
   description:
-    'Directs the packet through intermediate nodes (Next Header 43). Modeled as an SRv6 Segment Routing Header (Routing Type 4) with exactly one segment — real SRHs carry a variable-length segment list. Shown as received at its final destination (Segments Left 0), so the segment coincides with the IPv6 Destination Address; a transport checksum over this header therefore uses that address. With Segments Left > 0 the pseudo-header would instead use the last segment (RFC 8200 §8.1), which this fixed model does not compute.',
+    'Directs the packet through intermediate nodes (Next Header 43). Modeled as an SRv6 Segment Routing Header (Routing Type 4) with exactly one segment — real SRHs carry a variable-length segment list. Shown in flight (Segments Left 1), so the IPv6 Destination Address holds the current segment while the Segment List carries the final destination; a transport checksum below therefore uses that final segment, per RFC 8200 §8.1. Setting Segments Left to 0 (packet at its final destination) makes the checksum use the IPv6 Destination Address instead.',
   fields: [
     { id: 'nextHeader', name: 'Next Header', type: 'uint', bitLength: 8, default: 6, enumRef: 'ip-proto', computed: { kind: 'binding' }, description: 'Protocol of the following header (auto-set).' },
     {
@@ -65,11 +65,11 @@ export const ipv6Routing: ProtocolDefinition = {
       description: 'Header length in 8-octet units, not including the first 8 octets (2 with one segment).',
     },
     { id: 'routingType', name: 'Routing Type', type: 'uint', bitLength: 8, default: 4, description: '4 = Segment Routing Header (SRv6).' },
-    { id: 'segmentsLeft', name: 'Segments Left', type: 'uint', bitLength: 8, default: 0, description: 'Segments still to be visited (0 = final destination reached).' },
+    { id: 'segmentsLeft', name: 'Segments Left', type: 'uint', bitLength: 8, default: 1, description: 'Segments still to be visited (0 = final destination reached).' },
     { id: 'lastEntry', name: 'Last Entry', type: 'uint', bitLength: 8, default: 0, description: 'Index of the last segment list entry (0 with one segment).' },
     { id: 'srhFlags', name: 'Flags', type: 'uint', bitLength: 8, default: 0, description: 'Unused; must be 0.' },
     { id: 'tag', name: 'Tag', type: 'uint', bitLength: 16, default: 0, description: 'Marks a group of packets; 0 when unused.' },
-    { id: 'segment0', name: 'Segment List [0]', type: 'ipv6', bitLength: 128, default: '2001:db8::2', description: 'The segment endpoint; equals the Destination Address once Segments Left reaches 0.' },
+    { id: 'segment0', name: 'Segment List [0]', type: 'ipv6', bitLength: 128, default: '2001:db8::99', description: 'The last Segment List entry: the packet’s final destination, used in a transport checksum while Segments Left > 0.' },
   ],
   providesNamespaces: [
     { id: NS.ipProto, displayName: 'Next Header', selectorFieldId: 'nextHeader' },
