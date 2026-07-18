@@ -43,7 +43,11 @@ your browser. Nothing is uploaded anywhere.
   shared as a short word code (a What3Words-style handle: Ethernet › IPv4 ›
   TCP becomes `army.borrow.advice`) drawn from the BIP-39 wordlist, with a
   checksum that rejects mistyped codes; the code also embeds in a link that
-  opens the stack directly.
+  opens the stack directly. The decoder runs the other way: paste packet
+  hex (Wireshark's "copy as hex stream", or the hex view's own copy
+  button) and the stack is identified by walking the same binding model —
+  computed fields that don't reproduce the pasted bytes, like a wrong
+  checksum, are pinned so the exact packet is preserved.
 - **Packet visualisation** — classic RFC-style 32-bit-per-row diagrams, a
   full-packet hex dump with layer tinting, and a typed field editor.
   Hovering a field highlights it in all three views. Computed fields

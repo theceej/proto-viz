@@ -59,6 +59,16 @@ export default function HelpPage() {
           the layer composition of built-in protocols only — field edits, payload,
           and custom protocols are not included.
         </p>
+        <p>
+          <Ui>Decode</Ui> works the other way around: paste packet hex (from the
+          hex view's copy button, or Wireshark's “copy as hex stream”) and the
+          layers are identified by following the same field assignments that
+          validate stacks — EtherType, IP protocol, ports. Computed fields are
+          recalculated; any that don't match the pasted bytes (say, a wrong
+          checksum) are pinned so the exact bytes are preserved. Content that
+          can't be identified structurally stays as raw payload, with a note
+          explaining why.
+        </p>
       </Section>
 
       <Section title="Exporting PCAPs">
