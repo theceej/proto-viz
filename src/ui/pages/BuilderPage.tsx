@@ -23,6 +23,7 @@ import HexView from '../components/HexView';
 import FieldEditor from '../components/FieldEditor';
 import ExportDialog from '../components/ExportDialog';
 import ShareDialog from '../components/ShareDialog';
+import ProtocolInfoLink from '../components/ProtocolInfoLink';
 import { layerColor, PAYLOAD_COLOR } from '../colors';
 import { bitsLabel } from '../format';
 
@@ -202,6 +203,7 @@ export default function BuilderPage() {
                       <span className="text-[13px] font-semibold text-zinc-100">
                         {def.name}
                       </span>
+                      <ProtocolInfoLink protocolId={def.id} name={def.name} />
                       <span className="font-mono text-[11px] text-zinc-500">
                         {bitsLabel(layout.headerBytes * 8)} · offset {layout.byteOffset}
                       </span>
