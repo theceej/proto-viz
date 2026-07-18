@@ -123,4 +123,44 @@ describe('stackStore', () => {
     store().addLayer('udp');
     expect(store().canRedo).toBe(false);
   });
+
+  it('tracks payload edits as grouped history', () => {
+    store().setPayload(Uint8Array.from([1]));
+    store().setPayload(Uint8Array.from([1, 2]));
+    store().undo();
+    expect([...store().trailingPayload]).toEqual([]);
+    store().redo();
+    expect([...store().trailingPayload]).toEqual([1, 2]);
+  });
+
+  it('restores saved layers and replaces random layers as single steps', () => {
+    store().setStack(['ethernet']);
+    const saved = [{
+      protocolId: 'ipv4',
+      overrides: { ttl: 42, address: Uint8Array.from([1, 2]) },
+      pinned: ['ttl'],
+    }];
+    store().clearHistory();
+
+    store().restoreStack(saved, Uint8Array.from([3]));
+    expect(store().layers[0]!.overrides['ttl']).toBe(42);
+    expect(store().layers[0]!.pinned).toEqual(['ttl']);
+    store().undo();
+    expect(store().layers.map((layer) => layer.protocolId)).toEqual(['ethernet']);
+
+    const replacement = store().layers.map((layer) => ({ ...layer, protocolId: 'udp' }));
+    store().replaceLayers(replacement, Uint8Array.from([4]));
+    expect(store().layers[0]!.protocolId).toBe('udp');
+    store().undo();
+    expect(store().layers[0]!.protocolId).toBe('ethernet');
+  });
+
+  it('ignores unavailable history and invalid structural edits', () => {
+    store().undo();
+    store().redo();
+    store().removeLayer('missing');
+    store().moveLayer(0, 0);
+    expect(store().layers).toEqual([]);
+    expect(store().canUndo).toBe(false);
+  });
 });

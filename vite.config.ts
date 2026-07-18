@@ -51,7 +51,14 @@ export default defineConfig(({ command }) => ({
     alias: [{ find: /^pdfjs-dist$/, replacement: 'pdfjs-dist/legacy/build/pdf.mjs' }],
     coverage: {
       provider: 'v8',
-      include: ['src/core/**', 'src/protocols/**', 'src/import/**', 'src/store/**', 'src/ui/format.ts'],
+      include: [
+        'src/core/**',
+        'src/protocols/**',
+        'src/import/**',
+        'src/store/**',
+        'src/ui/format.ts',
+        'src/ui/components/HexView.tsx',
+      ],
       exclude: ['src/**/*.test.ts', 'src/store/persistence.ts'],
       reporter: ['text-summary', 'text'],
       thresholds: {
@@ -72,6 +79,18 @@ export default defineConfig(({ command }) => ({
           branches: 79,
           functions: 99,
           lines: 92,
+        },
+        'src/store/**.ts': {
+          statements: 95,
+          branches: 90,
+          functions: 95,
+          lines: 98,
+        },
+        'src/ui/components/HexView.tsx': {
+          statements: 90,
+          branches: 80,
+          functions: 90,
+          lines: 95,
         },
       },
     },
