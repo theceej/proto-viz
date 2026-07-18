@@ -67,6 +67,19 @@ test('exports a PCAP with the expected file header', async ({ page }) => {
   expect([...bytes.subarray(0, 4)]).toEqual([0xd4, 0xc3, 0xb2, 0xa1]);
 });
 
+test('exports a standalone packet diagram as SVG', async ({ page }) => {
+  await loadTcpPreset(page);
+  await page.getByRole('button', { name: 'Diagram', exact: true }).click();
+  const downloadPromise = page.waitForEvent('download');
+  await page.getByRole('dialog', { name: 'Export diagram' }).getByRole('button', { name: 'Download SVG' }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe('packet-stack.svg');
+  const contents = await readFile((await download.path())!, 'utf8');
+  expect(contents).toContain('<svg xmlns="http://www.w3.org/2000/svg"');
+  expect(contents).toContain('Ethernet II');
+  expect(contents).not.toContain('class=');
+});
+
 test('persists collapsed builder panes across reloads', async ({ page }) => {
   await loadTcpPreset(page);
   await page.getByRole('button', { name: 'Collapse packet diagrams pane' }).click();

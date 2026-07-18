@@ -5,6 +5,7 @@ import {
   ClipboardPaste,
   Dices,
   Download,
+  ImageDown,
   Redo2,
   Share2,
   Undo2,
@@ -27,6 +28,7 @@ import FieldEditor from '../components/FieldEditor';
 import ExportDialog from '../components/ExportDialog';
 import ShareDialog from '../components/ShareDialog';
 import DecodeDialog from '../components/DecodeDialog';
+import DiagramExportDialog from '../components/DiagramExportDialog';
 import ProtocolInfoLink from '../components/ProtocolInfoLink';
 import { layerColor, PAYLOAD_COLOR } from '../colors';
 import { bitsLabel } from '../format';
@@ -62,6 +64,7 @@ export default function BuilderPage() {
   const [exporting, setExporting] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [decoding, setDecoding] = useState(false);
+  const [exportingDiagram, setExportingDiagram] = useState(false);
   const replaceLayers = useStackStore((s) => s.replaceLayers);
   const setStack = useStackStore((s) => s.setStack);
   const undo = useStackStore((s) => s.undo);
@@ -142,6 +145,15 @@ export default function BuilderPage() {
           </button>
         </div>
         <button
+          className="flex cursor-pointer items-center gap-1 rounded-md border border-zinc-700 px-2.5 py-1 text-[12px] text-zinc-300 hover:border-cyan-600 hover:text-cyan-300 disabled:cursor-not-allowed disabled:text-zinc-600"
+          title="Export packet diagram as SVG or PNG"
+          disabled={!packet}
+          onClick={() => setExportingDiagram(true)}
+        >
+          <ImageDown className="size-3.5" />
+          Diagram
+        </button>
+        <button
           className="flex cursor-pointer items-center gap-1 rounded-md border border-zinc-700 px-2.5 py-1 text-[12px] text-zinc-300 hover:border-fuchsia-500 hover:text-fuchsia-300"
           title="Generate a random valid stack"
           onClick={rollRandomStack}
@@ -195,6 +207,9 @@ export default function BuilderPage() {
       )}
       {decoding && (
         <DecodeDialog registry={registry} onClose={() => setDecoding(false)} />
+      )}
+      {exportingDiagram && packet && (
+        <DiagramExportDialog packet={packet} registry={registry} onClose={() => setExportingDiagram(false)} />
       )}
 
       {shareLoad && 'error' in shareLoad && (
