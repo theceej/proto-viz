@@ -146,6 +146,8 @@ const code =
   'rounded bg-zinc-800/80 px-1.5 py-0.5 font-mono text-[12px] text-cyan-300';
 
 const SHORTCUTS: [string[], string][] = [
+  [['Ctrl/⌘ + Z'], 'Undo the last stack edit'],
+  [['Ctrl/⌘ + Shift + Z'], 'Redo the last undone edit'],
   [['Tab'], 'Move through layers, fields, and diagram cells'],
   [['Enter', 'Space'], 'Lock or unlock the highlight on a focused diagram field'],
   [['Space'], 'On a layer grip handle: lift the layer; arrows move it, Space drops'],

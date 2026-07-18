@@ -5,7 +5,9 @@ import {
   ClipboardPaste,
   Dices,
   Download,
+  Redo2,
   Share2,
+  Undo2,
   X,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
@@ -62,6 +64,10 @@ export default function BuilderPage() {
   const [decoding, setDecoding] = useState(false);
   const replaceLayers = useStackStore((s) => s.replaceLayers);
   const setStack = useStackStore((s) => s.setStack);
+  const undo = useStackStore((s) => s.undo);
+  const redo = useStackStore((s) => s.redo);
+  const canUndo = useStackStore((s) => s.canUndo);
+  const canRedo = useStackStore((s) => s.canRedo);
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Opening a shared link (#/builder?s=word.word.word) loads that stack once.
@@ -83,6 +89,18 @@ export default function BuilderPage() {
     }
   }, [shareLoad, setStack, setSearchParams]);
 
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey) || event.altKey) return;
+      if (event.key.toLowerCase() !== 'z') return;
+      event.preventDefault();
+      if (event.shiftKey) redo();
+      else undo();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [redo, undo]);
+
   const rollRandomStack = () => {
     const random = randomStack(registry);
     replaceLayers(random.layers, random.trailingPayload);
@@ -103,6 +121,26 @@ export default function BuilderPage() {
         </h1>
         <PresetsMenu />
         <SavedStacks stack={stack} registry={registry} />
+        <div className="flex items-center gap-1" role="group" aria-label="Edit history">
+          <button
+            className="cursor-pointer rounded-md border border-zinc-700 p-1.5 text-zinc-300 hover:border-cyan-600 hover:text-cyan-300 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-600"
+            title="Undo (Ctrl/⌘+Z)"
+            aria-label="Undo"
+            disabled={!canUndo}
+            onClick={undo}
+          >
+            <Undo2 className="size-3.5" />
+          </button>
+          <button
+            className="cursor-pointer rounded-md border border-zinc-700 p-1.5 text-zinc-300 hover:border-cyan-600 hover:text-cyan-300 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-600"
+            title="Redo (Ctrl/⌘+Shift+Z)"
+            aria-label="Redo"
+            disabled={!canRedo}
+            onClick={redo}
+          >
+            <Redo2 className="size-3.5" />
+          </button>
+        </div>
         <button
           className="flex cursor-pointer items-center gap-1 rounded-md border border-zinc-700 px-2.5 py-1 text-[12px] text-zinc-300 hover:border-fuchsia-500 hover:text-fuchsia-300"
           title="Generate a random valid stack"
