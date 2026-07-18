@@ -1,0 +1,63 @@
+import { expect, test, type Page } from '@playwright/test';
+import { readFile } from 'node:fs/promises';
+
+async function loadTcpPreset(page: Page) {
+  await page.goto('/#/builder');
+  await page.getByRole('button', { name: 'Presets' }).click();
+  await page.getByRole('button', { name: /TCP over Ethernet/ }).click();
+}
+
+test('builds a stack, edits a field, and updates the hex view', async ({ page }) => {
+  await page.goto('/#/builder');
+  for (const protocol of ['TCP', 'IPv4', 'Ethernet II']) {
+    await page.getByRole('button', { name: `Remove ${protocol} layer` }).click();
+  }
+  for (const protocol of ['Ethernet II', 'IPv4', 'TCP']) {
+    const addLayer = page.getByRole('button', { name: 'Add layer' });
+    await addLayer.click();
+    await addLayer.locator('..').getByRole('button', { name: new RegExp(`^${protocol}`) }).click();
+  }
+
+  await expect(page.getByRole('button', { name: 'Reorder Ethernet II layer' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Reorder IPv4 layer' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Reorder TCP layer' })).toBeVisible();
+
+  await page.getByRole('textbox', { name: 'Source MAC', exact: true }).fill('aa:bb:cc:dd:ee:ff');
+  await expect(page.getByLabel(/Byte offset 6 .*value 0xaa/)).toBeVisible();
+});
+
+test('round-trips a stack through its share code', async ({ page, context }) => {
+  await loadTcpPreset(page);
+  await page.getByRole('button', { name: 'Share', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Share stack' });
+  const code = (await dialog.locator('.select-all').textContent())?.trim();
+  expect(code).toMatch(/^[a-z]+(?:\.[a-z]+)+$/);
+
+  const freshPage = await context.newPage();
+  await freshPage.goto(`/#/builder?s=${code}`);
+  await expect(freshPage.getByRole('button', { name: 'Reorder Ethernet II layer' })).toBeVisible();
+  await expect(freshPage.getByRole('button', { name: 'Reorder IPv4 layer' })).toBeVisible();
+  await expect(freshPage.getByRole('button', { name: 'Reorder TCP layer' })).toBeVisible();
+});
+
+test('exports a PCAP with the expected file header', async ({ page }) => {
+  await loadTcpPreset(page);
+  await page.getByRole('button', { name: 'Export PCAP' }).click();
+
+  const downloadPromise = page.waitForEvent('download');
+  await page.getByRole('dialog', { name: 'Export PCAP' }).getByRole('button', { name: 'Download' }).click();
+  const download = await downloadPromise;
+  const path = await download.path();
+  expect(path).not.toBeNull();
+  const bytes = await readFile(path!);
+  expect([...bytes.subarray(0, 4)]).toEqual([0xd4, 0xc3, 0xb2, 0xa1]);
+});
+
+test('persists collapsed builder panes across reloads', async ({ page }) => {
+  await loadTcpPreset(page);
+  await page.getByRole('button', { name: 'Collapse packet diagrams pane' }).click();
+  await expect(page.getByRole('button', { name: 'Expand packet diagrams pane' })).toBeVisible();
+
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'Expand packet diagrams pane' })).toBeVisible();
+});
