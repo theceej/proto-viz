@@ -485,6 +485,10 @@ describe('protocol-specific spot checks', () => {
     const stack: StackInstance = {
       layers: ['ethernet', 'ipv6', 'ipv6-hopopts', 'ipv6-routing', 'tcp'].map(newLayer),
     };
+    // Pin the routing header to its final destination (Segments Left 0) so the
+    // pseudo-header uses the IPv6 Destination Address — this isolates the Next
+    // Header check from the final-destination substitution tested separately.
+    stack.layers[3]!.overrides.segmentsLeft = 0;
     const { bytes, layers } = serializeStack(stack, registry);
     const ipStart = layers[1]!.byteOffset;
     const tcpStart = layers[4]!.byteOffset;
@@ -503,6 +507,42 @@ describe('protocol-specific spot checks', () => {
     }
     while (sum > 0xffff) sum = (sum & 0xffff) + (sum >> 16);
     expect(sum).toBe(0xffff);
+  });
+
+  it('SRv6 routing header checksums against the final segment while Segments Left > 0', () => {
+    // Fold a TCP pseudo-header + segment sum given the src/dst address offsets,
+    // returning 0xffff when the stored checksum is correct for those addresses.
+    const foldedTcpSum = (bytes: Uint8Array, srcOff: number, dstOff: number, tcpStart: number) => {
+      let sum = 0;
+      for (let o = 0; o < 16; o += 2) sum += (bytes[srcOff + o]! << 8) | bytes[srcOff + o + 1]!;
+      for (let o = 0; o < 16; o += 2) sum += (bytes[dstOff + o]! << 8) | bytes[dstOff + o + 1]!;
+      const seg = bytes.length - tcpStart;
+      sum += (seg >>> 16) + (seg & 0xffff) + 6;
+      for (let i = tcpStart; i < bytes.length; i += 2) sum += (bytes[i]! << 8) | (bytes[i + 1] ?? 0);
+      while (sum > 0xffff) sum = (sum & 0xffff) + (sum >> 16);
+      return sum;
+    };
+    const ids = ['ethernet', 'ipv6', 'ipv6-routing', 'tcp'];
+
+    // Default Segments Left is 1 (in flight): the checksum must use the last
+    // segment (Segment List [0], at routing offset +8), not the IPv6 dst.
+    const inFlight: StackInstance = { layers: ids.map(newLayer) };
+    let p = serializeStack(inFlight, registry);
+    let ipStart = p.layers[1]!.byteOffset;
+    const rtStart = p.layers[2]!.byteOffset;
+    let tcpStart = p.layers[3]!.byteOffset;
+    expect(foldedTcpSum(p.bytes, ipStart + 8, rtStart + 8, tcpStart)).toBe(0xffff);
+    // The substitution is real: it is NOT valid against the IPv6 dst, which
+    // differs from the final segment.
+    expect(foldedTcpSum(p.bytes, ipStart + 8, ipStart + 24, tcpStart)).not.toBe(0xffff);
+
+    // Segments Left 0 (final destination reached): use the IPv6 dst.
+    const arrived: StackInstance = { layers: ids.map(newLayer) };
+    arrived.layers[2]!.overrides.segmentsLeft = 0;
+    p = serializeStack(arrived, registry);
+    ipStart = p.layers[1]!.byteOffset;
+    tcpStart = p.layers[3]!.byteOffset;
+    expect(foldedTcpSum(p.bytes, ipStart + 8, ipStart + 24, tcpStart)).toBe(0xffff);
   });
 
   it('GENEVE protocol type auto-sets to 0x6558 for inner Ethernet', () => {
