@@ -85,6 +85,7 @@ export const SHARE_PROTOCOL_IDS: readonly string[] = [
   'nbns',
   'ethernet-snap',
   'cdp',
+  'icmpv6-ndp',
 ];
 
 export class ShareCodeError extends Error {}

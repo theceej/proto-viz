@@ -12,8 +12,16 @@ const byId = (id: string) => scenarios.find((s) => s.id === id)!;
 describe('applicableScenarios', () => {
   it('matches scenarios to the protocols actually in the stack', () => {
     const ids = (s: StackInstance) => applicableScenarios(s, registry).map((x) => x.id);
-    expect(ids(stack(['ethernet', 'ipv4', 'udp', 'dns']))).toEqual(['single', 'dns-query-response']);
-    expect(ids(stack(['ethernet', 'ipv4', 'udp', 'dhcp']))).toEqual(['single', 'dhcp-dora']);
+    expect(ids(stack(['ethernet', 'ipv4', 'udp', 'dns']))).toEqual([
+      'single',
+      'arp-resolution',
+      'dns-query-response',
+    ]);
+    expect(ids(stack(['ethernet', 'ipv4', 'udp', 'dhcp']))).toEqual([
+      'single',
+      'arp-resolution',
+      'dhcp-dora',
+    ]);
     expect(ids(stack(['ethernet', 'arp']))).toEqual(['single']);
   });
 

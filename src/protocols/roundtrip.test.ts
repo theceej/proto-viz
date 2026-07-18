@@ -17,6 +17,7 @@ const STACKS: Record<string, string[]> = {
   ipv6: ['ethernet', 'ipv6', 'udp'],
   icmp: ['ethernet', 'ipv4', 'icmp'],
   icmpv6: ['ethernet', 'ipv6', 'icmpv6'],
+  'icmpv6-ndp': ['ethernet', 'ipv6', 'icmpv6-ndp'],
   igmp: ['ethernet', 'ipv4', 'igmp'],
   tcp: ['ethernet', 'ipv4', 'tcp'],
   udp: ['ethernet', 'ipv4', 'udp'],
