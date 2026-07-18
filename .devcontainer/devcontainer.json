@@ -4,10 +4,10 @@
   "name": "proto-viz",
   "image": "mcr.microsoft.com/devcontainers/javascript-node:22",
 
-  // A clean, reproducible install every time the container is created. This
-  // also sidesteps a known npm bug where rolldown's native binding (an
-  // optional dependency of vite 8) goes missing after incremental installs.
-  "postCreateCommand": "npm ci",
+  // Install dependencies and the extra tooling the gated CI jobs need
+  // (tshark for `npm run test:tshark`, Chromium for `npm run test:e2e`) so
+  // the whole verify matrix is reproducible locally. See postCreate.sh.
+  "postCreateCommand": "bash .devcontainer/postCreate.sh",
 
   "forwardPorts": [5173, 4173],
   "portsAttributes": {

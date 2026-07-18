@@ -6,7 +6,9 @@
   "image": "mcr.microsoft.com/devcontainers/javascript-node:22",
   "remoteUser": "root",
 
-  "postCreateCommand": "npm ci",
+  // Same provisioning as the default variant: dependencies plus the tooling
+  // the gated CI jobs need (tshark, Chromium). See ../postCreate.sh.
+  "postCreateCommand": "bash .devcontainer/postCreate.sh",
 
   "forwardPorts": [5173, 4173],
   "portsAttributes": {
