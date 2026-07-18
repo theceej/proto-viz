@@ -26,6 +26,20 @@ test('builds a stack, edits a field, and updates the hex view', async ({ page })
   await expect(page.getByLabel(/Byte offset 6 .*value 0xaa/)).toBeVisible();
 });
 
+test('undoes a grouped field edit and redoes it', async ({ page }) => {
+  await loadTcpPreset(page);
+  const sourceMac = page.getByRole('textbox', { name: 'Source MAC', exact: true });
+  const original = await sourceMac.inputValue();
+
+  await sourceMac.fill('aa:bb:cc:dd:ee:00');
+  await sourceMac.fill('aa:bb:cc:dd:ee:ff');
+  await page.keyboard.press('Control+z');
+  await expect(sourceMac).toHaveValue(original);
+
+  await page.getByRole('button', { name: 'Redo' }).click();
+  await expect(sourceMac).toHaveValue('aa:bb:cc:dd:ee:ff');
+});
+
 test('round-trips a stack through its share code', async ({ page, context }) => {
   await loadTcpPreset(page);
   await page.getByRole('button', { name: 'Share', exact: true }).click();

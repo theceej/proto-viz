@@ -1,9 +1,14 @@
 import { create } from 'zustand';
 import { newLayer, type FieldValue, type LayerInstance } from '../core/model';
 
-interface StackState {
+interface StackSnapshot {
   layers: LayerInstance[];
   trailingPayload: Uint8Array;
+}
+
+interface StackState extends StackSnapshot {
+  canUndo: boolean;
+  canRedo: boolean;
   addLayer(protocolId: string): void;
   insertLayer(protocolId: string, index: number): void;
   removeLayer(uid: string): void;
@@ -22,93 +27,168 @@ interface StackState {
   /** Replace the stack with already-constructed layer instances (random stacks). */
   replaceLayers(layers: LayerInstance[], payload?: Uint8Array): void;
   clear(): void;
+  undo(): void;
+  redo(): void;
+  clearHistory(): void;
 }
+
+const HISTORY_LIMIT = 100;
+const COALESCE_MS = 1_000;
+let past: StackSnapshot[] = [];
+let future: StackSnapshot[] = [];
+let lastCoalesce: { key: string; at: number } | null = null;
+
+const cloneValue = (value: FieldValue): FieldValue =>
+  value instanceof Uint8Array ? new Uint8Array(value) : value;
+
+const cloneSnapshot = (snapshot: StackSnapshot): StackSnapshot => ({
+  layers: snapshot.layers.map((layer) => ({
+    ...layer,
+    overrides: Object.fromEntries(
+      Object.entries(layer.overrides).map(([key, value]) => [key, cloneValue(value)]),
+    ),
+    pinned: [...layer.pinned],
+  })),
+  trailingPayload: new Uint8Array(snapshot.trailingPayload),
+});
 
 const updateLayer = (
   layers: LayerInstance[],
   uid: string,
-  fn: (l: LayerInstance) => LayerInstance,
-) => layers.map((l) => (l.uid === uid ? fn(l) : l));
+  fn: (layer: LayerInstance) => LayerInstance,
+) => layers.map((layer) => (layer.uid === uid ? fn(layer) : layer));
 
-export const useStackStore = create<StackState>((set) => ({
-  layers: [newLayer('ethernet'), newLayer('ipv4'), newLayer('tcp')],
-  trailingPayload: new Uint8Array(0),
+export const useStackStore = create<StackState>((set, get) => {
+  const commit = (next: StackSnapshot, coalesceKey?: string) => {
+    const now = Date.now();
+    const coalescing =
+      coalesceKey !== undefined &&
+      lastCoalesce?.key === coalesceKey &&
+      now - lastCoalesce.at <= COALESCE_MS;
+    if (!coalescing) {
+      past.push(cloneSnapshot(get()));
+      if (past.length > HISTORY_LIMIT) past.shift();
+    }
+    future = [];
+    lastCoalesce = coalesceKey ? { key: coalesceKey, at: now } : null;
+    set({ ...cloneSnapshot(next), canUndo: past.length > 0, canRedo: false });
+  };
 
-  addLayer: (protocolId) => set((s) => ({ layers: [...s.layers, newLayer(protocolId)] })),
+  return {
+    layers: [newLayer('ethernet'), newLayer('ipv4'), newLayer('tcp')],
+    trailingPayload: new Uint8Array(0),
+    canUndo: false,
+    canRedo: false,
 
-  insertLayer: (protocolId, index) =>
-    set((s) => {
-      const layers = [...s.layers];
+    addLayer: (protocolId) =>
+      commit({ ...get(), layers: [...get().layers, newLayer(protocolId)] }),
+
+    insertLayer: (protocolId, index) => {
+      const layers = [...get().layers];
       layers.splice(index, 0, newLayer(protocolId));
-      return { layers };
-    }),
+      commit({ ...get(), layers });
+    },
 
-  removeLayer: (uid) => set((s) => ({ layers: s.layers.filter((l) => l.uid !== uid) })),
+    removeLayer: (uid) => {
+      if (!get().layers.some((layer) => layer.uid === uid)) return;
+      commit({ ...get(), layers: get().layers.filter((layer) => layer.uid !== uid) });
+    },
 
-  moveLayer: (fromIndex, toIndex) =>
-    set((s) => {
-      const layers = [...s.layers];
+    moveLayer: (fromIndex, toIndex) => {
+      if (fromIndex < 0 || fromIndex >= get().layers.length || toIndex < 0 || toIndex >= get().layers.length || fromIndex === toIndex) return;
+      const layers = [...get().layers];
       const [moved] = layers.splice(fromIndex, 1);
-      if (!moved) return s;
-      layers.splice(toIndex, 0, moved);
-      return { layers };
-    }),
+      layers.splice(toIndex, 0, moved!);
+      commit({ ...get(), layers });
+    },
 
-  setOverride: (uid, fieldId, value) =>
-    set((s) => ({
-      layers: updateLayer(s.layers, uid, (l) => ({
-        ...l,
-        overrides: { ...l.overrides, [fieldId]: value },
-      })),
-    })),
+    setOverride: (uid, fieldId, value) =>
+      commit(
+        {
+          ...get(),
+          layers: updateLayer(get().layers, uid, (layer) => ({
+            ...layer,
+            overrides: { ...layer.overrides, [fieldId]: cloneValue(value) },
+          })),
+        },
+        `field:${uid}:${fieldId}`,
+      ),
 
-  clearOverride: (uid, fieldId) =>
-    set((s) => ({
-      layers: updateLayer(s.layers, uid, (l) => {
-        const overrides = { ...l.overrides };
+    clearOverride: (uid, fieldId) => {
+      const layers = updateLayer(get().layers, uid, (layer) => {
+        const overrides = { ...layer.overrides };
         delete overrides[fieldId];
-        return { ...l, overrides, pinned: l.pinned.filter((p) => p !== fieldId) };
+        return { ...layer, overrides, pinned: layer.pinned.filter((item) => item !== fieldId) };
+      });
+      commit({ ...get(), layers });
+    },
+
+    pinField: (uid, fieldId, value) =>
+      commit({
+        ...get(),
+        layers: updateLayer(get().layers, uid, (layer) => ({
+          ...layer,
+          overrides: { ...layer.overrides, [fieldId]: cloneValue(value) },
+          pinned: layer.pinned.includes(fieldId) ? layer.pinned : [...layer.pinned, fieldId],
+        })),
       }),
-    })),
 
-  pinField: (uid, fieldId, value) =>
-    set((s) => ({
-      layers: updateLayer(s.layers, uid, (l) => ({
-        ...l,
-        overrides: { ...l.overrides, [fieldId]: value },
-        pinned: l.pinned.includes(fieldId) ? l.pinned : [...l.pinned, fieldId],
-      })),
-    })),
-
-  unpinField: (uid, fieldId) =>
-    set((s) => ({
-      layers: updateLayer(s.layers, uid, (l) => {
-        const overrides = { ...l.overrides };
+    unpinField: (uid, fieldId) => {
+      const layers = updateLayer(get().layers, uid, (layer) => {
+        const overrides = { ...layer.overrides };
         delete overrides[fieldId];
-        return { ...l, overrides, pinned: l.pinned.filter((p) => p !== fieldId) };
+        return { ...layer, overrides, pinned: layer.pinned.filter((item) => item !== fieldId) };
+      });
+      commit({ ...get(), layers });
+    },
+
+    setPayload: (bytes) =>
+      commit({ ...get(), trailingPayload: new Uint8Array(bytes) }, 'payload'),
+
+    setStack: (protocolIds, payload) =>
+      commit({
+        layers: protocolIds.map(newLayer),
+        trailingPayload: payload ?? new Uint8Array(0),
       }),
-    })),
 
-  setPayload: (bytes) => set({ trailingPayload: bytes }),
+    restoreStack: (layers, payload) =>
+      commit({
+        layers: layers.map((layer) => ({
+          ...newLayer(layer.protocolId),
+          overrides: Object.fromEntries(
+            Object.entries(layer.overrides).map(([key, value]) => [key, cloneValue(value)]),
+          ),
+          pinned: [...layer.pinned],
+        })),
+        trailingPayload: payload ?? new Uint8Array(0),
+      }),
 
-  setStack: (protocolIds, payload) =>
-    set({
-      layers: protocolIds.map(newLayer),
-      trailingPayload: payload ?? new Uint8Array(0),
-    }),
+    replaceLayers: (layers, payload) =>
+      commit({ layers, trailingPayload: payload ?? new Uint8Array(0) }),
 
-  restoreStack: (layers, payload) =>
-    set({
-      layers: layers.map((l) => ({
-        ...newLayer(l.protocolId),
-        overrides: { ...l.overrides },
-        pinned: [...l.pinned],
-      })),
-      trailingPayload: payload ?? new Uint8Array(0),
-    }),
+    clear: () => commit({ layers: [], trailingPayload: new Uint8Array(0) }),
 
-  replaceLayers: (layers, payload) =>
-    set({ layers, trailingPayload: payload ?? new Uint8Array(0) }),
+    undo: () => {
+      const previous = past.pop();
+      if (!previous) return;
+      future.push(cloneSnapshot(get()));
+      lastCoalesce = null;
+      set({ ...cloneSnapshot(previous), canUndo: past.length > 0, canRedo: true });
+    },
 
-  clear: () => set({ layers: [], trailingPayload: new Uint8Array(0) }),
-}));
+    redo: () => {
+      const next = future.pop();
+      if (!next) return;
+      past.push(cloneSnapshot(get()));
+      lastCoalesce = null;
+      set({ ...cloneSnapshot(next), canUndo: true, canRedo: future.length > 0 });
+    },
+
+    clearHistory: () => {
+      past = [];
+      future = [];
+      lastCoalesce = null;
+      set({ canUndo: false, canRedo: false });
+    },
+  };
+});
