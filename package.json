@@ -17,6 +17,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "npm run build && playwright test",
+    "test:tshark": "TSHARK=1 vitest run src/protocols/roundtrip.test.ts",
     "check:bundle-size": "node scripts/check-bundle-size.mjs",
     "lint": "eslint src"
   },

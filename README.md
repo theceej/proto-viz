@@ -73,6 +73,7 @@ npm run dev            # Development server
 npm test               # Run the Vitest unit suite
 npm run test:coverage  # Run the Vitest suite with V8 coverage
 npm run test:e2e       # Build and run Playwright browser/a11y tests
+npm run test:tshark    # Validate exported PCAPs (requires tshark)
 npm run build          # Static production build in dist/
 npx serve dist         # Serve the production build locally
 ```

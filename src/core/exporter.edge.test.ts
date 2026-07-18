@@ -12,6 +12,11 @@ describe('planExport edge cases', () => {
     expect(plan(['ipv6', 'udp'])).toMatchObject({ ok: true, linkType: LINKTYPE.RAW });
   });
 
+  it('802.3 and SNAP frames use the Ethernet link type', () => {
+    expect(plan(['ethernet-8023', 'stp'])).toMatchObject({ ok: true, linkType: LINKTYPE.ETHERNET });
+    expect(plan(['ethernet-snap', 'cdp'])).toMatchObject({ ok: true, linkType: LINKTYPE.ETHERNET });
+  });
+
   it('non-Ethernet link layers fall back to USER0 with a wrap offer', () => {
     const p = plan(['pppoe', 'ipv4', 'udp']);
     expect(p.ok).toBe(true);

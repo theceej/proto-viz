@@ -19,7 +19,7 @@ export function planExport(stack: StackInstance, registry: Registry): ExportPlan
   const def = registry.get(first.protocolId);
   if (!def) return { ok: false, blockedReason: `Unknown protocol "${first.protocolId}".` };
 
-  if (def.id === 'ethernet') {
+  if (def.id === 'ethernet' || def.id === 'ethernet-8023' || def.id === 'ethernet-snap') {
     return { ok: true, linkType: LINKTYPE.ETHERNET, linkTypeName: 'LINKTYPE_ETHERNET (1)' };
   }
 
