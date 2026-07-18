@@ -238,7 +238,7 @@ function ProtocolTile({
           {def.fullName ?? def.description ?? ''}
         </p>
         {def.references?.[0] && (
-          <span className="mt-1 block font-mono text-[10px] text-zinc-600">
+          <span className="mt-1.5 inline-block rounded border border-zinc-700/60 bg-zinc-800/50 px-1.5 py-0.5 font-mono text-[10px] text-zinc-400">
             {def.references[0]}
           </span>
         )}
