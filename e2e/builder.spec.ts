@@ -47,6 +47,12 @@ test('adds a structured TCP MSS option and updates Data Offset', async ({ page }
   await expect(page.getByLabel(/Byte offset 46 .*value 0x60/)).toBeVisible();
 });
 
+test('adds a structured IPv4 Router Alert option and updates IHL', async ({ page }) => {
+  await loadTcpPreset(page);
+  await page.getByRole('checkbox', { name: 'Router Alert' }).check();
+  await expect(page.getByLabel(/Byte offset 14 .*value 0x46/)).toBeVisible();
+});
+
 test('round-trips a stack through its share code', async ({ page, context }) => {
   await loadTcpPreset(page);
   await page.getByRole('button', { name: 'Share', exact: true }).click();
