@@ -6,6 +6,10 @@ const DB_NAME = 'proto-viz';
 const PROTOCOLS = 'customProtocols';
 const STACKS = 'savedStacks';
 
+export type LoadResult<T> =
+  | { ok: true; data: T[] }
+  | { ok: false; errorName: string };
+
 /** A stack snapshot as stored. Layer uids are regenerated on load. */
 export interface SavedStack {
   id: string;
@@ -36,12 +40,16 @@ async function persistHint(): Promise<void> {
   }
 }
 
-export async function loadCustomProtocols(): Promise<ProtocolDefinition[]> {
+export async function readPersisted<T>(read: () => Promise<T[]>): Promise<LoadResult<T>> {
   try {
-    return (await (await db()).getAll(PROTOCOLS)) as ProtocolDefinition[];
-  } catch {
-    return [];
+    return { ok: true, data: await read() };
+  } catch (error) {
+    return { ok: false, errorName: error instanceof Error ? error.name : 'UnknownError' };
   }
+}
+
+export function loadCustomProtocols(): Promise<LoadResult<ProtocolDefinition>> {
+  return readPersisted(async () => (await (await db()).getAll(PROTOCOLS)) as ProtocolDefinition[]);
 }
 
 export async function saveCustomProtocol(def: ProtocolDefinition): Promise<void> {
@@ -53,13 +61,11 @@ export async function deleteCustomProtocol(id: string): Promise<void> {
   await (await db()).delete(PROTOCOLS, id);
 }
 
-export async function loadSavedStacks(): Promise<SavedStack[]> {
-  try {
+export function loadSavedStacks(): Promise<LoadResult<SavedStack>> {
+  return readPersisted(async () => {
     const all = (await (await db()).getAll(STACKS)) as SavedStack[];
     return all.sort((a, b) => b.savedAt - a.savedAt);
-  } catch {
-    return [];
-  }
+  });
 }
 
 export async function saveStack(stack: SavedStack): Promise<void> {

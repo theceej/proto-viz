@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { HashRouter, NavLink, Navigate, Route, Routes } from 'react-router-dom';
 import {
   Boxes,
@@ -35,12 +35,16 @@ export default function App() {
   const [theme, setTheme] = useState<Theme>(
     () => (localStorage.getItem('pv-theme') as Theme | null) ?? 'dark',
   );
+  const [persistenceError, setPersistenceError] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadCustomProtocols().then((defs) => {
-      if (defs.length > 0) setCustom(defs);
+  const loadProtocols = useCallback(() => {
+    void loadCustomProtocols().then((result) => {
+      if (result.ok) setCustom(result.data);
+      else setPersistenceError(result.errorName);
     });
   }, [setCustom]);
+
+  useEffect(loadProtocols, [loadProtocols]);
 
   useEffect(() => {
     document.documentElement.classList.toggle('light', theme === 'light');
@@ -56,6 +60,13 @@ export default function App() {
         Skip to content
       </a>
       <div className="flex h-screen">
+        {persistenceError && (
+          <div role="alert" className="fixed top-3 right-3 z-50 max-w-sm rounded-lg border border-amber-700 bg-zinc-900 p-3 text-[12px] text-amber-200 shadow-xl">
+            <p className="font-medium">Custom protocols could not be read.</p>
+            <p className="mt-1 text-zinc-400">Existing browser data has not been changed. IndexedDB reported {persistenceError}.</p>
+            <button className="mt-2 cursor-pointer rounded border border-amber-700 px-2 py-1 hover:bg-amber-500/10" onClick={() => { setPersistenceError(null); loadProtocols(); }}>Retry</button>
+          </div>
+        )}
         <aside
           className={`flex shrink-0 flex-col border-r border-zinc-800 bg-zinc-900/60 transition-[width] duration-150 ${
             collapsed ? 'w-14' : 'w-56'

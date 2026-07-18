@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Bookmark, FolderOpen, Trash2 } from 'lucide-react';
 import { useEscape } from '../a11y';
 import type { StackInstance } from '../../core/model';
@@ -24,10 +24,21 @@ export default function SavedStacks({
   const [name, setName] = useState('');
   const [open, setOpen] = useState(false);
   const [saved, setSaved] = useState<SavedStack[]>([]);
+  const [loadState, setLoadState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const [loadError, setLoadError] = useState('');
 
-  useEffect(() => {
-    if (open) void loadSavedStacks().then(setSaved);
-  }, [open]);
+  const load = () => {
+    setLoadState('loading');
+    void loadSavedStacks().then((result) => {
+      if (result.ok) {
+        setSaved(result.data);
+        setLoadState('ready');
+      } else {
+        setLoadError(result.errorName);
+        setLoadState('error');
+      }
+    });
+  };
   useEscape(saving, () => setSaving(false));
   useEscape(open, () => setOpen(false));
 
@@ -104,7 +115,13 @@ export default function SavedStacks({
           title="Load a saved stack"
           aria-expanded={open}
           aria-haspopup="menu"
-          onClick={() => setOpen((o) => !o)}
+          onClick={() => {
+            if (open) setOpen(false);
+            else {
+              setOpen(true);
+              load();
+            }
+          }}
         >
           <FolderOpen className="size-3.5" />
           Saved
@@ -113,12 +130,19 @@ export default function SavedStacks({
           <>
             <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
             <div className="absolute top-full left-0 z-20 mt-1 max-h-96 w-80 overflow-auto rounded-lg border border-zinc-700 bg-zinc-900 py-1 shadow-xl shadow-black/50">
-              {saved.length === 0 && (
+              {loadState === 'loading' && <p className="px-3 py-2 text-[12px] text-zinc-500">Reading saved stacks…</p>}
+              {loadState === 'error' && (
+                <div role="alert" className="px-3 py-2 text-[12px] text-amber-300">
+                  <p>Saved stacks could not be read ({loadError}). Existing data has not been changed.</p>
+                  <button className="mt-2 cursor-pointer rounded border border-amber-700 px-2 py-1" onClick={load}>Retry</button>
+                </div>
+              )}
+              {loadState === 'ready' && saved.length === 0 && (
                 <p className="px-3 py-2 text-[12px] text-zinc-500">
                   No saved stacks yet — build one and hit Save.
                 </p>
               )}
-              {saved.map((s) => (
+              {loadState === 'ready' && saved.map((s) => (
                 <div
                   key={s.id}
                   className="group flex items-center gap-2 px-3 py-1.5 hover:bg-zinc-800"
