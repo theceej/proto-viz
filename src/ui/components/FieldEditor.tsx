@@ -13,6 +13,7 @@ import {
 } from '../../core/values';
 import { useStackStore } from '../../store/stackStore';
 import { isActive, useHighlightStore } from '../../store/highlightStore';
+import ProtocolInfoLink from './ProtocolInfoLink';
 import { layerColor } from '../colors';
 import { bitsLabel, formatFieldValue } from '../format';
 
@@ -68,6 +69,7 @@ function LayerSection({
         style={{ borderLeft: `3px solid ${color.accent}` }}
       >
         <span className="text-[13px] font-semibold text-zinc-100">{def.name}</span>
+        <ProtocolInfoLink protocolId={def.id} name={def.name} />
         <span className="ml-auto font-mono text-[11px] text-zinc-500">
           {spansById.size > 0 && packet
             ? bitsLabel(
