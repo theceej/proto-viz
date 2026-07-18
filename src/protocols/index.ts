@@ -53,6 +53,7 @@ import { modbus } from './modbus';
 import { smb2 } from './smb2';
 import { ftp, imap, irc, pop3, rtsp, sip, smtp, ssdp, syslog, telnet } from './textprotocols';
 import { cdp, ethernetSnap, nbns, pim, ripv1 } from './legacy';
+import { ipv6DestOptions, ipv6Fragment, ipv6HopByHop, ipv6Routing } from './ipv6ext';
 
 export const builtinProtocols: ProtocolDefinition[] = [
   ethernet,
@@ -122,6 +123,10 @@ export const builtinProtocols: ProtocolDefinition[] = [
   nbns,
   ethernetSnap,
   cdp,
+  ipv6HopByHop,
+  ipv6Routing,
+  ipv6Fragment,
+  ipv6DestOptions,
 ];
 
 export { enumTables };

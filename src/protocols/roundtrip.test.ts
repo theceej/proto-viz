@@ -33,6 +33,10 @@ const TSHARK_PROTOCOL_NAMES: Record<string, string> = {
   pop3: 'pop',
   ripv1: 'rip',
   'ethernet-snap': 'cdp',
+  'ipv6-hopopts': 'ipv6.hopopts',
+  'ipv6-routing': 'ipv6.routing',
+  'ipv6-frag': 'ipv6.fraghdr',
+  'ipv6-dstopts': 'ipv6.dstopts',
 };
 
 /** A legal carrier stack exercising every builtin protocol. */
@@ -104,6 +108,10 @@ const STACKS: Record<string, string[]> = {
   nbns: ['ethernet', 'ipv4', 'udp', 'nbns'],
   'ethernet-snap': ['ethernet-snap'],
   cdp: ['ethernet-snap', 'cdp'],
+  'ipv6-hopopts': ['ethernet', 'ipv6', 'ipv6-hopopts', 'udp'],
+  'ipv6-routing': ['ethernet', 'ipv6', 'ipv6-routing', 'tcp'],
+  'ipv6-frag': ['ethernet', 'ipv6', 'ipv6-frag', 'udp'],
+  'ipv6-dstopts': ['ethernet', 'ipv6', 'ipv6-dstopts', 'tcp'],
 };
 
 describe('every builtin protocol', () => {
@@ -444,6 +452,52 @@ describe('protocol-specific spot checks', () => {
       sum += (bytes[ipStart + off]! << 8) | bytes[ipStart + off + 1]!;
     }
     sum += 6 + segment;
+    for (let i = tcpStart; i < bytes.length; i += 2) {
+      sum += (bytes[i]! << 8) | (bytes[i + 1] ?? 0);
+    }
+    while (sum > 0xffff) sum = (sum & 0xffff) + (sum >> 16);
+    expect(sum).toBe(0xffff);
+  });
+
+  it('IPv6 extension-header chain auto-sets each Next Header', () => {
+    const stack: StackInstance = {
+      layers: ['ethernet', 'ipv6', 'ipv6-hopopts', 'ipv6-frag', 'tcp'].map(newLayer),
+    };
+    const errors = validateStack(stack, registry).filter((i) => i.severity === 'error');
+    expect(errors).toEqual([]);
+    const { bytes, layers } = serializeStack(stack, registry);
+    expect(bytes[layers[1]!.byteOffset + 6]).toBe(0); // IPv6 Next Header → Hop-by-Hop
+    expect(bytes[layers[2]!.byteOffset]).toBe(44); // Hop-by-Hop Next Header → Fragment
+    expect(bytes[layers[3]!.byteOffset]).toBe(6); // Fragment Next Header → TCP
+  });
+
+  it('Hop-by-Hop Hdr Ext Len is in 8-octet units minus the first 8', () => {
+    const stack: StackInstance = {
+      layers: ['ethernet', 'ipv6', 'ipv6-hopopts', 'udp'].map(newLayer),
+    };
+    const { bytes, layers } = serializeStack(stack, registry);
+    const hopBytes = layers[2]!.headerBytes;
+    expect(hopBytes % 8).toBe(0); // header is a whole number of 8-octet units
+    expect(bytes[layers[2]!.byteOffset + 1]).toBe(hopBytes / 8 - 1);
+  });
+
+  it('TCP checksum under an extension-header chain uses Next Header 6', () => {
+    const stack: StackInstance = {
+      layers: ['ethernet', 'ipv6', 'ipv6-hopopts', 'ipv6-routing', 'tcp'].map(newLayer),
+    };
+    const { bytes, layers } = serializeStack(stack, registry);
+    const ipStart = layers[1]!.byteOffset;
+    const tcpStart = layers[4]!.byteOffset;
+    const segment = bytes.length - tcpStart;
+    // ones-complement over the IPv6 pseudo-header (src, dst, upper-layer
+    // length, zeros, Next Header 6) + the TCP segment. The Next Header must
+    // be the transport's own value, not the 0/43 named by the chain.
+    let sum = 0;
+    for (let off = 8; off < 40; off += 2) {
+      sum += (bytes[ipStart + off]! << 8) | bytes[ipStart + off + 1]!;
+    }
+    sum += (segment >>> 16) + (segment & 0xffff);
+    sum += 6;
     for (let i = tcpStart; i < bytes.length; i += 2) {
       sum += (bytes[i]! << 8) | (bytes[i + 1] ?? 0);
     }
