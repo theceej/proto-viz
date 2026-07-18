@@ -17,6 +17,11 @@ npm run build    # tsc + production build
 npx eslint .     # lint — must be clean
 ```
 
+Prefer containers? The repo ships a [dev container](.devcontainer/devcontainer.json)
+(Node 22, same as CI): open the folder in VS Code and choose *Reopen in
+Container*, or use GitHub Codespaces — dependencies install automatically and
+the vite dev/preview ports are forwarded.
+
 Everything is TypeScript under `strict` (including `noUncheckedIndexedAccess`).
 Protocol logic lives in pure modules with no DOM dependencies (`src/core`,
 `src/protocols`, `src/import`); the React UI consumes them. See the

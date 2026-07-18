@@ -1,0 +1,30 @@
+// Dev container for proto-viz: Node 22 (matches CI), no services needed —
+// the app is fully client-side and the test suite runs under Node.
+{
+  "name": "proto-viz",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:22",
+
+  // A clean, reproducible install every time the container is created. This
+  // also sidesteps a known npm bug where rolldown's native binding (an
+  // optional dependency of vite 8) goes missing after incremental installs.
+  "postCreateCommand": "npm ci",
+
+  "forwardPorts": [5173, 4173],
+  "portsAttributes": {
+    "5173": { "label": "vite dev server" },
+    "4173": { "label": "vite preview (production build)" }
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "bradlc.vscode-tailwindcss",
+        "vitest.explorer"
+      ],
+      "settings": {
+        "typescript.tsdk": "node_modules/typescript/lib"
+      }
+    }
+  }
+}
