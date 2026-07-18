@@ -23,7 +23,7 @@ import { exportLibraryJson, importLibraryJson } from '../../store/libraryJson';
 import BitGrid from '../components/BitGrid';
 import OsiModel from '../components/OsiModel';
 import { layerColor } from '../colors';
-import { rfcUrl } from '../refs';
+import { specUrl } from '../refs';
 import { usePersistedFlag } from '../usePersistedFlag';
 import { bitsLabel } from '../format';
 
@@ -292,7 +292,7 @@ function DetailPanel({ def, onClose }: { def: ProtocolDefinition; onClose: () =>
           <p className="text-[12px] text-zinc-500">
             {def.fullName}
             {def.references?.map((ref, i) => {
-              const url = rfcUrl(ref);
+              const url = specUrl(ref);
               return (
                 <span key={ref}>
                   {i === 0 ? ' · ' : ', '}

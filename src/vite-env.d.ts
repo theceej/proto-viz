@@ -1,8 +1,11 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
-  /** Base URL for RFC links (set at build time to use a different mirror). */
+  /** Spec-link base URLs, overridable at build time to use different mirrors. */
   readonly VITE_RFC_BASE_URL?: string;
+  readonly VITE_3GPP_BASE_URL?: string;
+  readonly VITE_MS_SPECS_BASE_URL?: string;
+  readonly VITE_IEEE_BASE_URL?: string;
 }
 
 declare module '*.css';

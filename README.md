@@ -72,13 +72,28 @@ npm run build          # static production build in dist/
 npx serve dist         # serve the production build locally
 ```
 
-RFC references link to `https://www.rfc-editor.org/rfc` by default. To use
-a different mirror, set the base URL at build time — both of these serve
-documents at `<base>/rfc<number>`:
+Spec references in the library link to their published source. Each family
+has a base URL that can be pointed at a mirror at build time:
+
+| Reference | Env var | Default |
+| --- | --- | --- |
+| RFC | `VITE_RFC_BASE_URL` | `https://www.rfc-editor.org/rfc` (deep link `/rfc<n>`) |
+| 3GPP TS | `VITE_3GPP_BASE_URL` | `https://www.3gpp.org/DynaReport` (deep link `/<series><n>.htm`) |
+| Microsoft (MS-*) | `VITE_MS_SPECS_BASE_URL` | `https://learn.microsoft.com/openspecs/windows_protocols` |
+| IEEE | `VITE_IEEE_BASE_URL` | `https://standards.ieee.org` (standards search) |
 
 ```bash
-VITE_RFC_BASE_URL=https://datatracker.ietf.org/doc/html npm run build
+# examples — use the IETF datatracker for RFCs and an IEEE mirror
+VITE_RFC_BASE_URL=https://datatracker.ietf.org/doc/html \
+VITE_IEEE_BASE_URL=https://standards.example.edu/ieee \
+  npm run build
 ```
+
+IEEE has no stable per-designation document URL (the real URLs use internal
+ids), so an IEEE reference resolves to a search on that base rather than a
+direct link. A few one-off references (WireGuard whitepaper, MQTT/OASIS)
+link to their single canonical source; others without a public spec URL
+(Cisco, Modbus, UPnP) stay as plain text.
 
 The build is fully static — host `dist/` on GitHub Pages (a deploy workflow
 is included) or any static file server. Routing uses URL hashes, so no

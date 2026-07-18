@@ -1,13 +1,42 @@
 import { describe, expect, it } from 'vitest';
-import { rfcUrl } from './refs';
+import { specUrl } from './refs';
 
-describe('rfcUrl', () => {
-  it('links RFC references and passes everything else through as null', () => {
-    expect(rfcUrl('RFC 768')).toBe('https://www.rfc-editor.org/rfc/rfc768');
-    expect(rfcUrl('RFC 9293')).toBe('https://www.rfc-editor.org/rfc/rfc9293');
-    expect(rfcUrl('IEEE 802.3')).toBeNull();
-    expect(rfcUrl('MS-SMB2')).toBeNull();
-    expect(rfcUrl('3GPP TS 29.281')).toBeNull();
-    expect(rfcUrl('Cisco CDP')).toBeNull();
+describe('specUrl', () => {
+  it('links RFCs', () => {
+    expect(specUrl('RFC 768')).toBe('https://www.rfc-editor.org/rfc/rfc768');
+    expect(specUrl('RFC 9293')).toBe('https://www.rfc-editor.org/rfc/rfc9293');
+  });
+
+  it('links 3GPP TS specs by series+number', () => {
+    expect(specUrl('3GPP TS 29.281')).toBe('https://www.3gpp.org/DynaReport/29281.htm');
+  });
+
+  it('links Microsoft Open Specifications by lowercased id', () => {
+    expect(specUrl('MS-SMB2')).toBe(
+      'https://learn.microsoft.com/openspecs/windows_protocols/ms-smb2/',
+    );
+  });
+
+  it('links IEEE designations to the standards search', () => {
+    expect(specUrl('IEEE 802.3')).toBe(
+      'https://standards.ieee.org/search/?q=IEEE%20802.3',
+    );
+    expect(specUrl('IEEE 802.1AB')).toBe(
+      'https://standards.ieee.org/search/?q=IEEE%20802.1AB',
+    );
+  });
+
+  it('links known one-off references to their canonical source', () => {
+    expect(specUrl('WireGuard whitepaper (Donenfeld)')).toBe(
+      'https://www.wireguard.com/papers/wireguard.pdf',
+    );
+    expect(specUrl('MQTT 3.1.1 (OASIS)')).toContain('docs.oasis-open.org');
+  });
+
+  it('returns null for references with no known linkable source', () => {
+    expect(specUrl('Cisco CDP')).toBeNull();
+    expect(specUrl('Cisco NetFlow v5')).toBeNull();
+    expect(specUrl('Modbus Application Protocol V1.1b3')).toBeNull();
+    expect(specUrl('UPnP Device Architecture 2.0')).toBeNull();
   });
 });
