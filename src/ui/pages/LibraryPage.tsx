@@ -1,10 +1,12 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowDownToLine,
   ArrowUpFromLine,
+  Check,
   Download,
   Layers3,
+  Plus,
   Search,
   Trash2,
   Upload,
@@ -15,6 +17,7 @@ import { serializeStack } from '../../core/serialize';
 import { carriersOf } from '../../core/bindings';
 import { newLayer } from '../../core/model';
 import { useLibraryStore } from '../../store/libraryStore';
+import { useStackStore } from '../../store/stackStore';
 import { deleteCustomProtocol, saveCustomProtocol } from '../../store/persistence';
 import { exportLibraryJson, importLibraryJson } from '../../store/libraryJson';
 import BitGrid from '../components/BitGrid';
@@ -39,6 +42,7 @@ export default function LibraryPage() {
   const addCustom = useLibraryStore((s) => s.addCustom);
   const [query, setQuery] = useState('');
   const [osiOpen, setOsiOpen] = usePersistedFlag('pv-osi-panel', false);
+  const addLayer = useStackStore((s) => s.addLayer);
   const { protocolId } = useParams();
   const navigate = useNavigate();
 
@@ -161,30 +165,13 @@ export default function LibraryPage() {
               </h2>
               <div className="grid grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] gap-3">
                 {g.protocols.map((p) => (
-                  <button
+                  <ProtocolTile
                     key={p.id}
-                    className={`cursor-pointer rounded-lg border p-3 text-left transition-colors ${
-                      selected?.id === p.id
-                        ? 'border-cyan-600 bg-cyan-500/5'
-                        : 'border-zinc-800 bg-zinc-900/40 hover:border-zinc-600'
-                    }`}
-                    onClick={() => navigate(`/library/${p.id}`)}
-                  >
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-[14px] font-semibold text-zinc-100">{p.name}</span>
-                      {p.source === 'custom' && (
-                        <span className="rounded bg-violet-500/20 px-1.5 text-[10px] text-violet-300">
-                          custom
-                        </span>
-                      )}
-                      <span className="ml-auto font-mono text-[10px] text-zinc-600">
-                        {p.references?.[0] ?? ''}
-                      </span>
-                    </div>
-                    <p className="mt-1 line-clamp-2 text-[12px] leading-snug text-zinc-500">
-                      {p.fullName ?? p.description ?? ''}
-                    </p>
-                  </button>
+                    def={p}
+                    selected={selected?.id === p.id}
+                    onOpen={() => navigate(`/library/${p.id}`)}
+                    onAdd={() => addLayer(p.id)}
+                  />
                 ))}
               </div>
             </section>
@@ -195,6 +182,82 @@ export default function LibraryPage() {
         </div>
       </div>
       {selected && <DetailPanel def={selected} onClose={() => navigate('/library')} />}
+    </div>
+  );
+}
+
+/**
+ * Flash "added" feedback for ~1.2s after an add-to-stack action, then revert.
+ * Cleans its timer up on unmount and on repeated clicks.
+ */
+function useAddedFeedback(): [boolean, () => void] {
+  const [added, setAdded] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+  const flash = () => {
+    setAdded(true);
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => setAdded(false), 1200);
+  };
+  return [added, flash];
+}
+
+function ProtocolTile({
+  def,
+  selected,
+  onOpen,
+  onAdd,
+}: {
+  def: ProtocolDefinition;
+  selected: boolean;
+  onOpen: () => void;
+  onAdd: () => void;
+}) {
+  const [added, flash] = useAddedFeedback();
+  return (
+    <div
+      className={`group relative flex rounded-lg border transition-colors ${
+        selected
+          ? 'border-cyan-600 bg-cyan-500/5'
+          : 'border-zinc-800 bg-zinc-900/40 hover:border-zinc-600'
+      }`}
+    >
+      <button
+        className="min-w-0 flex-1 cursor-pointer p-3 pr-10 text-left"
+        onClick={onOpen}
+      >
+        <div className="flex items-baseline gap-2">
+          <span className="truncate text-[14px] font-semibold text-zinc-100">{def.name}</span>
+          {def.source === 'custom' && (
+            <span className="rounded bg-violet-500/20 px-1.5 text-[10px] text-violet-300">
+              custom
+            </span>
+          )}
+        </div>
+        <p className="mt-1 line-clamp-2 text-[12px] leading-snug text-zinc-500">
+          {def.fullName ?? def.description ?? ''}
+        </p>
+        {def.references?.[0] && (
+          <span className="mt-1 block font-mono text-[10px] text-zinc-600">
+            {def.references[0]}
+          </span>
+        )}
+      </button>
+      <button
+        className={`absolute top-2 right-2 grid size-6 cursor-pointer place-items-center rounded-md border transition-colors ${
+          added
+            ? 'border-emerald-600 text-emerald-400'
+            : 'border-zinc-700 text-zinc-400 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:border-cyan-600 hover:text-cyan-300'
+        }`}
+        title={`Add ${def.name} to the stack`}
+        aria-label={added ? `${def.name} added to stack` : `Add ${def.name} to the stack`}
+        onClick={() => {
+          onAdd();
+          flash();
+        }}
+      >
+        {added ? <Check className="size-3.5" aria-hidden /> : <Plus className="size-3.5" aria-hidden />}
+      </button>
     </div>
   );
 }
@@ -276,6 +339,8 @@ function DetailPanel({ def, onClose }: { def: ProtocolDefinition; onClose: () =>
         </div>
       </header>
       <div className="flex flex-col gap-5 p-5">
+        <AddToStackButton def={def} />
+
         {def.description && (
           <p className="text-[13px] leading-relaxed text-zinc-400">{def.description}</p>
         )}
@@ -327,6 +392,35 @@ function DetailPanel({ def, onClose }: { def: ProtocolDefinition; onClose: () =>
         </div>
       </div>
     </aside>
+  );
+}
+
+function AddToStackButton({ def }: { def: ProtocolDefinition }) {
+  const addLayer = useStackStore((s) => s.addLayer);
+  const [added, flash] = useAddedFeedback();
+  return (
+    <button
+      className={`flex cursor-pointer items-center justify-center gap-1.5 rounded-md px-3 py-2 text-[13px] font-medium transition-colors ${
+        added
+          ? 'bg-emerald-600/20 text-emerald-300'
+          : 'bg-cyan-700 text-white hover:bg-cyan-600'
+      }`}
+      aria-label={added ? `${def.name} added to stack` : `Add ${def.name} to the stack`}
+      onClick={() => {
+        addLayer(def.id);
+        flash();
+      }}
+    >
+      {added ? (
+        <>
+          <Check className="size-4" aria-hidden /> Added to stack
+        </>
+      ) : (
+        <>
+          <Plus className="size-4" aria-hidden /> Add to stack
+        </>
+      )}
+    </button>
   );
 }
 
