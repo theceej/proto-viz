@@ -117,7 +117,7 @@ export const tcp: ProtocolDefinition = {
       bitLength: 'auto',
       decodeBitLength: { expr: E.mul(E.sub(E.field('dataOffset'), E.const(5)), E.const(4)), unit: 'bytes' },
       default: new Uint8Array(0),
-      description: 'TCP options; must pad to a multiple of 4 bytes.',
+      description: 'TCP options. Common SYN options have a structured editor and are padded automatically to a 32-bit boundary; unknown options remain editable as raw hex.',
     },
   ],
   providesNamespaces: [
