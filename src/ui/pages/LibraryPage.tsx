@@ -4,6 +4,7 @@ import {
   ArrowDownToLine,
   ArrowUpFromLine,
   Download,
+  Layers3,
   Search,
   Trash2,
   Upload,
@@ -17,8 +18,10 @@ import { useLibraryStore } from '../../store/libraryStore';
 import { deleteCustomProtocol, saveCustomProtocol } from '../../store/persistence';
 import { exportLibraryJson, importLibraryJson } from '../../store/libraryJson';
 import BitGrid from '../components/BitGrid';
+import OsiModel from '../components/OsiModel';
 import { layerColor } from '../colors';
 import { rfcUrl } from '../refs';
+import { usePersistedFlag } from '../usePersistedFlag';
 import { bitsLabel } from '../format';
 
 const LAYER_ORDER: LayerHint[] = ['link', 'network', 'transport', 'application', 'tunnel'];
@@ -35,8 +38,19 @@ export default function LibraryPage() {
   const custom = useLibraryStore((s) => s.custom);
   const addCustom = useLibraryStore((s) => s.addCustom);
   const [query, setQuery] = useState('');
+  const [osiOpen, setOsiOpen] = usePersistedFlag('pv-osi-panel', false);
   const { protocolId } = useParams();
   const navigate = useNavigate();
+
+  const jumpToGroup = (layer: LayerHint) => {
+    setQuery('');
+    // After a possible query reset the section may not exist yet — defer.
+    requestAnimationFrame(() => {
+      document
+        .getElementById(`layer-${layer}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  };
 
   const exportLibrary = () => {
     const url = URL.createObjectURL(
@@ -86,6 +100,19 @@ export default function LibraryPage() {
           <h1 className="text-[15px] font-semibold tracking-tight text-zinc-100">
             Protocol Library
           </h1>
+          <button
+            className={`flex cursor-pointer items-center gap-1 rounded-md border px-2 py-1 text-[12px] transition-colors ${
+              osiOpen
+                ? 'border-cyan-700 bg-cyan-500/10 text-cyan-300'
+                : 'border-zinc-700 text-zinc-300 hover:border-zinc-500'
+            }`}
+            aria-pressed={osiOpen}
+            title="Show how the library maps onto the OSI reference model"
+            onClick={() => setOsiOpen(!osiOpen)}
+          >
+            <Layers3 className="size-3.5" />
+            OSI model
+          </button>
           <div className="ml-auto flex items-center gap-2">
             {custom.length > 0 && (
               <button
@@ -125,9 +152,10 @@ export default function LibraryPage() {
             </div>
           </div>
         </header>
+        {osiOpen && <OsiModel registry={registry} onJump={jumpToGroup} />}
         <div className="flex flex-col gap-6 p-6">
           {groups.map((g) => (
-            <section key={g.layer}>
+            <section key={g.layer} id={`layer-${g.layer}`} className="scroll-mt-14">
               <h2 className="mb-2 text-[11px] font-semibold tracking-widest text-zinc-500 uppercase">
                 {LAYER_LABEL[g.layer]}
               </h2>
