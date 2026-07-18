@@ -1,0 +1,29 @@
+// Opt-in configuration for Podman Machine on macOS. The VM's bind-mount
+// ownership prevents the base image's `node` user from writing the workspace,
+// so this variant runs development commands as root inside the container.
+{
+  "name": "proto-viz (Podman)",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:22",
+  "remoteUser": "root",
+
+  "postCreateCommand": "npm ci",
+
+  "forwardPorts": [5173, 4173],
+  "portsAttributes": {
+    "5173": { "label": "vite dev server" },
+    "4173": { "label": "vite preview (production build)" }
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "bradlc.vscode-tailwindcss",
+        "vitest.explorer"
+      ],
+      "settings": {
+        "typescript.tsdk": "node_modules/typescript/lib"
+      }
+    }
+  }
+}

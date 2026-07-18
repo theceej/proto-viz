@@ -22,6 +22,19 @@ Prefer containers? The repo ships a [dev container](.devcontainer/devcontainer.j
 Container*, or use GitHub Codespaces — dependencies install automatically and
 the vite dev/preview ports are forwarded.
 
+On macOS with Podman Machine, use the opt-in configuration that runs as root
+inside the container to accommodate bind-mount ownership:
+
+```bash
+npm install -g @devcontainers/cli
+devcontainer up --workspace-folder . \
+  --config .devcontainer/podman/devcontainer.json --docker-path podman
+devcontainer exec --workspace-folder . \
+  --config .devcontainer/podman/devcontainer.json --docker-path podman bash
+```
+
+This does not change the default Docker, VS Code, or Codespaces configuration.
+
 Everything is TypeScript under `strict` (including `noUncheckedIndexedAccess`).
 Protocol logic lives in pure modules with no DOM dependencies (`src/core`,
 `src/protocols`, `src/import`); the React UI consumes them. See the
