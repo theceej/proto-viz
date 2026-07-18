@@ -38,7 +38,7 @@ for (const theme of themes) {
     }, theme);
     await page.goto('/#/builder');
 
-    for (const name of ['Share', 'Decode', 'Export PCAP']) {
+    for (const name of ['Share', 'Decode', 'Diagram', 'Export PCAP']) {
       await page.getByRole('button', { name, exact: true }).click();
       const dialog = page.getByRole('dialog');
       await expect(dialog).toBeVisible();
