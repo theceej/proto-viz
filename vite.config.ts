@@ -54,6 +54,26 @@ export default defineConfig(({ command }) => ({
       include: ['src/core/**', 'src/protocols/**', 'src/import/**', 'src/store/**', 'src/ui/format.ts'],
       exclude: ['src/**/*.test.ts', 'src/store/persistence.ts'],
       reporter: ['text-summary', 'text'],
+      thresholds: {
+        'src/core/**.ts': {
+          statements: 90,
+          branches: 80,
+          functions: 95,
+          lines: 94,
+        },
+        'src/protocols/**.ts': {
+          statements: 99,
+          branches: 99,
+          functions: 99,
+          lines: 99,
+        },
+        'src/import/**.ts': {
+          statements: 90,
+          branches: 79,
+          functions: 99,
+          lines: 92,
+        },
+      },
     },
   },
 }));
