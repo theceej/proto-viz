@@ -154,15 +154,14 @@ reorder via their drag handle (Space to lift, arrows to move), dialogs
 trap and restore focus and close on Escape, and validation results are
 announced via a polite live region.
 
-Two places rely on WCAG 2.5.8's essential/equivalent-control provisions,
-and axe-core flags both mechanically because it can't see the equivalent:
+One place relies on WCAG 2.5.8's essential/equivalent-control provision,
+and axe-core flags it mechanically because it can't see the equivalent:
 
-- The hex view's per-byte hover is pointer-only.
 - A packet diagram is bit-proportional by definition, so the narrowest
   fields (e.g. a 2-bit ECN or a 1-bit flag) render below the 24px target
   minimum and can't be widened without misaligning every column.
 
-In both cases the same field is reachable through a full-size control:
+The same field is reachable through a full-size control:
 the field editor lists every field with a highlight toggle that meets the
 target size, so no function depends on a sub-minimum or pointer-only target.
 Aside from those documented target-size items, both themes pass axe-core's
