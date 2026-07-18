@@ -8,6 +8,7 @@ import { ipv4 } from './ipv4';
 import { ipv6 } from './ipv6';
 import { icmp } from './icmp';
 import { icmpv6 } from './icmpv6';
+import { icmpv6Ndp } from './icmpv6Ndp';
 import { igmp } from './igmp';
 import { tcp } from './tcp';
 import { udp } from './udp';
@@ -61,6 +62,7 @@ export const builtinProtocols: ProtocolDefinition[] = [
   ipv6,
   icmp,
   icmpv6,
+  icmpv6Ndp,
   igmp,
   tcp,
   udp,
