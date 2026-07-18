@@ -17,6 +17,7 @@ import ProtocolInfoLink from './ProtocolInfoLink';
 import { layerColor } from '../colors';
 import { bitsLabel, formatFieldValue } from '../format';
 import { decodeTcpOptions, encodeTcpOptions, type TcpOptions } from '../../core/tcpOptions';
+import { decodeIpv4Options, encodeIpv4Options, type Ipv4Options } from '../../core/ipv4Options';
 
 /** Editable field tree for every layer in the stack, plus the trailing payload. */
 export default function FieldEditor({
@@ -82,7 +83,7 @@ function LayerSection({
       <div className="divide-y divide-zinc-800/60">
         {def.fields.map((field) => {
           const span = spansById.get(field.id);
-          if (!span && packet && !(layer.protocolId === 'tcp' && field.id === 'options'))
+          if (!span && packet && !(['tcp', 'ipv4'].includes(layer.protocolId) && field.id === 'options'))
             return null; // presentIf-hidden or zero-length (TCP options remain addable)
           return (
             <FieldRow
@@ -143,7 +144,13 @@ function FieldRow({
 
       <div className="min-w-0 flex-1">
         {editable ? (
-          layer.protocolId === 'tcp' && field.id === 'options' && value instanceof Uint8Array ? (
+          layer.protocolId === 'ipv4' && field.id === 'options' && value instanceof Uint8Array ? (
+            <Ipv4OptionsInput
+              value={value}
+              onCommit={(v) => setOverride(layer.uid, field.id, v)}
+              rawFallback={<FieldInput field={field} value={value} enumTable={enumTable} onCommit={(v) => setOverride(layer.uid, field.id, v)} />}
+            />
+          ) : layer.protocolId === 'tcp' && field.id === 'options' && value instanceof Uint8Array ? (
             <TcpOptionsInput
               value={value}
               onCommit={(v) => setOverride(layer.uid, field.id, v)}
@@ -223,6 +230,30 @@ function TcpOptionsInput({ value, onCommit, rawFallback }: { value: Uint8Array; 
       {number('Window scale', options.windowScale, 14, (windowScale) => ({ ...options, windowScale }))}
       <label className="flex items-center gap-1 text-[11px] text-zinc-400"><input type="checkbox" className="size-4 accent-cyan-500" checked={options.timestamp !== undefined} onChange={(event) => update({ ...options, timestamp: event.target.checked ? { value: 0, echoReply: 0 } : undefined })} />Timestamps</label>
       {options.timestamp && <><input aria-label="Timestamp value" type="number" min={0} max={0xffffffff} className="w-28 rounded border border-zinc-700 bg-zinc-950 px-1 py-0.5 font-mono text-[11px] text-zinc-200" value={options.timestamp.value} onChange={(event) => update({ ...options, timestamp: { ...options.timestamp!, value: Number(event.target.value) >>> 0 } })} /><input aria-label="Timestamp echo reply" type="number" min={0} max={0xffffffff} className="w-28 rounded border border-zinc-700 bg-zinc-950 px-1 py-0.5 font-mono text-[11px] text-zinc-200" value={options.timestamp.echoReply} onChange={(event) => update({ ...options, timestamp: { ...options.timestamp!, echoReply: Number(event.target.value) >>> 0 } })} /></>}
+    </div>
+  );
+}
+
+function Ipv4OptionsInput({ value, onCommit, rawFallback }: { value: Uint8Array; onCommit: (value: Uint8Array) => void; rawFallback: React.ReactNode }) {
+  const options = decodeIpv4Options(value);
+  if (options === null) return <>{rawFallback}</>;
+  const update = (next: Ipv4Options) => {
+    try { onCommit(encodeIpv4Options(next)); } catch { /* keep the last valid header */ }
+  };
+  const routes = (label: string, current: string[] | undefined, change: (routes: string[] | undefined) => Ipv4Options) => (
+    <label className="flex items-center gap-1 text-[11px] text-zinc-400">
+      <input type="checkbox" className="size-4 accent-cyan-500" checked={current !== undefined} onChange={(event) => update(change(event.target.checked ? [] : undefined))} />
+      {label}
+      {current !== undefined && <input aria-label={`${label} addresses`} className="w-48 rounded border border-zinc-700 bg-zinc-950 px-1 py-0.5 font-mono text-zinc-200" defaultValue={current.join(', ')} placeholder="192.0.2.1, 198.51.100.1" onBlur={(event) => update(change(event.target.value.split(',').map((item) => item.trim()).filter(Boolean)))} />}
+    </label>
+  );
+  return (
+    <div className="flex flex-col gap-1" role="group" aria-label="IPv4 options">
+      <label className="flex items-center gap-1 text-[11px] text-zinc-400"><input type="checkbox" className="size-4 accent-cyan-500" checked={options.routerAlert !== undefined} onChange={(event) => update({ ...options, routerAlert: event.target.checked ? 0 : undefined })} />Router Alert{options.routerAlert !== undefined && <input aria-label="Router Alert value" type="number" min={0} max={65535} className="w-20 rounded border border-zinc-700 bg-zinc-950 px-1 py-0.5 font-mono text-zinc-200" value={options.routerAlert} onChange={(event) => update({ ...options, routerAlert: Number(event.target.value) })} />}</label>
+      {routes('Record Route', options.recordRoute, (recordRoute) => ({ ...options, recordRoute }))}
+      {routes('Loose Source Route', options.looseSourceRoute, (looseSourceRoute) => ({ ...options, looseSourceRoute }))}
+      {routes('Strict Source Route', options.strictSourceRoute, (strictSourceRoute) => ({ ...options, strictSourceRoute }))}
+      <label className="flex items-center gap-1 text-[11px] text-zinc-400"><input type="checkbox" className="size-4 accent-cyan-500" checked={options.timestamps !== undefined} onChange={(event) => update({ ...options, timestamps: event.target.checked ? [] : undefined })} />Timestamps{options.timestamps !== undefined && <input aria-label="Timestamp values" className="w-48 rounded border border-zinc-700 bg-zinc-950 px-1 py-0.5 font-mono text-zinc-200" defaultValue={options.timestamps.join(', ')} placeholder="milliseconds, …" onBlur={(event) => update({ ...options, timestamps: event.target.value.split(',').map((item) => Number(item.trim())).filter(Number.isFinite).map((item) => item >>> 0) })} />}</label>
     </div>
   );
 }
