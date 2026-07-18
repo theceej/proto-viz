@@ -40,6 +40,13 @@ test('undoes a grouped field edit and redoes it', async ({ page }) => {
   await expect(sourceMac).toHaveValue('aa:bb:cc:dd:ee:ff');
 });
 
+test('adds a structured TCP MSS option and updates Data Offset', async ({ page }) => {
+  await loadTcpPreset(page);
+  await page.getByRole('checkbox', { name: 'MSS' }).check();
+  await page.getByRole('spinbutton', { name: 'MSS value' }).fill('1460');
+  await expect(page.getByLabel(/Byte offset 46 .*value 0x60/)).toBeVisible();
+});
+
 test('round-trips a stack through its share code', async ({ page, context }) => {
   await loadTcpPreset(page);
   await page.getByRole('button', { name: 'Share', exact: true }).click();
