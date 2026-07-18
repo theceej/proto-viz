@@ -89,6 +89,14 @@ export interface FieldDef {
   computed?: ComputedSpec;
   /** Field only present when this expression evaluates truthy. */
   presentIf?: Expr;
+  /**
+   * How to size an `'auto'`-length field when decoding wire bytes, where the
+   * serializer's value-derived length is unavailable (e.g. IPv4 options:
+   * (IHL - 5) * 4 bytes). Unlike layout expressions, this may reference
+   * computed fields — their values are read from the wire. Serialization
+   * ignores it.
+   */
+  decodeBitLength?: { expr: Expr; unit: 'bits' | 'bytes' };
   description?: string;
 }
 

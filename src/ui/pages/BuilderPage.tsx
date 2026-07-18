@@ -2,6 +2,7 @@ import {
   ChevronDown,
   ChevronsLeftRight,
   ChevronsRightLeft,
+  ClipboardPaste,
   Dices,
   Download,
   Share2,
@@ -23,6 +24,7 @@ import HexView from '../components/HexView';
 import FieldEditor from '../components/FieldEditor';
 import ExportDialog from '../components/ExportDialog';
 import ShareDialog from '../components/ShareDialog';
+import DecodeDialog from '../components/DecodeDialog';
 import ProtocolInfoLink from '../components/ProtocolInfoLink';
 import { layerColor, PAYLOAD_COLOR } from '../colors';
 import { bitsLabel } from '../format';
@@ -57,6 +59,7 @@ export default function BuilderPage() {
   const { stack, registry, packet, serializeError, validation } = usePacket();
   const [exporting, setExporting] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const [decoding, setDecoding] = useState(false);
   const replaceLayers = useStackStore((s) => s.replaceLayers);
   const setStack = useStackStore((s) => s.setStack);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -116,6 +119,14 @@ export default function BuilderPage() {
           <Share2 className="size-3.5" />
           Share
         </button>
+        <button
+          className="flex cursor-pointer items-center gap-1 rounded-md border border-zinc-700 px-2.5 py-1 text-[12px] text-zinc-300 hover:border-cyan-600 hover:text-cyan-300"
+          title="Paste packet hex and decode it into a stack"
+          onClick={() => setDecoding(true)}
+        >
+          <ClipboardPaste className="size-3.5" />
+          Decode
+        </button>
         <div className="ml-auto flex items-center gap-3">
           {packet && (
             <span className="font-mono text-[12px] text-zinc-500">
@@ -143,6 +154,9 @@ export default function BuilderPage() {
       )}
       {sharing && (
         <ShareDialog stack={stack} registry={registry} onClose={() => setSharing(false)} />
+      )}
+      {decoding && (
+        <DecodeDialog registry={registry} onClose={() => setDecoding(false)} />
       )}
 
       {shareLoad && 'error' in shareLoad && (

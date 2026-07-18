@@ -129,6 +129,7 @@ export const ipv4: ProtocolDefinition = {
       name: 'Options',
       type: 'bytes',
       bitLength: 'auto',
+      decodeBitLength: { expr: E.mul(E.sub(E.field('ihl'), E.const(5)), E.const(4)), unit: 'bytes' },
       default: new Uint8Array(0),
       description: 'Rarely used; must pad to a multiple of 4 bytes.',
     },
