@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
+import { execFileSync } from 'node:child_process';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { newLayer, type StackInstance } from '../core/model';
+import { planExport } from '../core/exporter';
+import { writePcap } from '../core/pcap';
+import { scenarios } from '../core/scenarios';
 import { serializeStack } from '../core/serialize';
 import { validateStack } from '../core/validate';
 import { readSpanValue } from '../core/decode';
@@ -7,6 +14,26 @@ import { valueToNumber } from '../core/values';
 import { createBuiltinRegistry } from './index';
 
 const registry = createBuiltinRegistry();
+
+const TSHARK_PROTOCOL_NAMES: Record<string, string> = {
+  ethernet: 'eth',
+  'vlan-8021q': 'vlan',
+  ipv4: 'ip',
+  'icmpv6-ndp': 'icmpv6',
+  http1: 'http',
+  pppoe: 'pppoes',
+  'ethernet-8023': 'llc',
+  ripv2: 'rip',
+  netflow5: 'cflow',
+  'ipsec-esp': 'esp',
+  'ipsec-ah': 'ah',
+  http2: 'tls',
+  wireguard: 'wg',
+  gtpu: 'gtp',
+  pop3: 'pop',
+  ripv1: 'rip',
+  'ethernet-snap': 'cdp',
+};
 
 /** A legal carrier stack exercising every builtin protocol. */
 const STACKS: Record<string, string[]> = {
@@ -132,6 +159,175 @@ describe('every builtin protocol', () => {
       });
     });
   }
+});
+
+describe.runIf(process.env.TSHARK === '1')('tshark export validation', () => {
+  it('independently dissects every builtin stack without malformed packets or bad checksums', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'proto-viz-tshark-'));
+    const failures: string[] = [];
+    try {
+      for (const [id, ids] of Object.entries(STACKS)) {
+        const externalIds =
+          id === 'ethernet'
+            ? [...ids, 'ipv4', 'udp']
+            : id === 'ethernet-snap'
+              ? [...ids, 'cdp']
+              : ids;
+        const stack: StackInstance = { layers: externalIds.map(newLayer) };
+        if (id === 'ospf') stack.trailingPayload = new Uint8Array(20);
+        if (id === 'mqtt') stack.layers.at(-1)!.overrides.packetType = 14;
+        if (id === 'modbus') stack.trailingPayload = new Uint8Array([0, 0, 0, 1]);
+        if (id === 'mpls') stack.layers[1]!.overrides.s = 0;
+        if (id === 'hsrp') stack.layers[1]!.overrides.dst = '224.0.0.2';
+        if (id === 'smb2') {
+          stack.layers.at(-1)!.overrides.command = new Uint8Array([13, 0]);
+          stack.trailingPayload = new Uint8Array([4, 0, 0, 0]);
+        }
+        const packet = serializeStack(stack, registry);
+        const exportPlan = planExport(stack, registry);
+        expect(exportPlan.ok, `${id}: ${exportPlan.blockedReason}`).toBe(true);
+
+        const capture = writePcap(
+          [{ bytes: packet.bytes, tsSec: 1_700_000_000, tsUsec: 0 }],
+          exportPlan.linkType!,
+        );
+        const path = join(directory, `${id}.pcap`);
+        await writeFile(path, capture);
+
+        const decodeAs =
+          id === 'rtp'
+            ? ['-d', 'udp.port==5004,rtp']
+            : id === 'hsrp'
+              ? ['-d', 'udp.port==1985,hsrp']
+              : id === 'websocket'
+                ? ['-d', 'tcp.port==80,websocket']
+                : [];
+        const fields = execFileSync(
+          'tshark',
+          [
+            '-r', path,
+            ...decodeAs,
+            '-o', 'tcp.check_checksum:TRUE',
+            '-o', 'udp.check_checksum:TRUE',
+            '-o', 'ip.check_checksum:TRUE',
+            '-T', 'fields',
+            '-e', 'frame.protocols',
+            '-e', '_ws.malformed',
+            '-e', 'ip.checksum.status',
+            '-e', 'tcp.checksum.status',
+            '-e', 'udp.checksum.status',
+            '-E', 'separator=|',
+          ],
+          { encoding: 'utf8' },
+        ).trim();
+        const [protocols = '', malformed = '', ipStatus = '', tcpStatus = '', udpStatus = ''] =
+          fields.split('|');
+        const expectedProtocol = TSHARK_PROTOCOL_NAMES[id] ?? id;
+
+        if (malformed) failures.push(`${id}: malformed (${protocols})`);
+        if (ipStatus === '0') failures.push(`${id}: bad IPv4 checksum (${protocols})`);
+        if (tcpStatus === '0') failures.push(`${id}: bad TCP checksum (${protocols})`);
+        if (udpStatus === '0') failures.push(`${id}: bad UDP checksum (${protocols})`);
+        if (!protocols) failures.push(`${id}: no protocols dissected`);
+        if (!protocols.split(':').includes(expectedProtocol)) {
+          failures.push(`${id}: expected ${expectedProtocol} in ${protocols}`);
+        }
+      }
+
+      const scenarioStacks: Record<string, StackInstance> = {
+        single: { layers: ['ethernet', 'ipv4', 'udp'].map(newLayer) },
+        'arp-resolution': { layers: ['ethernet', 'ipv4', 'tcp'].map(newLayer) },
+        'ndp-exchange': { layers: ['ethernet', 'ipv6', 'udp'].map(newLayer) },
+        'tcp-handshake': { layers: ['ethernet', 'ipv4', 'tcp'].map(newLayer) },
+        'tcp-session': {
+          layers: ['ethernet', 'ipv4', 'tcp'].map(newLayer),
+          trailingPayload: new TextEncoder().encode('hello'),
+        },
+        'tls-hello-exchange': { layers: ['ethernet', 'ipv4', 'tcp', 'tls'].map(newLayer) },
+        'icmp-ping': { layers: ['ethernet', 'ipv4', 'icmp'].map(newLayer) },
+        'dns-query-response': { layers: ['ethernet', 'ipv4', 'udp', 'dns'].map(newLayer) },
+        'dhcp-dora': { layers: ['ethernet', 'ipv4', 'udp', 'dhcp'].map(newLayer) },
+      };
+      const scenarioProtocols: Record<string, string[]> = {
+        single: ['udp'],
+        'arp-resolution': ['arp', 'tcp'],
+        'ndp-exchange': ['icmpv6', 'udp'],
+        'tcp-handshake': ['tcp'],
+        'tcp-session': ['tcp'],
+        'tls-hello-exchange': ['tls'],
+        'icmp-ping': ['icmp'],
+        'dns-query-response': ['dns'],
+        'dhcp-dora': ['dhcp'],
+      };
+      for (const scenario of scenarios) {
+        const stack = scenarioStacks[scenario.id];
+        expect(stack, `${scenario.id}: missing tshark fixture`).toBeDefined();
+        const packets = scenario.generate(stack!, registry).map((plan) => ({
+          bytes: serializeStack(plan.stack, registry).bytes,
+          tsSec: 1_700_000_000,
+          tsUsec: plan.atUsec,
+        }));
+        const path = join(directory, `scenario-${scenario.id}.pcap`);
+        await writeFile(path, writePcap(packets, 1));
+        const rows = execFileSync(
+          'tshark',
+          [
+            '-r', path,
+            '-o', 'tcp.check_checksum:TRUE',
+            '-o', 'udp.check_checksum:TRUE',
+            '-o', 'ip.check_checksum:TRUE',
+            '-T', 'fields',
+            '-e', 'frame.protocols',
+            '-e', '_ws.malformed',
+            '-e', 'ip.checksum.status',
+            '-e', 'tcp.checksum.status',
+            '-e', 'udp.checksum.status',
+            '-E', 'separator=|',
+          ],
+          { encoding: 'utf8' },
+        ).trim().split('\n');
+        const dissectedProtocols: string[] = [];
+        for (const [index, row] of rows.entries()) {
+          const [protocols = '', malformed = '', ipStatus = '', tcpStatus = '', udpStatus = ''] =
+            row.split('|');
+          const label = `${scenario.id} packet ${index + 1}`;
+          dissectedProtocols.push(...protocols.split(':'));
+          if (malformed) failures.push(`${label}: malformed (${protocols})`);
+          if ([ipStatus, tcpStatus, udpStatus].some((status) => status.split(',').includes('0'))) {
+            failures.push(`${label}: bad checksum (${protocols})`);
+          }
+          if (!protocols) failures.push(`${label}: no protocols dissected`);
+        }
+        for (const expectedProtocol of scenarioProtocols[scenario.id] ?? []) {
+          if (!dissectedProtocols.includes(expectedProtocol)) {
+            failures.push(`${scenario.id}: expected ${expectedProtocol} in scenario dissection`);
+          }
+        }
+      }
+      expect(failures).toEqual([]);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  }, 30_000);
+
+  it('detects a deliberately corrupted TCP checksum', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'proto-viz-tshark-canary-'));
+    try {
+      const stack: StackInstance = { layers: ['ethernet', 'ipv4', 'tcp'].map(newLayer) };
+      const bytes = serializeStack(stack, registry).bytes;
+      bytes[50] = bytes[50]! ^ 0xff;
+      const path = join(directory, 'bad-checksum.pcap');
+      await writeFile(path, writePcap([{ bytes, tsSec: 1_700_000_000, tsUsec: 0 }], 1));
+      const checksumStatus = execFileSync(
+        'tshark',
+        ['-r', path, '-o', 'tcp.check_checksum:TRUE', '-T', 'fields', '-e', 'tcp.checksum.status'],
+        { encoding: 'utf8' },
+      ).trim();
+      expect(checksumStatus).toBe('0');
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('protocol-specific spot checks', () => {
