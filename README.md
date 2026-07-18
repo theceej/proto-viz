@@ -21,8 +21,8 @@ your browser. Nothing is uploaded anywhere.
 
 ## Features
 
-- **Protocol library** — 66 built-in protocols with full bit-level field
-  layouts. Core: Ethernet II, 802.3 (LLC and SNAP), 802.1Q, ARP, IPv4, IPv6,
+- **Protocol library** — Dozens of built-in protocols with full bit-level
+  field layouts. Core: Ethernet II, 802.3 (LLC and SNAP), 802.1Q, ARP, IPv4, IPv6,
   ICMP, ICMPv6, IGMP, TCP, UDP, SCTP. Infrastructure: STP, LLDP, CDP, VRRP,
   HSRP, RIPv1/v2, EIGRP, OSPF, BGP, BFD, PIM, NetFlow v5. Applications:
   DNS, mDNS, LLMNR, NBNS, DHCP, DHCPv6, HTTP/1.1, HTTP/2, WebSocket, TLS
@@ -65,11 +65,11 @@ your browser. Nothing is uploaded anywhere.
 
 ```bash
 npm install
-npm run dev            # development server
-npm test               # vitest unit suite (236 tests)
-npm run test:coverage  # suite + V8 coverage report (~90% lines on core logic)
-npm run build          # static production build in dist/
-npx serve dist         # serve the production build locally
+npm run dev            # Development server
+npm test               # Run the Vitest unit suite
+npm run test:coverage  # Run the Vitest suite with V8 coverage
+npm run build          # Static production build in dist/
+npx serve dist         # Serve the production build locally
 ```
 
 Spec references in the library link to their published source. Each family
