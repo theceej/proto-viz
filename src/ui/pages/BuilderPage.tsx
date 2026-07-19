@@ -16,6 +16,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useStackStore } from '../../store/stackStore';
 import { randomStack } from '../../core/random';
 import { decodeShare } from '../../core/share';
+import { decodePacketBlob } from '../../core/shareBlob';
 import { usePacket } from '../usePacket';
 import { useEscape } from '../a11y';
 import { usePersistedFlag } from '../usePersistedFlag';
@@ -66,6 +67,7 @@ export default function BuilderPage() {
   const [decoding, setDecoding] = useState(false);
   const [exportingDiagram, setExportingDiagram] = useState(false);
   const replaceLayers = useStackStore((s) => s.replaceLayers);
+  const restoreStack = useStackStore((s) => s.restoreStack);
   const setStack = useStackStore((s) => s.setStack);
   const undo = useStackStore((s) => s.undo);
   const redo = useStackStore((s) => s.redo);
@@ -73,24 +75,28 @@ export default function BuilderPage() {
   const canRedo = useStackStore((s) => s.canRedo);
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Opening a shared link (#/builder?s=word.word.word) loads that stack once.
-  // A bad code stays in the URL and renders as an error banner until dismissed.
+  // Opening a shared link (#/builder?s=word.word.word[&e=<edits>]) loads that
+  // stack once. The optional `e` blob carries field edits and payload; without
+  // it, only the layer structure loads. A bad code stays in the URL and
+  // renders as an error banner until dismissed.
   const shareParam = searchParams.get('s');
+  const editsParam = searchParams.get('e');
   const shareLoad = useMemo(() => {
     if (shareParam === null) return null;
     try {
-      return { ids: decodeShare(shareParam) };
+      const ids = decodeShare(shareParam);
+      if (editsParam) return decodePacketBlob(editsParam, ids, registry);
+      return { ids };
     } catch (e) {
       return { error: (e as Error).message };
     }
-  }, [shareParam]);
+  }, [shareParam, editsParam, registry]);
   useEffect(() => {
-    const ids = shareLoad && 'ids' in shareLoad ? shareLoad.ids : undefined;
-    if (ids) {
-      setStack(ids);
-      setSearchParams({}, { replace: true });
-    }
-  }, [shareLoad, setStack, setSearchParams]);
+    if (!shareLoad || 'error' in shareLoad) return;
+    if ('layers' in shareLoad) restoreStack(shareLoad.layers, shareLoad.payload);
+    else setStack(shareLoad.ids);
+    setSearchParams({}, { replace: true });
+  }, [shareLoad, setStack, restoreStack, setSearchParams]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {

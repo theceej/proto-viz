@@ -4,6 +4,7 @@ import { useEscape, useModalFocus } from '../a11y';
 import type { StackInstance } from '../../core/model';
 import type { Registry } from '../../core/registry';
 import { ShareCodeError, decodeShare, encodeShare } from '../../core/share';
+import { encodePacketBlob } from '../../core/shareBlob';
 import { useStackStore } from '../../store/stackStore';
 
 /** Share the current stack as a word code, or load a stack from one. */
@@ -23,19 +24,29 @@ export default function ShareDialog({
 
   const encoded = useMemo(() => {
     try {
-      return { code: encodeShare(stack.layers.map((l) => l.protocolId)) };
+      const code = encodeShare(stack.layers.map((l) => l.protocolId));
+      const base = `${location.origin}${location.pathname}#/builder?s=${code}`;
+      // The exact-packet link adds field edits + payload; absent when there
+      // are none, or reports why it can't be built (e.g. too large to share).
+      let exactLink: string | undefined;
+      let exactError: string | undefined;
+      try {
+        const blob = encodePacketBlob(stack, registry);
+        if (blob) exactLink = `${base}&e=${blob}`;
+      } catch (e) {
+        exactError = (e as Error).message;
+      }
+      return { code, structureLink: base, exactLink, exactError };
     } catch (e) {
       return { error: (e as Error).message };
     }
-  }, [stack.layers]);
+  }, [stack, registry]);
 
-  const [copied, setCopied] = useState<'code' | 'link' | null>(null);
-  const copy = (kind: 'code' | 'link', text: string) => {
+  const [copied, setCopied] = useState<'code' | 'link' | 'exact' | null>(null);
+  const copy = (kind: 'code' | 'link' | 'exact', text: string) => {
     navigator.clipboard.writeText(text).then(() => setCopied(kind));
   };
-  const shareLink = encoded.code
-    ? `${location.origin}${location.pathname}#/builder?s=${encoded.code}`
-    : '';
+  const shareLink = encoded.structureLink ?? '';
 
   const [input, setInput] = useState('');
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -118,10 +129,27 @@ export default function ShareDialog({
                     )}
                     {copied === 'link' ? 'Copied' : 'Copy link'}
                   </button>
+                  {encoded.exactLink && (
+                    <button
+                      className="flex cursor-pointer items-center gap-1.5 rounded-md border border-zinc-700 px-2.5 py-1.5 text-[12px] text-zinc-300 hover:border-cyan-600 hover:text-cyan-300"
+                      onClick={() => copy('exact', encoded.exactLink!)}
+                    >
+                      {copied === 'exact' ? (
+                        <Check className="size-3.5 text-emerald-400" aria-hidden />
+                      ) : (
+                        <Link className="size-3.5" aria-hidden />
+                      )}
+                      {copied === 'exact' ? 'Copied' : 'Copy exact-packet link'}
+                    </button>
+                  )}
                 </div>
                 <p className="mt-2 text-[11px] leading-relaxed text-zinc-500">
-                  The code captures the layer sequence — field edits and payload are
-                  not included. Anyone can enter it here or open the link.
+                  The words and plain link capture the layer sequence only.
+                  {encoded.exactLink
+                    ? ' The exact-packet link also restores your field edits and payload.'
+                    : encoded.exactError
+                      ? ` Field edits can’t be added to a link here: ${encoded.exactError}`
+                      : ' This stack has no field edits or payload to add.'}
                 </p>
               </>
             ) : (
