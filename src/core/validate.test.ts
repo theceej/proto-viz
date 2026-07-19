@@ -89,3 +89,57 @@ describe('getValidNextProtocols', () => {
     expect(opts.find((o) => o.protocolId === 'ethernet')!.allowed).toBe(false);
   });
 });
+
+describe('IPv6 extension-header ordering', () => {
+  const warningCodes = (s: StackInstance) =>
+    validateStack(s, registry)
+      .filter((i) => i.severity === 'warning')
+      .map((i) => i.code);
+
+  it('accepts legal extension-header chains without ordering warnings', () => {
+    for (const s of [
+      stack(['ethernet', 'ipv6', 'ipv6-hopopts', 'udp']),
+      stack(['ethernet', 'ipv6', 'ipv6-hopopts', 'ipv6-routing', 'ipv6-frag', 'tcp']),
+      stack(['ethernet', 'ipv6', 'ipv6-dstopts', 'ipv6-routing', 'ipv6-dstopts', 'tcp']),
+    ]) {
+      expect(errors(s)).toEqual([]);
+      const codes = warningCodes(s);
+      expect(codes).not.toContain('hopopts-not-first');
+      expect(codes).not.toContain('duplicate-ext-header');
+      expect(codes).not.toContain('ext-header-order');
+    }
+  });
+
+  it('warns when Hop-by-Hop Options is not immediately after IPv6', () => {
+    const issue = validateStack(
+      stack(['ethernet', 'ipv6', 'ipv6-routing', 'ipv6-hopopts', 'tcp']),
+      registry,
+    ).find((i) => i.code === 'hopopts-not-first')!;
+    expect(issue.severity).toBe('warning');
+    expect(issue.message).toContain('immediately follow the IPv6 header');
+  });
+
+  it('warns on a duplicated extension header', () => {
+    expect(warningCodes(stack(['ethernet', 'ipv6', 'ipv6-frag', 'ipv6-frag', 'tcp']))).toContain(
+      'duplicate-ext-header',
+    );
+  });
+
+  it('allows Destination Options twice but not three times', () => {
+    expect(
+      warningCodes(stack(['ethernet', 'ipv6', 'ipv6-dstopts', 'ipv6-routing', 'ipv6-dstopts', 'tcp'])),
+    ).not.toContain('duplicate-ext-header');
+    expect(
+      warningCodes(stack(['ethernet', 'ipv6', 'ipv6-dstopts', 'ipv6-dstopts', 'ipv6-dstopts', 'tcp'])),
+    ).toContain('duplicate-ext-header');
+  });
+
+  it('warns when Fragment precedes Routing', () => {
+    const issue = validateStack(
+      stack(['ethernet', 'ipv6', 'ipv6-frag', 'ipv6-routing', 'tcp']),
+      registry,
+    ).find((i) => i.code === 'ext-header-order')!;
+    expect(issue.severity).toBe('warning');
+    expect(issue.message).toContain('Routing');
+  });
+});

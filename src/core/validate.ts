@@ -11,6 +11,20 @@ import { carriersOf, resolveBinding } from './bindings';
 const STANDARD_ETHERNET_MTU = 1500;
 const ETHERNET_PROTOCOL_IDS = new Set(['ethernet', 'ethernet-8023']);
 
+/**
+ * The dedicated IPv6 extension headers (RFC 8200 §4.1), with their recommended
+ * position (`rank`) and how many times each may appear. Destination Options is
+ * the only one allowed twice — once before Routing, once before the upper
+ * layer. AH/ESP are also extension headers in IPv6 but double as standalone
+ * IPsec carriers, so they are left out of these ordering/duplicate checks.
+ */
+const IPV6_EXT_HEADERS: Record<string, { rank: number; maxCount: number }> = {
+  'ipv6-hopopts': { rank: 0, maxCount: 1 },
+  'ipv6-dstopts': { rank: 1, maxCount: 2 },
+  'ipv6-routing': { rank: 2, maxCount: 1 },
+  'ipv6-frag': { rank: 3, maxCount: 1 },
+};
+
 export type Severity = 'error' | 'warning' | 'info';
 
 export interface ValidationIssue {
@@ -142,9 +156,73 @@ export function validateStack(
 
   }
 
+  addExtensionHeaderIssues(issues, defs as ProtocolDefinition[]);
+
   if (packet) addMtuIssues(issues, stack, defs as ProtocolDefinition[], packet);
 
   return issues;
+}
+
+/**
+ * Warn about IPv6 extension-header chains that are legal by the binding model
+ * but violate RFC 8200 §4.1 ordering/repetition rules. Warnings, not errors:
+ * the tool is a teaching sandbox, and building an "illegal" chain on purpose
+ * is a valid thing to explore.
+ */
+function addExtensionHeaderIssues(issues: ValidationIssue[], defs: ProtocolDefinition[]): void {
+  // Hop-by-Hop Options, if present, must immediately follow the IPv6 header.
+  defs.forEach((def, i) => {
+    if (def.id !== 'ipv6-hopopts') return;
+    if (i === 0 || defs[i - 1]!.id !== 'ipv6') {
+      issues.push({
+        severity: 'warning',
+        layerIndex: i,
+        code: 'hopopts-not-first',
+        message: `${def.name} must immediately follow the IPv6 header (RFC 8200 §4.1).`,
+        suggestion: 'Move Hop-by-Hop Options to directly after IPv6.',
+      });
+    }
+  });
+
+  // No extension header may repeat — except Destination Options, allowed twice.
+  const counts = new Map<string, number>();
+  defs.forEach((def, i) => {
+    const spec = IPV6_EXT_HEADERS[def.id];
+    if (!spec) return;
+    const n = (counts.get(def.id) ?? 0) + 1;
+    counts.set(def.id, n);
+    if (n > spec.maxCount) {
+      issues.push({
+        severity: 'warning',
+        layerIndex: i,
+        code: 'duplicate-ext-header',
+        message: `${def.name} appears ${
+          spec.maxCount === 1 ? 'more than once' : 'more than twice'
+        }; IPv6 allows it at most ${spec.maxCount === 1 ? 'once' : 'twice'} (RFC 8200 §4.1).`,
+      });
+    }
+  });
+
+  // Fixed-position extension headers should appear in the recommended order.
+  // Hop-by-Hop is covered above; Destination Options has a flexible position,
+  // so both are skipped here (this effectively checks Routing before Fragment).
+  let lastRank = -1;
+  let lastName = '';
+  defs.forEach((def, i) => {
+    const spec = IPV6_EXT_HEADERS[def.id];
+    if (!spec || def.id === 'ipv6-hopopts' || def.id === 'ipv6-dstopts') return;
+    if (spec.rank < lastRank) {
+      issues.push({
+        severity: 'warning',
+        layerIndex: i,
+        code: 'ext-header-order',
+        message: `${def.name} should come before ${lastName} in an IPv6 extension-header chain (RFC 8200 §4.1).`,
+      });
+    } else {
+      lastRank = spec.rank;
+      lastName = def.name;
+    }
+  });
 }
 
 function addMtuIssues(
