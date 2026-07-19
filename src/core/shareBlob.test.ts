@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { newLayer, type LayerInstance, type StackInstance } from './model';
 import { createBuiltinRegistry } from '../protocols';
-import { ShareCodeError } from './share';
+import { ShareCodeError, crc8 } from './share';
 import { decodePacketBlob, encodePacketBlob } from './shareBlob';
 
 const registry = createBuiltinRegistry();
@@ -11,6 +11,13 @@ const layer = (
   overrides: LayerInstance['overrides'] = {},
   pinned: string[] = [],
 ): LayerInstance => ({ ...newLayer(protocolId), overrides, pinned });
+
+/** Base64url-encode a raw byte body plus its CRC-8, as the real encoder does. */
+const craftBlob = (body: number[]): string => {
+  const bytes = [...body, crc8(body)];
+  const bin = String.fromCharCode(...bytes);
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+};
 
 describe('share v2 packet blob', () => {
   it('returns null when there is nothing beyond the structure', () => {
@@ -112,5 +119,85 @@ describe('share v2 packet blob', () => {
     const blob = encodePacketBlob(stack, registry)!;
     // Decoding against a shorter structure than the blob references.
     expect(() => decodePacketBlob(blob, ['ethernet'], registry)).toThrow(ShareCodeError);
+  });
+
+  it('round-trips a payload large enough to need a multi-byte varint length', () => {
+    const payload = Uint8Array.from({ length: 200 }, (_, i) => i & 0xff);
+    const stack: StackInstance = { layers: [layer('ethernet'), layer('ipv4'), layer('udp')], trailingPayload: payload };
+    const { payload: out } = decodePacketBlob(
+      encodePacketBlob(stack, registry)!,
+      ['ethernet', 'ipv4', 'udp'],
+      registry,
+    );
+    expect([...out]).toEqual([...payload]);
+  });
+
+  it('round-trips a 64-bit bigint override beyond MAX_SAFE_INTEGER', () => {
+    const big = 0xffffffffffffffn; // 2^56 - 1, decodes back as a bigint
+    const stack: StackInstance = {
+      layers: [layer('ethernet'), layer('ipv4'), layer('udp'), layer('ntp', { txTimestamp: big })],
+    };
+    const { layers } = decodePacketBlob(
+      encodePacketBlob(stack, registry)!,
+      ['ethernet', 'ipv4', 'udp', 'ntp'],
+      registry,
+    );
+    expect(layers[3]!.overrides.txTimestamp).toBe(big);
+  });
+
+  it('encodes a pinned field that has no override value', () => {
+    const stack: StackInstance = { layers: [layer('ethernet'), layer('ipv4', {}, ['ihl'])] };
+    const { layers } = decodePacketBlob(
+      encodePacketBlob(stack, registry)!,
+      ['ethernet', 'ipv4'],
+      registry,
+    );
+    expect(layers[1]!.pinned).toEqual(['ihl']);
+    expect(layers[1]!.overrides).toEqual({});
+  });
+
+  it('drops overrides for field ids the protocol does not have', () => {
+    const stack: StackInstance = {
+      layers: [layer('ethernet', { dst: '02:00:00:00:00:aa', bogusField: 5 as unknown as number })],
+    };
+    const { layers } = decodePacketBlob(
+      encodePacketBlob(stack, registry)!,
+      ['ethernet'],
+      registry,
+    );
+    expect(layers[0]!.overrides).toEqual({ dst: '02:00:00:00:00:aa' });
+  });
+
+  it('skips a layer whose protocol is not in the registry when encoding', () => {
+    const stack: StackInstance = {
+      layers: [layer('does-not-exist', { x: 1 as unknown as number }), layer('ethernet', { dst: '02:00:00:00:00:bb' })],
+    };
+    // The unknown layer is skipped rather than crashing the encode.
+    expect(encodePacketBlob(stack, registry)).toBeTypeOf('string');
+  });
+
+  it('rejects data that is not valid base64url', () => {
+    expect(() => decodePacketBlob('!!!not-base64!!!', ['ethernet'], registry)).toThrow(/not valid/);
+  });
+
+  it('rejects a blob that is too short to hold a version and checksum', () => {
+    // Single byte -> length < 2.
+    expect(() => decodePacketBlob(btoa('\x00'), ['ethernet'], registry)).toThrow(/truncated/);
+  });
+
+  it('rejects a blob from a newer format version', () => {
+    // version byte 99 with a valid checksum.
+    expect(() => decodePacketBlob(craftBlob([99]), ['ethernet'], registry)).toThrow(/newer version/);
+  });
+
+  it('rejects a field ordinal the protocol does not have', () => {
+    // v2, 1 edited layer, index 0, 1 entry, ordinal 250 (out of range), flags 0, payload len 0.
+    const blob = craftBlob([2, 1, 0, 1, 250, 0, 0]);
+    expect(() => decodePacketBlob(blob, ['ethernet'], registry)).toThrow(/do not match/);
+  });
+
+  it('rejects a blob that claims more layers than it carries', () => {
+    // v2 header says 5 edited layers, but no layer data follows.
+    expect(() => decodePacketBlob(craftBlob([2, 5]), ['ethernet'], registry)).toThrow(/truncated/);
   });
 });

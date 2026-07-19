@@ -74,9 +74,6 @@ class ByteWriter {
 class ByteReader {
   private pos = 0;
   constructor(private readonly bytes: Uint8Array) {}
-  get remaining(): number {
-    return this.bytes.length - this.pos;
-  }
   u8(): number {
     if (this.pos >= this.bytes.length) throw new ShareCodeError('Share link data is truncated.');
     return this.bytes[this.pos++]!;
