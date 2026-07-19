@@ -321,7 +321,7 @@ export default function BuilderPage() {
           className="border-l border-zinc-800"
           scrollFocusable
         >
-          {packet && <HexView packet={packet} />}
+          {packet && <HexView packet={packet} registry={registry} validation={validation} />}
         </Pane>
       </div>
     </div>
