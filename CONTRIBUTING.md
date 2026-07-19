@@ -17,6 +17,17 @@ npm run build    # tsc + production build
 npx eslint .     # lint — must be clean
 ```
 
+CI also runs two suites that need extra tooling:
+
+```bash
+npm run test:e2e     # Playwright browser + accessibility suite (needs Chromium)
+npm run test:tshark  # independent PCAP dissection (needs tshark installed)
+```
+
+Both run out of the box inside the dev container — its `postCreate` step
+installs Chromium and tshark for you. Locally, `npx playwright install
+--with-deps chromium` and your platform's `tshark` package cover them.
+
 Prefer containers? The repo ships a [dev container](.devcontainer/devcontainer.json)
 (Node 22, same as CI): open the folder in VS Code and choose *Reopen in
 Container*, or use GitHub Codespaces — dependencies install automatically and
@@ -152,9 +163,10 @@ npm test && npx eslint . && npm run build
 ```
 
 All three must pass — CI runs the same steps on every pull request (plus
-`npm audit` and CodeQL), and the checks are required before a PR can
-merge. Keep the definition style consistent with neighbouring files
-(field description strings, defaults, ordering).
+the `test:e2e` and `test:tshark` suites above, `npm audit`, and CodeQL),
+and the checks are required before a PR can merge. Keep the definition
+style consistent with neighbouring files (field description strings,
+defaults, ordering).
 
 ## Other contributions
 
@@ -170,6 +182,29 @@ merge. Keep the definition style consistent with neighbouring files
 - **Security**: uploads and imported JSON are untrusted input — keep size
   caps and schema validation intact. Report vulnerabilities privately via
   GitHub's security advisories, not public issues.
+
+## Troubleshooting
+
+**`Cannot find module '@rolldown/binding-<platform>'` (or `Cannot find
+native binding`) from `npm run dev`/`build`/`test`.** Vite's bundler
+(rolldown) ships its native binding as an npm *optional* dependency, and a
+known npm bug (<https://github.com/npm/cli/issues/4828>) can leave
+`node_modules` without the binding for your platform after an incremental
+install. Recover with a clean reinstall:
+
+```bash
+rm -rf node_modules package-lock.json && npm install
+```
+
+or, without touching the lockfile, install just the missing binding for
+your platform, e.g. on macOS arm64:
+
+```bash
+npm install @rolldown/binding-darwin-arm64 --no-save
+```
+
+The dev container avoids this by running `npm ci` on a clean tree at
+creation. CI on Linux is unaffected.
 
 ## License
 
