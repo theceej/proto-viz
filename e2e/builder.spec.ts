@@ -1,18 +1,22 @@
 import { expect, test, type Page } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 
-test('offers a dismissible first-run tour and persists inspection detail', async ({ page }) => {
+test('offers an app-wide tour from Help and persists inspection detail', async ({ page }) => {
   await page.goto('/#/builder');
-  await expect(page.getByRole('region', { name: 'Build a protocol stack' })).toBeVisible();
-  await page.getByRole('button', { name: 'Skip guided tour' }).click();
   await page.getByRole('radio', { name: 'Deep' }).click();
   await expect(page.getByRole('radio', { name: 'Deep' })).toBeChecked();
 
   await page.reload();
-  await expect(page.getByRole('region', { name: 'Build a protocol stack' })).toHaveCount(0);
   await expect(page.getByRole('radio', { name: 'Deep' })).toBeChecked();
-  await page.getByRole('button', { name: 'Tour' }).click();
+  await page.goto('/#/help');
+  await page.getByRole('button', { name: 'Start guided tour' }).click();
   await expect(page.getByRole('region', { name: 'Build a protocol stack' })).toBeVisible();
+  await expect(page).toHaveURL(/#\/builder$/);
+  await page.getByRole('button', { name: 'Next' }).click();
+  await page.getByRole('button', { name: 'Next' }).click();
+  await expect(page.getByRole('region', { name: 'Browse the protocol library' })).toBeVisible();
+  await expect(page).toHaveURL(/#\/library$/);
+  await page.getByRole('button', { name: 'Skip guided tour' }).click();
 });
 
 async function loadTcpPreset(page: Page) {

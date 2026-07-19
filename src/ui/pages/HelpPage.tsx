@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom';
+import { GraduationCap } from 'lucide-react';
 
 /** Built-in user guide: one scannable page, linked from the sidebar. */
-export default function HelpPage() {
+export default function HelpPage({ onStartTour }: { onStartTour: () => void }) {
   return (
     <div className="mx-auto max-w-3xl px-8 py-8">
       <h1 className="text-xl font-semibold tracking-tight text-zinc-100">Help</h1>
@@ -11,6 +12,13 @@ export default function HelpPage() {
         Everything runs in your browser — uploads, custom protocols, and captures
         never leave your machine.
       </p>
+      <button
+        className="mt-4 flex cursor-pointer items-center gap-2 rounded-md bg-cyan-700 px-3 py-2 text-[13px] font-medium text-white hover:bg-cyan-600"
+        onClick={onStartTour}
+      >
+        <GraduationCap className="size-4" />
+        Start guided tour
+      </button>
 
       <Section title="Building a stack">
         <p>
@@ -41,8 +49,8 @@ export default function HelpPage() {
         </p>
         <p>
           Use the <Ui>Detail</Ui> control above the hex dump to choose Compact,
-          Explain, or Deep inspection. New here? Start the optional guided tour
-          at any time with <Ui>Tour</Ui> in the builder toolbar.
+          Explain, or Deep inspection. The optional guided tour at the top of this
+          Help page introduces the whole application.
         </p>
         <p>
           Computed fields — lengths, IHL, checksums including TCP/UDP pseudo-header

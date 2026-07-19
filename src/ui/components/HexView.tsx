@@ -106,15 +106,22 @@ export default function HexView({
       <div className="sticky top-0 z-10 bg-zinc-950/95 backdrop-blur">
         <div className="flex flex-wrap items-center justify-end gap-y-1 border-b border-zinc-800/50 px-2 py-1">
           <InspectionModeSelector mode={inspectionMode} onChange={onInspectionModeChange} />
-          <button
-            className={`mr-1 cursor-pointer rounded px-1.5 font-mono text-[10px] ${
-              asciiVisible ? 'bg-zinc-800 text-zinc-300' : 'text-zinc-600 hover:text-zinc-300'
-            }`}
-            aria-pressed={asciiVisible}
-            onClick={() => setAsciiVisible(!asciiVisible)}
-          >
-            ASCII
-          </button>
+          <span className="mx-1 h-4 w-px bg-zinc-800" aria-hidden />
+          <div className="flex items-center gap-1">
+            <span className="text-[10px] text-zinc-600">Columns</span>
+            <button
+              className={`cursor-pointer rounded-md border px-1.5 py-0.5 text-[10px] ${
+                asciiVisible
+                  ? 'border-zinc-700 bg-zinc-800 font-medium text-zinc-100'
+                  : 'border-zinc-800 text-zinc-500 hover:text-zinc-200'
+              }`}
+              aria-pressed={asciiVisible}
+              title="Show or hide the ASCII column"
+              onClick={() => setAsciiVisible(!asciiVisible)}
+            >
+              ASCII
+            </button>
+          </div>
           <CopyHexButton bytes={packet.bytes} />
         </div>
         {locked && (
