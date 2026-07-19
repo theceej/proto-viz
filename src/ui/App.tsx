@@ -18,6 +18,7 @@ import { useLibraryStore } from '../store/libraryStore';
 import { loadCustomProtocols } from '../store/persistence';
 import { usePersistedFlag } from './usePersistedFlag';
 import PwaStatus from './components/PwaStatus';
+import BuilderTour from './components/BuilderTour';
 
 const GITHUB_URL = 'https://github.com/theceej/proto-viz';
 const BUILD_COMMIT = import.meta.env.VITE_BUILD_COMMIT;
@@ -39,6 +40,7 @@ export default function App() {
     () => (localStorage.getItem('pv-theme') as Theme | null) ?? 'dark',
   );
   const [persistenceError, setPersistenceError] = useState<string | null>(null);
+  const [tourOpen, setTourOpen] = useState(false);
 
   const loadProtocols = useCallback(() => {
     void loadCustomProtocols().then((result) => {
@@ -184,9 +186,10 @@ export default function App() {
             <Route path="/library" element={<LibraryPage />} />
             <Route path="/library/:protocolId" element={<LibraryPage />} />
             <Route path="/import" element={<ImportWizard />} />
-            <Route path="/help" element={<HelpPage />} />
+            <Route path="/help" element={<HelpPage onStartTour={() => setTourOpen(true)} />} />
           </Routes>
         </main>
+        {tourOpen && <BuilderTour onClose={() => setTourOpen(false)} />}
       </div>
     </HashRouter>
   );
