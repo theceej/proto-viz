@@ -57,7 +57,7 @@ describe('field editor inputs', () => {
     render(createElement(FlagsInput, { field, value: 0, onCommit }));
 
     const checkboxes = container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
-    expect(checkboxes[0]!.labels[0]!.textContent).toContain('High');
+    expect(checkboxes[0]!.labels?.[0]?.textContent).toContain('High');
     act(() => checkboxes[0]!.click());
     expect(onCommit).toHaveBeenCalledWith(0x80);
   });

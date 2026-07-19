@@ -1,4 +1,5 @@
 /// <reference types="vitest/config" />
+import { execFileSync } from 'node:child_process';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
@@ -23,9 +24,22 @@ const CSP = [
   "form-action 'self'",
 ].join('; ');
 
+function buildCommit(): string {
+  if (process.env.GITHUB_SHA) return process.env.GITHUB_SHA;
+  try {
+    return execFileSync('git', ['rev-parse', 'HEAD'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+  } catch {
+    return 'development';
+  }
+}
+
 // Relative base so the built app works on GitHub Pages subpaths and any static server.
 export default defineConfig(({ command }) => ({
   base: process.env.BASE_URL ?? './',
+  define: { 'import.meta.env.VITE_BUILD_COMMIT': JSON.stringify(buildCommit()) },
   plugins: [
     react(),
     tailwindcss(),

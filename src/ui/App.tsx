@@ -20,6 +20,8 @@ import { usePersistedFlag } from './usePersistedFlag';
 import PwaStatus from './components/PwaStatus';
 
 const GITHUB_URL = 'https://github.com/theceej/proto-viz';
+const BUILD_COMMIT = import.meta.env.VITE_BUILD_COMMIT;
+const BUILD_LABEL = BUILD_COMMIT === 'development' ? BUILD_COMMIT : BUILD_COMMIT.slice(0, 7);
 
 const NAV = [
   { to: '/builder', label: 'Stack Builder', icon: Layers },
@@ -121,6 +123,16 @@ export default function App() {
                   title="GNU General Public License v3 (opens in a new tab)"
                 >
                   GPL-3.0 · © 2026 proto-viz contributors
+                </a>
+                <br />
+                <a
+                  className="hover:text-zinc-400 hover:underline"
+                  href={BUILD_COMMIT === 'development' ? GITHUB_URL : `${GITHUB_URL}/commit/${BUILD_COMMIT}`}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  title={`View build ${BUILD_LABEL} on GitHub (opens in a new tab)`}
+                >
+                  build {BUILD_LABEL}
                 </a>
               </div>
             )}
