@@ -40,6 +40,11 @@ export default function HelpPage() {
           the full width.
         </p>
         <p>
+          Use the <Ui>Detail</Ui> control above the hex dump to choose Compact,
+          Explain, or Deep inspection. New here? Start the optional guided tour
+          at any time with <Ui>Tour</Ui> in the builder toolbar.
+        </p>
+        <p>
           Computed fields — lengths, IHL, checksums including TCP/UDP pseudo-header
           sums — update live as you edit and show a lock icon. Pin one to force a
           deliberately wrong value (for testing malformed-packet handling); the

@@ -10,6 +10,7 @@ import {
   Share2,
   Undo2,
   X,
+  GraduationCap,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -33,6 +34,8 @@ import DiagramExportDialog from '../components/DiagramExportDialog';
 import ProtocolInfoLink from '../components/ProtocolInfoLink';
 import { layerColor, PAYLOAD_COLOR } from '../colors';
 import { bitsLabel } from '../format';
+import { useInspectionMode } from '../inspectionMode';
+import BuilderTour, { TOUR_COMPLETE_KEY } from '../components/BuilderTour';
 
 const PRESETS: { name: string; ids: string[]; payload?: string }[] = [
   { name: 'TCP over Ethernet', ids: ['ethernet', 'ipv4', 'tcp'] },
@@ -74,6 +77,8 @@ export default function BuilderPage() {
   const canUndo = useStackStore((s) => s.canUndo);
   const canRedo = useStackStore((s) => s.canRedo);
   const [searchParams, setSearchParams] = useSearchParams();
+  const [inspectionMode, setInspectionMode] = useInspectionMode();
+  const [tourOpen, setTourOpen] = useState(() => localStorage.getItem(TOUR_COMPLETE_KEY) !== 'true');
 
   // Opening a shared link (#/builder?s=word.word.word[&e=<edits>]) loads that
   // stack once. The optional `e` blob carries field edits and payload; without
@@ -150,6 +155,13 @@ export default function BuilderPage() {
             <Redo2 className="size-3.5" />
           </button>
         </div>
+        <button
+          className="flex cursor-pointer items-center gap-1 rounded-md border border-zinc-700 px-2.5 py-1 text-[12px] text-zinc-300 hover:border-cyan-600 hover:text-cyan-300"
+          onClick={() => setTourOpen(true)}
+        >
+          <GraduationCap className="size-3.5" />
+          Tour
+        </button>
         <button
           className="flex cursor-pointer items-center gap-1 rounded-md border border-zinc-700 px-2.5 py-1 text-[12px] text-zinc-300 hover:border-cyan-600 hover:text-cyan-300 disabled:cursor-not-allowed disabled:text-zinc-600"
           title="Export packet diagram as SVG or PNG"
@@ -321,9 +333,10 @@ export default function BuilderPage() {
           className="border-l border-zinc-800"
           scrollFocusable
         >
-          {packet && <HexView packet={packet} registry={registry} validation={validation} />}
+          {packet && <HexView packet={packet} registry={registry} validation={validation} inspectionMode={inspectionMode} onInspectionModeChange={setInspectionMode} />}
         </Pane>
       </div>
+      {tourOpen && <BuilderTour onClose={() => setTourOpen(false)} />}
     </div>
   );
 }

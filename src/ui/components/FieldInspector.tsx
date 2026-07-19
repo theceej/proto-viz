@@ -4,6 +4,9 @@ import type { ValidationIssue } from '../../core/validate';
 import type { FieldRef } from '../../store/highlightStore';
 import { bitsLabel, formatFieldValue } from '../format';
 import { specUrl } from '../refs';
+import type { InspectionMode } from '../inspectionMode';
+import type { ComputedSpec, Expr } from '../../core/model';
+import { resolveBinding } from '../../core/bindings';
 
 export function asciiByte(byte: number): string {
   return byte >= 0x20 && byte < 0x7f ? String.fromCharCode(byte) : '.';
@@ -28,11 +31,13 @@ export default function FieldInspector({
   registry,
   selected,
   validation,
+  mode,
 }: {
   packet: SerializedPacket;
   registry: Registry;
   selected: FieldRef;
   validation: ValidationIssue[];
+  mode: InspectionMode;
 }) {
   const payload = selected.layerUid === '__payload__';
   const layout = packet.layers.find((layer) => layer.uid === selected.layerUid);
@@ -60,6 +65,15 @@ export default function FieldInspector({
       .map((issue) => issue.message),
   ];
   const enumTable = field?.enumRef ? registry.getEnum(field.enumRef) : undefined;
+  const value = field ? formatFieldValue(field, span!.value, enumTable) : null;
+  const provenance = field?.computed
+    ? computationProvenance(
+        field.computed,
+        def!,
+        layout ? packet.layers[packet.layers.indexOf(layout) + 1] : undefined,
+        registry,
+      )
+    : null;
 
   return (
     <section
@@ -70,6 +84,7 @@ export default function FieldInspector({
         <strong className="text-[12px] text-zinc-200">
           {payload ? 'Payload' : `${def!.name} · ${field!.name}`}
         </strong>
+        {!payload && <span className="font-mono text-zinc-300">{value}</span>}
         {!payload && span!.computed && (
           <span className="rounded bg-cyan-500/10 px-1 text-cyan-300">computed</span>
         )}
@@ -82,7 +97,7 @@ export default function FieldInspector({
             : 'valid'}
         </span>
       </div>
-      <dl className="mt-1 grid grid-cols-[auto_minmax(0,1fr)] gap-x-2 gap-y-0.5 font-mono">
+      {mode === 'deep' && <dl className="mt-1 grid grid-cols-[auto_minmax(0,1fr)] gap-x-2 gap-y-0.5 font-mono">
         <dt className="text-zinc-600">Range</dt>
         <dd>
           bytes {range.start}–{range.end}
@@ -90,19 +105,16 @@ export default function FieldInspector({
         </dd>
         <dt className="text-zinc-600">Size</dt>
         <dd>{payload ? `${raw.length} bytes` : bitsLabel(span!.bitLength)}</dd>
-        {!payload && (
-          <>
-            <dt className="text-zinc-600">Value</dt>
-            <dd className="truncate" title={formatFieldValue(field!, span!.value, enumTable)}>
-              {formatFieldValue(field!, span!.value, enumTable)}
-            </dd>
-          </>
-        )}
         <dt className="text-zinc-600">Raw</dt>
         <dd className="break-all">{hexBytes(raw) || '—'}</dd>
-      </dl>
-      {field?.description && <p className="mt-1 leading-relaxed">{field.description}</p>}
-      {reference && (
+        {provenance && <><dt className="text-zinc-600">Source</dt><dd>{provenance}</dd></>}
+      </dl>}
+      {mode !== 'compact' && (
+        <p className="mt-1 leading-relaxed">
+          {payload ? 'Opaque bytes carried after the innermost protocol header.' : field?.description || 'No field description is available.'}
+        </p>
+      )}
+      {mode === 'deep' && reference && (
         <p className="mt-1">
           {referenceUrl ? (
             <a
@@ -118,7 +130,7 @@ export default function FieldInspector({
           )}
         </p>
       )}
-      {issueMessages.length > 0 && (
+      {mode !== 'compact' && issueMessages.length > 0 && (
         <ul className="mt-1 text-amber-300">
           {issueMessages.map((message, index) => (
             <li key={`${message}-${index}`}>{message}</li>
@@ -127,4 +139,32 @@ export default function FieldInspector({
       )}
     </section>
   );
+}
+
+function expressionLabel(expr: Expr): string {
+  switch (expr.kind) {
+    case 'const': return String(expr.value);
+    case 'field': return expr.fieldId;
+    case 'payloadBytes': return 'payload bytes';
+    case 'headerBytes': return 'header bytes';
+    case 'binop': return `(${expressionLabel(expr.left)} ${expr.op} ${expressionLabel(expr.right)})`;
+  }
+}
+
+function computationProvenance(
+  spec: ComputedSpec,
+  outer: NonNullable<ReturnType<Registry['get']>>,
+  next: SerializedPacket['layers'][number] | undefined,
+  registry: Registry,
+): string {
+  if (spec.kind === 'expr') return `Expression: ${expressionLabel(spec.expr)}`;
+  if (spec.kind === 'checksum') {
+    const pseudo = spec.pseudoHeader ? ` with ${spec.pseudoHeader} pseudo-header` : '';
+    return `${spec.algorithm} over ${spec.scope === 'header' ? 'this header' : 'this header and payload'}${pseudo}`;
+  }
+  const inner = next ? registry.get(next.protocolId) : undefined;
+  const binding = inner ? resolveBinding(outer, inner) : null;
+  if (!binding) return 'Binding selector; no following layer currently supplies a value.';
+  const value = binding.claim.value === undefined ? '' : ` = ${binding.claim.value} (0x${binding.claim.value.toString(16)})`;
+  return `${binding.namespace.displayName}${value}, selected by ${inner!.name}${binding.claim.conventional ? ' (conventional)' : ''}`;
 }
