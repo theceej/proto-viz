@@ -42,6 +42,8 @@ export default function LibraryPage() {
   const addCustom = useLibraryStore((s) => s.addCustom);
   const [query, setQuery] = useState('');
   const [osiOpen, setOsiOpen] = usePersistedFlag('pv-osi-panel', false);
+  // false = grouped by layer (each group A–Z); true = one flat A–Z list.
+  const [nameSort, setNameSort] = usePersistedFlag('pv-library-name-sort', false);
   const addLayer = useStackStore((s) => s.addLayer);
   const { protocolId } = useParams();
   const navigate = useNavigate();
@@ -81,20 +83,22 @@ export default function LibraryPage() {
 
   const selected = protocolId ? registry.get(protocolId) : undefined;
 
-  const groups = useMemo(() => {
+  const { sorted, groups } = useMemo(() => {
     const q = query.toLowerCase();
-    const all = registry
+    const sorted = registry
       .all()
       .filter(
         (p) =>
           p.name.toLowerCase().includes(q) ||
           (p.fullName ?? '').toLowerCase().includes(q) ||
           p.id.includes(q),
-      );
-    return LAYER_ORDER.map((layer) => ({
+      )
+      .sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }));
+    const groups = LAYER_ORDER.map((layer) => ({
       layer,
-      protocols: all.filter((p) => p.layerHint === layer),
+      protocols: sorted.filter((p) => p.layerHint === layer),
     })).filter((g) => g.protocols.length > 0);
+    return { sorted, groups };
   }, [registry, query]);
 
   return (
@@ -105,18 +109,51 @@ export default function LibraryPage() {
             Protocol Library
           </h1>
           <button
-            className={`flex cursor-pointer items-center gap-1 rounded-md border px-2 py-1 text-[12px] transition-colors ${
-              osiOpen
-                ? 'border-cyan-700 bg-cyan-500/10 text-cyan-300'
-                : 'border-zinc-700 text-zinc-300 hover:border-zinc-500'
+            disabled={nameSort}
+            className={`flex items-center gap-1 rounded-md border px-2 py-1 text-[12px] transition-colors ${
+              nameSort
+                ? 'cursor-not-allowed border-zinc-800 text-zinc-600'
+                : osiOpen
+                  ? 'cursor-pointer border-cyan-700 bg-cyan-500/10 text-cyan-300'
+                  : 'cursor-pointer border-zinc-700 text-zinc-300 hover:border-zinc-500'
             }`}
-            aria-pressed={osiOpen}
-            title="Show how the library maps onto the OSI reference model"
+            aria-pressed={osiOpen && !nameSort}
+            title={
+              nameSort
+                ? 'The OSI model view groups by layer — switch to Layer sorting to use it'
+                : 'Show how the library maps onto the OSI reference model'
+            }
             onClick={() => setOsiOpen(!osiOpen)}
           >
             <Layers3 className="size-3.5" />
             OSI model
           </button>
+          <div
+            className="flex items-center rounded-md border border-zinc-700 text-[12px]"
+            role="group"
+            aria-label="Sort protocols"
+          >
+            <button
+              className={`cursor-pointer rounded-l-md px-2 py-1 transition-colors ${
+                !nameSort ? 'bg-cyan-500/10 text-cyan-300' : 'text-zinc-400 hover:text-zinc-200'
+              }`}
+              aria-pressed={!nameSort}
+              title="Group by layer, each group A–Z"
+              onClick={() => setNameSort(false)}
+            >
+              Layer
+            </button>
+            <button
+              className={`cursor-pointer rounded-r-md border-l border-zinc-700 px-2 py-1 transition-colors ${
+                nameSort ? 'bg-cyan-500/10 text-cyan-300' : 'text-zinc-400 hover:text-zinc-200'
+              }`}
+              aria-pressed={nameSort}
+              title="One flat list, A–Z across all layers"
+              onClick={() => setNameSort(true)}
+            >
+              A–Z
+            </button>
+          </div>
           <div className="ml-auto flex items-center gap-2">
             {custom.length > 0 && (
               <button
@@ -156,27 +193,41 @@ export default function LibraryPage() {
             </div>
           </div>
         </header>
-        {osiOpen && <OsiModel registry={registry} onJump={jumpToGroup} />}
+        {osiOpen && !nameSort && <OsiModel registry={registry} onJump={jumpToGroup} />}
         <div className="flex flex-col gap-6 p-6">
-          {groups.map((g) => (
-            <section key={g.layer} id={`layer-${g.layer}`} className="scroll-mt-14">
-              <h2 className="mb-2 text-[11px] font-semibold tracking-widest text-zinc-500 uppercase">
-                {LAYER_LABEL[g.layer]}
-              </h2>
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] gap-3">
-                {g.protocols.map((p) => (
-                  <ProtocolTile
-                    key={p.id}
-                    def={p}
-                    selected={selected?.id === p.id}
-                    onOpen={() => navigate(`/library/${p.id}`)}
-                    onAdd={() => addLayer(p.id)}
-                  />
-                ))}
-              </div>
-            </section>
-          ))}
-          {groups.length === 0 && (
+          {nameSort ? (
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] gap-3">
+              {sorted.map((p) => (
+                <ProtocolTile
+                  key={p.id}
+                  def={p}
+                  selected={selected?.id === p.id}
+                  onOpen={() => navigate(`/library/${p.id}`)}
+                  onAdd={() => addLayer(p.id)}
+                />
+              ))}
+            </div>
+          ) : (
+            groups.map((g) => (
+              <section key={g.layer} id={`layer-${g.layer}`} className="scroll-mt-14">
+                <h2 className="mb-2 text-[11px] font-semibold tracking-widest text-zinc-500 uppercase">
+                  {LAYER_LABEL[g.layer]}
+                </h2>
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] gap-3">
+                  {g.protocols.map((p) => (
+                    <ProtocolTile
+                      key={p.id}
+                      def={p}
+                      selected={selected?.id === p.id}
+                      onOpen={() => navigate(`/library/${p.id}`)}
+                      onAdd={() => addLayer(p.id)}
+                    />
+                  ))}
+                </div>
+              </section>
+            ))
+          )}
+          {sorted.length === 0 && (
             <p className="text-sm text-zinc-500">No protocols match “{query}”.</p>
           )}
         </div>
