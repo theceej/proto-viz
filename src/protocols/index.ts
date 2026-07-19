@@ -55,6 +55,7 @@ import { ftp, imap, irc, pop3, rtsp, sip, smtp, ssdp, syslog, telnet } from './t
 import { cdp, ethernetSnap, nbns, pim, ripv1 } from './legacy';
 import { ipv6DestOptions, ipv6Fragment, ipv6HopByHop, ipv6Routing } from './ipv6ext';
 import { quic } from './quic';
+import { isis } from './isis';
 
 export const builtinProtocols: ProtocolDefinition[] = [
   ethernet,
@@ -129,6 +130,7 @@ export const builtinProtocols: ProtocolDefinition[] = [
   ipv6Fragment,
   ipv6DestOptions,
   quic,
+  isis,
 ];
 
 export { enumTables };

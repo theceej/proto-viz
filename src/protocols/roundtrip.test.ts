@@ -113,6 +113,7 @@ const STACKS: Record<string, string[]> = {
   'ipv6-frag': ['ethernet', 'ipv6', 'ipv6-frag', 'udp'],
   'ipv6-dstopts': ['ethernet', 'ipv6', 'ipv6-dstopts', 'tcp'],
   quic: ['ethernet', 'ipv4', 'udp', 'quic'],
+  isis: ['ethernet-8023', 'isis'],
 };
 
 describe('every builtin protocol', () => {
@@ -187,6 +188,10 @@ describe.runIf(process.env.TSHARK === '1')('tshark export validation', () => {
         if (id === 'mqtt') stack.layers.at(-1)!.overrides.packetType = 14;
         if (id === 'modbus') stack.trailingPayload = new Uint8Array([0, 0, 0, 1]);
         if (id === 'mpls') stack.layers[1]!.overrides.s = 0;
+        if (id === 'isis') {
+          stack.layers[0]!.overrides.dstMac = '01:80:c2:00:00:14';
+          stack.layers[0]!.overrides.ssap = 0xfe;
+        }
         if (id === 'hsrp') stack.layers[1]!.overrides.dst = '224.0.0.2';
         if (id === 'smb2') {
           stack.layers.at(-1)!.overrides.command = new Uint8Array([13, 0]);
@@ -431,6 +436,21 @@ describe('protocol-specific spot checks', () => {
     expect(length).toBe(bytes.length - 14);
     expect(bytes[14]).toBe(0x42); // DSAP from binding
     expect(layers[1]!.headerBytes).toBe(35); // config BPDU
+  });
+
+  it('IS-IS binds to LLC SAP 0xFE and computes the complete IIH PDU length', () => {
+    const layers = STACKS.isis!.map(newLayer);
+    layers[0]!.overrides.ssap = 0xfe;
+    const { bytes, layers: layouts } = serializeStack({ layers }, registry);
+    const start = layouts[1]!.byteOffset;
+    expect(bytes[14]).toBe(0xfe); // DSAP from binding
+    expect(bytes[15]).toBe(0xfe); // canonical SSAP override
+    expect(bytes[start]).toBe(0x83); // IS-IS NLPID
+    expect(bytes[start + 4]! & 0x1f).toBe(15); // L1 LAN IIH
+    expect((bytes[start + 17]! << 8) | bytes[start + 18]!).toBe(
+      layouts[1]!.headerBytes,
+    );
+    expect(layouts[1]!.headerBytes).toBe(36); // 27 fixed + 9 TLV bytes
   });
 
   it('AH next-header auto-sets to the protected protocol', () => {
