@@ -2,9 +2,9 @@
 import { act, createElement, type ReactElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { decodeIpv4Options } from '../../../core/ipv4Options';
+import { decodeIpv4Options, encodeIpv4Options } from '../../../core/ipv4Options';
 import type { FieldDef } from '../../../core/model';
-import { decodeTcpOptions } from '../../../core/tcpOptions';
+import { decodeTcpOptions, encodeTcpOptions } from '../../../core/tcpOptions';
 import { useStackStore } from '../../../store/stackStore';
 import FlagsInput from './FlagsInput';
 import Ipv4OptionsInput from './Ipv4OptionsInput';
@@ -107,6 +107,24 @@ describe('field editor inputs', () => {
     expect(decodeTcpOptions(committed)).toEqual({ mss: 0 });
   });
 
+  it('drives every TCP option control', () => {
+    const onCommit = vi.fn();
+    // Start with every option enabled so all controls are visible.
+    const value = encodeTcpOptions({ mss: 1460, sackPermitted: true, windowScale: 7, timestamp: { value: 1, echoReply: 2 } });
+    render(createElement(TcpOptionsInput, { value, onCommit, rawFallback: createElement('span', null, 'raw') }));
+    for (const label of ['MSS value', 'Window scale value', 'Timestamp value', 'Timestamp echo reply']) {
+      type(input(label), '5');
+    }
+    for (const cb of container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')) {
+      act(() => cb.click());
+    }
+    // Every commit produced bytes that decode back to a valid option set.
+    for (const call of onCommit.mock.calls) {
+      expect(decodeTcpOptions(call[0] as Uint8Array)).not.toBeNull();
+    }
+    expect(onCommit).toHaveBeenCalled();
+  });
+
   it('uses the raw fallback for an undecodable TCP option', () => {
     render(
       createElement(TcpOptionsInput, {
@@ -132,6 +150,34 @@ describe('field editor inputs', () => {
     act(() => container.querySelector<HTMLInputElement>('input[type="checkbox"]')!.click());
     const committed = onCommit.mock.calls[0]![0] as Uint8Array;
     expect(decodeIpv4Options(committed)).toEqual({ routerAlert: 0 });
+  });
+
+  it('drives every IPv4 option control', () => {
+    const onCommit = vi.fn();
+    const value = encodeIpv4Options({
+      routerAlert: 0,
+      recordRoute: ['192.0.2.1'],
+      timestamps: [1],
+      looseSourceRoute: ['192.0.2.9'],
+      strictSourceRoute: ['192.0.2.10'],
+    });
+    render(createElement(Ipv4OptionsInput, { value, onCommit, rawFallback: createElement('span', null, 'raw') }));
+    type(input('Router Alert value'), '1');
+    // Route/timestamp lists commit on blur.
+    const blur = (label: string, text: string) =>
+      act(() => {
+        const el = input(label);
+        el.value = text;
+        el.dispatchEvent(new Event('blur', { bubbles: true }));
+      });
+    blur('Record Route addresses', '192.0.2.1, 198.51.100.1');
+    blur('Loose Source Route addresses', '192.0.2.9');
+    blur('Strict Source Route addresses', '192.0.2.10');
+    blur('Timestamp values', '1, 2, 3');
+    for (const cb of container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')) {
+      act(() => cb.click());
+    }
+    expect(onCommit).toHaveBeenCalled();
   });
 
   it('uses the raw fallback for an undecodable IPv4 option', () => {
