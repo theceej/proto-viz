@@ -32,6 +32,7 @@ export default function HexView({
   const locked = useHighlightStore((s) => s.locked);
   const [focusedByte, setFocusedByte] = useState(0);
   const [activeFocus, setActiveFocus] = useState<number | null>(null);
+  const [hexVisible, setHexVisible] = usePersistedFlag('pv-hex-column', true);
   const [asciiVisible, setAsciiVisible] = usePersistedFlag('pv-hex-ascii', true);
   const byteRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const asciiRefs = useRef<(HTMLSpanElement | null)[]>([]);
@@ -109,18 +110,24 @@ export default function HexView({
           <span className="mx-1 h-4 w-px bg-zinc-800" aria-hidden />
           <div className="flex items-center gap-1">
             <span className="text-[10px] text-zinc-600">Columns</span>
-            <button
-              className={`cursor-pointer rounded-md border px-1.5 py-0.5 text-[10px] ${
-                asciiVisible
-                  ? 'border-zinc-700 bg-zinc-800 font-medium text-zinc-100'
-                  : 'border-zinc-800 text-zinc-500 hover:text-zinc-200'
-              }`}
-              aria-pressed={asciiVisible}
-              title="Show or hide the ASCII column"
-              onClick={() => setAsciiVisible(!asciiVisible)}
-            >
-              ASCII
-            </button>
+            {([
+              ['Hex', hexVisible, () => setHexVisible(!hexVisible)],
+              ['ASCII', asciiVisible, () => setAsciiVisible(!asciiVisible)],
+            ] as const).map(([label, visible, toggle]) => (
+              <button
+                key={label}
+                className={`cursor-pointer rounded-md border px-1.5 py-0.5 text-[10px] ${
+                  visible
+                    ? 'border-zinc-700 bg-zinc-800 font-medium text-zinc-100'
+                    : 'border-zinc-800 text-zinc-500 hover:text-zinc-200'
+                }`}
+                aria-pressed={visible}
+                title={`Show or hide the ${label} column`}
+                onClick={toggle}
+              >
+                {label}
+              </button>
+            ))}
           </div>
           <CopyHexButton bytes={packet.bytes} />
         </div>
@@ -140,7 +147,7 @@ export default function HexView({
           <span className="w-10 shrink-0 text-right text-zinc-600">
             {off.toString(16).padStart(4, '0')}
           </span>
-          <span className="flex" role="group" aria-label={`Bytes ${off} through ${Math.min(off + 15, packet.bytes.length - 1)}`}>
+          {hexVisible && <span className="flex" role="group" aria-label={`Hex bytes ${off} through ${Math.min(off + 15, packet.bytes.length - 1)}`}>
             {Array.from({ length: 16 }, (_, i) => {
               const b = off + i;
               if (b >= packet.bytes.length)
@@ -195,7 +202,7 @@ export default function HexView({
                 </span>
               );
             })}
-          </span>
+          </span>}
           {asciiVisible && (
             <span
               className="flex shrink-0 text-zinc-500"

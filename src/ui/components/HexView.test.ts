@@ -37,6 +37,7 @@ describe('HexView keyboard access', () => {
   let root: Root;
 
   beforeEach(() => {
+    localStorage.removeItem('pv-hex-column');
     localStorage.removeItem('pv-hex-ascii');
     container = document.createElement('div');
     document.body.append(container);
@@ -166,6 +167,20 @@ describe('HexView keyboard access', () => {
     act(() => toggle.click());
     expect(container.querySelector('[data-ascii-offset]')).toBeNull();
     expect(toggle.getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('independently toggles and persists the hex column', () => {
+    const toggle = [...container.querySelectorAll('button')].find(
+      (button) => button.textContent === 'Hex',
+    )!;
+    expect(toggle.getAttribute('aria-pressed')).toBe('true');
+    expect(container.querySelector('[data-byte-offset]')).not.toBeNull();
+
+    act(() => toggle.click());
+    expect(toggle.getAttribute('aria-pressed')).toBe('false');
+    expect(container.querySelector('[data-byte-offset]')).toBeNull();
+    expect(container.querySelector('[data-ascii-offset]')).not.toBeNull();
+    expect(localStorage.getItem('pv-hex-column')).toBe('false');
   });
 
   it('shows details, raw bytes, state, and a specification link for a locked field', () => {
