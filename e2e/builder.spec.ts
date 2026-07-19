@@ -23,7 +23,7 @@ test('builds a stack, edits a field, and updates the hex view', async ({ page })
   await expect(page.getByRole('button', { name: 'Reorder TCP layer' })).toBeVisible();
 
   await page.getByRole('textbox', { name: 'Source MAC', exact: true }).fill('aa:bb:cc:dd:ee:ff');
-  await expect(page.getByLabel(/Byte offset 6 .*value 0xaa/)).toBeVisible();
+  await expect(page.locator('[data-byte-offset="6"]')).toHaveText('aa');
 });
 
 test('undoes a grouped field edit and redoes it', async ({ page }) => {
@@ -44,13 +44,13 @@ test('adds a structured TCP MSS option and updates Data Offset', async ({ page }
   await loadTcpPreset(page);
   await page.getByRole('checkbox', { name: 'MSS' }).check();
   await page.getByRole('spinbutton', { name: 'MSS value' }).fill('1460');
-  await expect(page.getByLabel(/Byte offset 46 .*value 0x60/)).toBeVisible();
+  await expect(page.locator('[data-byte-offset="46"]')).toHaveText('60');
 });
 
 test('adds a structured IPv4 Router Alert option and updates IHL', async ({ page }) => {
   await loadTcpPreset(page);
   await page.getByRole('checkbox', { name: 'Router Alert' }).check();
-  await expect(page.getByLabel(/Byte offset 14 .*value 0x46/)).toBeVisible();
+  await expect(page.locator('[data-byte-offset="14"]')).toHaveText('46');
 });
 
 test('round-trips a stack through its share code', async ({ page, context }) => {
@@ -81,7 +81,7 @@ test('round-trips field edits through the exact-packet share link', async ({ pag
   const freshPage = await context.newPage();
   await freshPage.goto(link.replace(/^https?:\/\/[^/]+/, ''));
   // The edited Source MAC survived the link (byte 6 = 0xaa).
-  await expect(freshPage.getByLabel(/Byte offset 6 .*value 0xaa/)).toBeVisible();
+  await expect(freshPage.locator('[data-byte-offset="6"]')).toHaveText('aa');
 });
 
 test('exports a PCAP with the expected file header', async ({ page }) => {

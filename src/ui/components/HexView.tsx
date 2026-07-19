@@ -1,20 +1,34 @@
 import { useMemo, useRef, useState } from 'react';
 import { Check, Copy } from 'lucide-react';
 import type { SerializedPacket } from '../../core/serialize';
+import type { Registry } from '../../core/registry';
+import type { ValidationIssue } from '../../core/validate';
 import { buildSpanIndex } from '../../core/spanIndex';
 import { isActive, useHighlightStore, type FieldRef } from '../../store/highlightStore';
 import { layerColor, PAYLOAD_COLOR, type LayerColor } from '../colors';
+import { usePersistedFlag } from '../usePersistedFlag';
+import FieldInspector, { asciiByte } from './FieldInspector';
 
 const PAYLOAD_REF: FieldRef = { layerUid: '__payload__', fieldId: 'payload' };
 
 /** Full-packet hex dump with layer tints and field hover-linking. */
-export default function HexView({ packet }: { packet: SerializedPacket }) {
+export default function HexView({
+  packet,
+  registry,
+  validation = [],
+}: {
+  packet: SerializedPacket;
+  registry: Registry;
+  validation?: ValidationIssue[];
+}) {
   const { setHovered, toggleLocked } = useHighlightStore();
   const hovered = useHighlightStore((s) => s.hovered);
   const locked = useHighlightStore((s) => s.locked);
   const [focusedByte, setFocusedByte] = useState(0);
   const [activeFocus, setActiveFocus] = useState<number | null>(null);
+  const [asciiVisible, setAsciiVisible] = usePersistedFlag('pv-hex-ascii', true);
   const byteRefs = useRef<(HTMLSpanElement | null)[]>([]);
+  const asciiRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const tabStopByte = Math.min(focusedByte, Math.max(0, packet.bytes.length - 1));
 
   const spanIndex = useMemo(
@@ -62,7 +76,11 @@ export default function HexView({ packet }: { packet: SerializedPacket }) {
     return `Byte offset ${b} (0x${b.toString(16)}), value 0x${value}, ${owners || 'payload'}`;
   };
 
-  const moveFocus = (from: number, key: string): boolean => {
+  const moveFocus = (
+    from: number,
+    key: string,
+    refs: { current: (HTMLSpanElement | null)[] },
+  ): boolean => {
     let next: number;
     if (key === 'ArrowLeft') next = Math.max(0, from - 1);
     else if (key === 'ArrowRight') next = Math.min(packet.bytes.length - 1, from + 1);
@@ -70,7 +88,7 @@ export default function HexView({ packet }: { packet: SerializedPacket }) {
     else if (key === 'ArrowDown') next = Math.min(packet.bytes.length - 1, from + 16);
     else return false;
     setFocusedByte(next);
-    byteRefs.current[next]?.focus();
+    refs.current[next]?.focus();
     return true;
   };
 
@@ -79,8 +97,27 @@ export default function HexView({ packet }: { packet: SerializedPacket }) {
 
   return (
     <div>
-      <div className="sticky top-0 z-10 flex justify-end border-b border-zinc-800/50 bg-zinc-950/80 px-2 py-1 backdrop-blur">
-        <CopyHexButton bytes={packet.bytes} />
+      <div className="sticky top-0 z-10 bg-zinc-950/95 backdrop-blur">
+        <div className="flex justify-end border-b border-zinc-800/50 px-2 py-1">
+          <button
+            className={`mr-1 cursor-pointer rounded px-1.5 font-mono text-[10px] ${
+              asciiVisible ? 'bg-zinc-800 text-zinc-300' : 'text-zinc-600 hover:text-zinc-300'
+            }`}
+            aria-pressed={asciiVisible}
+            onClick={() => setAsciiVisible(!asciiVisible)}
+          >
+            ASCII
+          </button>
+          <CopyHexButton bytes={packet.bytes} />
+        </div>
+        {locked && (
+          <FieldInspector
+            packet={packet}
+            registry={registry}
+            selected={locked}
+            validation={validation}
+          />
+        )}
       </div>
       <div className="px-4 pt-2 pb-4 font-mono text-[12px] leading-5 select-none">
         {rows.map((off) => (
@@ -128,7 +165,7 @@ export default function HexView({ packet }: { packet: SerializedPacket }) {
                     setHovered(null);
                   }}
                   onKeyDown={(event) => {
-                    if (moveFocus(b, event.key)) {
+                    if (moveFocus(b, event.key, byteRefs)) {
                       event.preventDefault();
                       return;
                     }
@@ -144,25 +181,62 @@ export default function HexView({ packet }: { packet: SerializedPacket }) {
               );
             })}
           </span>
-          <span className="shrink-0 text-zinc-500">
-            {Array.from({ length: Math.min(16, packet.bytes.length - off) }, (_, i) => {
+          {asciiVisible && (
+            <span
+              className="flex shrink-0 text-zinc-500"
+              role="group"
+              aria-label={`ASCII bytes ${off} through ${Math.min(off + 15, packet.bytes.length - 1)}`}
+            >
+              {Array.from({ length: Math.min(16, packet.bytes.length - off) }, (_, i) => {
               const b = off + i;
-              const ch = packet.bytes[b]!;
               const active = byteActive(b);
+              const ref = refOfByte(b);
               return (
                 <span
                   key={i}
+                  ref={(element) => {
+                    asciiRefs.current[b] = element;
+                  }}
+                  role="button"
+                  tabIndex={b === tabStopByte ? 0 : -1}
+                  data-ascii-offset={b}
+                  aria-label={`${labelOfByte(b)}, ASCII ${asciiByte(packet.bytes[b]!)}`}
+                  aria-pressed={isActive(locked, ref.layerUid, ref.fieldId)}
+                  className="cursor-pointer rounded-sm focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cyan-400"
                   style={
                     active
                       ? { background: colorOfByte(b).fillHover, color: 'var(--hex-active-ink)' }
                       : undefined
                   }
+                  onMouseEnter={() => setHovered(ref)}
+                  onMouseLeave={() => setHovered(activeFocus === null ? null : refOfByte(activeFocus))}
+                  onFocus={() => {
+                    setFocusedByte(b);
+                    setActiveFocus(b);
+                    setHovered(ref);
+                  }}
+                  onBlur={() => {
+                    setActiveFocus(null);
+                    setHovered(null);
+                  }}
+                  onKeyDown={(event) => {
+                    if (moveFocus(b, event.key, asciiRefs)) {
+                      event.preventDefault();
+                      return;
+                    }
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      toggleLocked(ref);
+                    }
+                  }}
+                  onClick={() => toggleLocked(ref)}
                 >
-                  {ch >= 0x20 && ch < 0x7f ? String.fromCharCode(ch) : '·'}
+                  {asciiByte(packet.bytes[b]!)}
                 </span>
               );
-            })}
-          </span>
+              })}
+            </span>
+          )}
         </div>
         ))}
       </div>
