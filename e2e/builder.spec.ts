@@ -1,6 +1,20 @@
 import { expect, test, type Page } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 
+test('offers a dismissible first-run tour and persists inspection detail', async ({ page }) => {
+  await page.goto('/#/builder');
+  await expect(page.getByRole('region', { name: 'Build a protocol stack' })).toBeVisible();
+  await page.getByRole('button', { name: 'Skip guided tour' }).click();
+  await page.getByRole('radio', { name: 'Deep' }).click();
+  await expect(page.getByRole('radio', { name: 'Deep' })).toBeChecked();
+
+  await page.reload();
+  await expect(page.getByRole('region', { name: 'Build a protocol stack' })).toHaveCount(0);
+  await expect(page.getByRole('radio', { name: 'Deep' })).toBeChecked();
+  await page.getByRole('button', { name: 'Tour' }).click();
+  await expect(page.getByRole('region', { name: 'Build a protocol stack' })).toBeVisible();
+});
+
 async function loadTcpPreset(page: Page) {
   await page.goto('/#/builder');
   await page.getByRole('button', { name: 'Presets' }).click();

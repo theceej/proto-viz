@@ -8,6 +8,8 @@ import { isActive, useHighlightStore, type FieldRef } from '../../store/highligh
 import { layerColor, PAYLOAD_COLOR, type LayerColor } from '../colors';
 import { usePersistedFlag } from '../usePersistedFlag';
 import FieldInspector, { asciiByte } from './FieldInspector';
+import InspectionModeSelector from './InspectionModeSelector';
+import type { InspectionMode } from '../inspectionMode';
 
 const PAYLOAD_REF: FieldRef = { layerUid: '__payload__', fieldId: 'payload' };
 
@@ -16,10 +18,14 @@ export default function HexView({
   packet,
   registry,
   validation = [],
+  inspectionMode = 'explain',
+  onInspectionModeChange = () => undefined,
 }: {
   packet: SerializedPacket;
   registry: Registry;
   validation?: ValidationIssue[];
+  inspectionMode?: InspectionMode;
+  onInspectionModeChange?: (mode: InspectionMode) => void;
 }) {
   const { setHovered, toggleLocked } = useHighlightStore();
   const hovered = useHighlightStore((s) => s.hovered);
@@ -98,7 +104,8 @@ export default function HexView({
   return (
     <div>
       <div className="sticky top-0 z-10 bg-zinc-950/95 backdrop-blur">
-        <div className="flex justify-end border-b border-zinc-800/50 px-2 py-1">
+        <div className="flex flex-wrap items-center justify-end gap-y-1 border-b border-zinc-800/50 px-2 py-1">
+          <InspectionModeSelector mode={inspectionMode} onChange={onInspectionModeChange} />
           <button
             className={`mr-1 cursor-pointer rounded px-1.5 font-mono text-[10px] ${
               asciiVisible ? 'bg-zinc-800 text-zinc-300' : 'text-zinc-600 hover:text-zinc-300'
@@ -116,6 +123,7 @@ export default function HexView({
             registry={registry}
             selected={locked}
             validation={validation}
+            mode={inspectionMode}
           />
         )}
       </div>

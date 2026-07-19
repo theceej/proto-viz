@@ -217,6 +217,7 @@ describe('HexView keyboard access', () => {
               message: 'Example validation warning.',
             },
           ],
+          inspectionMode: 'deep',
         }),
       ),
     );
@@ -232,6 +233,42 @@ describe('HexView keyboard access', () => {
     expect(inspector.textContent).toContain('Example validation warning.');
     expect(inspector.textContent).toContain('Identifies the example packet kind.');
     expect(inspector.querySelector('a')?.getAttribute('href')).toContain('/rfc791');
+
+    act(() =>
+      root.render(
+        createElement(HexView, {
+          packet: selectedPacket,
+          registry: createRegistry([def]),
+          inspectionMode: 'compact',
+        }),
+      ),
+    );
+    const compactInspector = container.querySelector<HTMLElement>(
+      '[aria-label="Selected field"]',
+    )!;
+    expect(compactInspector.textContent).not.toContain('Range');
+    expect(compactInspector.textContent).not.toContain('Identifies the example packet kind.');
+  });
+
+  it('switches inspection detail without changing packet bytes', () => {
+    const before = [...packet.bytes];
+    const onChange = vi.fn();
+    act(() =>
+      root.render(
+        createElement(HexView, {
+          packet,
+          registry,
+          inspectionMode: 'compact',
+          onInspectionModeChange: onChange,
+        }),
+      ),
+    );
+    const deep = container.querySelector<HTMLButtonElement>(
+      '[role="radio"][title*="Wire ranges"]',
+    )!;
+    act(() => deep.click());
+    expect(onChange).toHaveBeenCalledWith('deep');
+    expect([...packet.bytes]).toEqual(before);
   });
 
   it('formats ASCII and bit-spanning byte ranges', () => {
