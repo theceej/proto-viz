@@ -112,6 +112,7 @@ const STACKS: Record<string, string[]> = {
   'ipv6-routing': ['ethernet', 'ipv6', 'ipv6-routing', 'tcp'],
   'ipv6-frag': ['ethernet', 'ipv6', 'ipv6-frag', 'udp'],
   'ipv6-dstopts': ['ethernet', 'ipv6', 'ipv6-dstopts', 'tcp'],
+  quic: ['ethernet', 'ipv4', 'udp', 'quic'],
 };
 
 describe('every builtin protocol', () => {
@@ -543,6 +544,17 @@ describe('protocol-specific spot checks', () => {
     ipStart = p.layers[1]!.byteOffset;
     tcpStart = p.layers[3]!.byteOffset;
     expect(foldedTcpSum(p.bytes, ipStart + 8, ipStart + 24, tcpStart)).toBe(0xffff);
+  });
+
+  it('QUIC long-header Initial sets the first byte, version, and UDP port 443', () => {
+    const stack: StackInstance = { layers: STACKS['quic']!.map(newLayer) };
+    const { bytes, layers } = serializeStack(stack, registry);
+    const udpStart = layers[2]!.byteOffset;
+    expect((bytes[udpStart + 2]! << 8) | bytes[udpStart + 3]!).toBe(443); // dst port auto-set
+    const q = layers[3]!.byteOffset;
+    expect(bytes[q]).toBe(0xc0); // long header + fixed bit + Initial (type 0)
+    // Version 0x00000001 in the next four bytes.
+    expect([bytes[q + 1], bytes[q + 2], bytes[q + 3], bytes[q + 4]]).toEqual([0, 0, 0, 1]);
   });
 
   it('GENEVE protocol type auto-sets to 0x6558 for inner Ethernet', () => {
