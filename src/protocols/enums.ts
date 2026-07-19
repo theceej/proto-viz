@@ -280,4 +280,9 @@ export const enumTables: EnumTable[] = [
     name: 'PIM message types',
     values: { 0: 'Hello', 1: 'Register', 2: 'Register-Stop', 3: 'Join/Prune', 4: 'Bootstrap', 5: 'Assert' },
   },
+  {
+    id: 'quic-long-type',
+    name: 'QUIC long-header packet types (v1)',
+    values: { 0: 'Initial', 1: '0-RTT', 2: 'Handshake', 3: 'Retry' },
+  },
 ];
