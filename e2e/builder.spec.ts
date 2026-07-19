@@ -67,6 +67,23 @@ test('round-trips a stack through its share code', async ({ page, context }) => 
   await expect(freshPage.getByRole('button', { name: 'Reorder TCP layer' })).toBeVisible();
 });
 
+test('round-trips field edits through the exact-packet share link', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await loadTcpPreset(page);
+  await page.getByRole('textbox', { name: 'Source MAC', exact: true }).fill('aa:bb:cc:dd:ee:ff');
+
+  await page.getByRole('button', { name: 'Share', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Share stack' });
+  await dialog.getByRole('button', { name: 'Copy exact-packet link' }).click();
+  const link = await page.evaluate(() => navigator.clipboard.readText());
+  expect(link).toContain('&e=');
+
+  const freshPage = await context.newPage();
+  await freshPage.goto(link.replace(/^https?:\/\/[^/]+/, ''));
+  // The edited Source MAC survived the link (byte 6 = 0xaa).
+  await expect(freshPage.getByLabel(/Byte offset 6 .*value 0xaa/)).toBeVisible();
+});
+
 test('exports a PCAP with the expected file header', async ({ page }) => {
   await loadTcpPreset(page);
   await page.getByRole('button', { name: 'Export PCAP' }).click();

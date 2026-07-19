@@ -108,7 +108,7 @@ const WORD_BITS = 11;
 export const MAX_SHARE_LAYERS = (1 << COUNT_BITS) - 1;
 
 /** CRC-8 (poly 0x07, init 0) over the payload bits packed into bytes. */
-function crc8(bytes: number[]): number {
+export function crc8(bytes: number[]): number {
   let crc = 0;
   for (const byte of bytes) {
     crc ^= byte;
