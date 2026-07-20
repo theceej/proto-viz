@@ -329,9 +329,13 @@ export default function BuilderPage() {
             <EmptyState />
           )}
         </Pane>
-        {!diagramsCollapsed && !hexCollapsed && (
+        {!hexCollapsed && (!diagramsCollapsed || !fieldsCollapsed) && (
           <PaneResizeHandle
-            label="Resize packet diagrams and hex dump"
+            label={
+              diagramsCollapsed
+                ? 'Resize field editor and hex dump'
+                : 'Resize packet diagrams and hex dump'
+            }
             reverse
             value={hexWidth}
             onChange={setHexWidth}
@@ -343,10 +347,12 @@ export default function BuilderPage() {
           onToggle={setHexCollapsed}
           expandedClass={
             diagramsCollapsed
-              ? 'min-w-0 flex-1'
+              ? fieldsCollapsed
+                ? 'min-w-0 flex-1'
+                : 'w-[clamp(22rem,30vw,42rem)] shrink-0'
               : 'w-[clamp(22rem,30vw,42rem)] shrink-0'
           }
-          width={diagramsCollapsed ? null : hexWidth}
+          width={diagramsCollapsed && fieldsCollapsed ? null : hexWidth}
           className="border-l border-zinc-800"
           scrollFocusable
         >
