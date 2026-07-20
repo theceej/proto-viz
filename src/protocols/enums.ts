@@ -181,6 +181,11 @@ export const enumTables: EnumTable[] = [
     values: { 0x11: 'Membership query', 0x12: 'v1 membership report', 0x16: 'v2 membership report', 0x17: 'Leave group', 0x22: 'v3 membership report' },
   },
   {
+    id: 'igmpv3-record-type',
+    name: 'IGMPv3/MLDv2 group record types',
+    values: { 1: 'MODE_IS_INCLUDE', 2: 'MODE_IS_EXCLUDE', 3: 'CHANGE_TO_INCLUDE', 4: 'CHANGE_TO_EXCLUDE', 5: 'ALLOW_NEW_SOURCES', 6: 'BLOCK_OLD_SOURCES' },
+  },
+  {
     id: 'dscp',
     name: 'DSCP values',
     values: { 0: 'Default (CS0)', 8: 'CS1', 16: 'CS2', 24: 'CS3', 32: 'CS4', 40: 'CS5', 46: 'EF', 48: 'CS6', 56: 'CS7' },

@@ -20,6 +20,8 @@ const TSHARK_PROTOCOL_NAMES: Record<string, string> = {
   'vlan-8021q': 'vlan',
   ipv4: 'ip',
   'icmpv6-ndp': 'icmpv6',
+  igmpv3: 'igmp',
+  mldv2: 'icmpv6',
   http1: 'http',
   pppoe: 'pppoes',
   'ethernet-8023': 'llc',
@@ -114,6 +116,8 @@ const STACKS: Record<string, string[]> = {
   'ipv6-dstopts': ['ethernet', 'ipv6', 'ipv6-dstopts', 'tcp'],
   quic: ['ethernet', 'ipv4', 'udp', 'quic'],
   isis: ['ethernet-8023', 'isis'],
+  igmpv3: ['ethernet', 'ipv4', 'igmpv3'],
+  mldv2: ['ethernet', 'ipv6', 'mldv2'],
 };
 
 describe('every builtin protocol', () => {
@@ -564,6 +568,27 @@ describe('protocol-specific spot checks', () => {
     ipStart = p.layers[1]!.byteOffset;
     tcpStart = p.layers[3]!.byteOffset;
     expect(foldedTcpSum(p.bytes, ipStart + 8, ipStart + 24, tcpStart)).toBe(0xffff);
+  });
+
+  it('IGMPv3 report carries a group record with a valid checksum', () => {
+    const stack: StackInstance = { layers: STACKS['igmpv3']!.map(newLayer) };
+    const { bytes, layers } = serializeStack(stack, registry);
+    const g = layers[2]!.byteOffset;
+    expect(bytes[g]).toBe(0x22); // v3 membership report
+    expect((bytes[g + 6]! << 8) | bytes[g + 7]!).toBe(1); // one group record
+    // Independent ones-complement over the whole IGMP message.
+    let sum = 0;
+    for (let i = g; i < bytes.length; i += 2) sum += (bytes[i]! << 8) | (bytes[i + 1] ?? 0);
+    while (sum > 0xffff) sum = (sum & 0xffff) + (sum >> 16);
+    expect(sum).toBe(0xffff);
+  });
+
+  it('MLDv2 report is ICMPv6 type 143 with an address record', () => {
+    const stack: StackInstance = { layers: STACKS['mldv2']!.map(newLayer) };
+    const { bytes, layers } = serializeStack(stack, registry);
+    const mld = layers[2]!.byteOffset; // [ethernet, ipv6, mldv2]
+    expect(bytes[mld]).toBe(143); // MLDv2 Multicast Listener Report
+    expect((bytes[mld + 6]! << 8) | bytes[mld + 7]!).toBe(1); // one address record
   });
 
   it('QUIC long-header Initial sets the first byte, version, and UDP port 443', () => {

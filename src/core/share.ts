@@ -92,6 +92,8 @@ export const SHARE_PROTOCOL_IDS: readonly string[] = [
   'ipv6-dstopts',
   'quic',
   'isis',
+  'igmpv3',
+  'mldv2',
 ];
 
 export class ShareCodeError extends Error {}
