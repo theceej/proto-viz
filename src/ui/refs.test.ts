@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { specUrl } from './refs';
+import { resolve, specUrl, type SpecSource } from './refs';
 
 describe('specUrl', () => {
   it('links RFCs', () => {
@@ -38,5 +38,36 @@ describe('specUrl', () => {
     expect(specUrl('Cisco NetFlow v5')).toBeNull();
     expect(specUrl('Modbus Application Protocol V1.1b3')).toBeNull();
     expect(specUrl('UPnP Device Architecture 2.0')).toBeNull();
+  });
+});
+
+describe('resolve', () => {
+  const source: SpecSource = {
+    template: 'https://www.rfc-editor.org/rfc/rfc%s',
+    match: /^RFC (\d+)$/,
+    token: (m) => m[1]!,
+    legacy: (base, t) => `${base.replace(/\/$/, '')}/rfc${t}`,
+  };
+
+  it('substitutes %s in a template override, arranging the id however the mirror needs', () => {
+    expect(resolve({ ...source, override: 'https://mirror.example/rfcs/%s.txt' }, '768')).toBe(
+      'https://mirror.example/rfcs/768.txt',
+    );
+  });
+
+  it('substitutes every %s occurrence', () => {
+    expect(resolve({ ...source, override: 'https://mirror.example/%s/rfc%s' }, '768')).toBe(
+      'https://mirror.example/768/rfc768',
+    );
+  });
+
+  it('treats a %s-less override as a legacy base URL (trailing slash trimmed)', () => {
+    expect(
+      resolve({ ...source, override: 'https://datatracker.ietf.org/doc/html/' }, '9293'),
+    ).toBe('https://datatracker.ietf.org/doc/html/rfc9293');
+  });
+
+  it('falls back to the default template when no override is set', () => {
+    expect(resolve(source, '768')).toBe('https://www.rfc-editor.org/rfc/rfc768');
   });
 });
