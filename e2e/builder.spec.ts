@@ -157,3 +157,22 @@ test('resizes builder panes with the keyboard and persists the split', async ({ 
   await page.keyboard.press('Home');
   await expect(handle).toHaveAttribute('aria-valuetext', 'Responsive default');
 });
+
+test('keeps the outer panes resizable when packet diagrams are collapsed', async ({
+  page,
+}) => {
+  await loadTcpPreset(page);
+  await page.getByRole('button', { name: 'Collapse packet diagrams pane' }).click();
+
+  const hexPane = page.getByRole('region', { name: 'Hex dump' });
+  const handle = page.getByRole('separator', {
+    name: 'Resize field editor and hex dump',
+  });
+  const before = await hexPane.evaluate((element) => element.getBoundingClientRect().width);
+
+  await handle.focus();
+  await page.keyboard.press('ArrowLeft');
+  await expect.poll(() => hexPane.evaluate((element) => element.getBoundingClientRect().width)).toBe(
+    Math.round(before) + 24,
+  );
+});
