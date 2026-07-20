@@ -265,7 +265,6 @@ export default function BuilderPage() {
         {!fieldsCollapsed && !diagramsCollapsed && (
           <PaneResizeHandle
             label="Resize field editor and packet diagrams"
-            side="left"
             value={fieldsWidth}
             onChange={setFieldsWidth}
           />
@@ -333,7 +332,7 @@ export default function BuilderPage() {
         {!diagramsCollapsed && !hexCollapsed && (
           <PaneResizeHandle
             label="Resize packet diagrams and hex dump"
-            side="right"
+            reverse
             value={hexWidth}
             onChange={setHexWidth}
           />
@@ -430,10 +429,9 @@ const MIN_PANE_WIDTH = 288;
 const MAX_PANE_WIDTH = 960;
 
 function usePersistedPaneWidth(key: string): [number | null, (width: number | null) => void] {
-  const [width, setWidth] = useState<number | null>(() => {
-    const stored = Number(localStorage.getItem(key));
-    return Number.isFinite(stored) && stored >= MIN_PANE_WIDTH ? stored : null;
-  });
+  const [width, setWidth] = useState<number | null>(() =>
+    Math.max(0, Number(localStorage.getItem(key))) || null,
+  );
   return [
     width,
     (next) => {
@@ -444,25 +442,24 @@ function usePersistedPaneWidth(key: string): [number | null, (width: number | nu
   ];
 }
 
-/** Pointer- and keyboard-operable split handle between adjacent builder panes. */
 function PaneResizeHandle({
   label,
-  side,
+  reverse = false,
   value,
   onChange,
 }: {
   label: string;
-  side: 'left' | 'right';
+  reverse?: boolean;
   value: number | null;
   onChange: (width: number | null) => void;
 }) {
-  const drag = useRef<{ pointerId: number; x: number; width: number } | null>(null);
+  const drag = useRef<[number, number] | null>(null);
   const adjacentWidth = (handle: HTMLElement) => {
-    const pane = side === 'left' ? handle.previousElementSibling : handle.nextElementSibling;
+    const pane = reverse ? handle.nextElementSibling : handle.previousElementSibling;
     return pane?.getBoundingClientRect().width ?? MIN_PANE_WIDTH;
   };
   const clampWidth = (width: number) =>
-    Math.max(MIN_PANE_WIDTH, Math.min(MAX_PANE_WIDTH, Math.round(width)));
+    Math.max(MIN_PANE_WIDTH, Math.min(MAX_PANE_WIDTH, width));
 
   return (
     <div
@@ -474,25 +471,17 @@ function PaneResizeHandle({
       aria-valuenow={value ?? 480}
       aria-valuetext={value === null ? 'Responsive default' : `${value} pixels`}
       tabIndex={0}
-      title="Drag or use arrow keys to resize; press Home to reset"
       className="group relative z-10 w-2 shrink-0 cursor-col-resize touch-none bg-zinc-950 focus-visible:outline-2 focus-visible:outline-cyan-400"
-      onDoubleClick={() => onChange(null)}
       onPointerDown={(event) => {
         event.currentTarget.setPointerCapture(event.pointerId);
-        drag.current = {
-          pointerId: event.pointerId,
-          x: event.clientX,
-          width: adjacentWidth(event.currentTarget),
-        };
+        drag.current = [event.clientX, adjacentWidth(event.currentTarget)];
       }}
       onPointerMove={(event) => {
-        if (drag.current?.pointerId !== event.pointerId) return;
-        const movement = event.clientX - drag.current.x;
-        onChange(clampWidth(drag.current.width + (side === 'left' ? movement : -movement)));
+        if (!drag.current) return;
+        const movement = event.clientX - drag.current[0];
+        onChange(clampWidth(drag.current[1] + (reverse ? -movement : movement)));
       }}
-      onPointerUp={(event) => {
-        if (drag.current?.pointerId === event.pointerId) drag.current = null;
-      }}
+      onPointerUp={() => (drag.current = null)}
       onKeyDown={(event) => {
         if (event.key === 'Home') {
           event.preventDefault();
@@ -503,7 +492,7 @@ function PaneResizeHandle({
         event.preventDefault();
         const movement = event.key === 'ArrowLeft' ? -24 : 24;
         const width = value ?? adjacentWidth(event.currentTarget);
-        onChange(clampWidth(width + (side === 'left' ? movement : -movement)));
+        onChange(clampWidth(width + (reverse ? -movement : movement)));
       }}
     >
       <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-zinc-800 group-hover:bg-cyan-700 group-focus:bg-cyan-500" />
