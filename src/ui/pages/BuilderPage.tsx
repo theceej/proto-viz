@@ -11,7 +11,7 @@ import {
   Undo2,
   X,
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useStackStore } from '../../store/stackStore';
 import { randomStack } from '../../core/random';
@@ -123,6 +123,8 @@ export default function BuilderPage() {
     false,
   );
   const [hexCollapsed, setHexCollapsed] = usePersistedFlag('pv-pane-hex', false);
+  const [fieldsWidth, setFieldsWidth] = usePersistedPaneWidth('pv-pane-fields-width');
+  const [hexWidth, setHexWidth] = usePersistedPaneWidth('pv-pane-hex-width');
 
   return (
     <div className="flex h-full flex-col">
@@ -250,11 +252,24 @@ export default function BuilderPage() {
           title="Field editor"
           collapsed={fieldsCollapsed}
           onToggle={setFieldsCollapsed}
-          expandedClass={diagramsCollapsed ? 'min-w-0 flex-1' : 'w-[26rem] shrink-0'}
+          expandedClass={
+            diagramsCollapsed
+              ? 'min-w-0 flex-1'
+              : 'w-[clamp(22rem,30vw,42rem)] shrink-0'
+          }
+          width={diagramsCollapsed ? null : fieldsWidth}
           className="border-r border-zinc-800"
         >
           <FieldEditor layers={stack.layers} packet={packet} registry={registry} />
         </Pane>
+        {!fieldsCollapsed && !diagramsCollapsed && (
+          <PaneResizeHandle
+            label="Resize field editor and packet diagrams"
+            side="left"
+            value={fieldsWidth}
+            onChange={setFieldsWidth}
+          />
+        )}
         <Pane
           title="Packet diagrams"
           collapsed={diagramsCollapsed}
@@ -315,11 +330,24 @@ export default function BuilderPage() {
             <EmptyState />
           )}
         </Pane>
+        {!diagramsCollapsed && !hexCollapsed && (
+          <PaneResizeHandle
+            label="Resize packet diagrams and hex dump"
+            side="right"
+            value={hexWidth}
+            onChange={setHexWidth}
+          />
+        )}
         <Pane
           title="Hex dump"
           collapsed={hexCollapsed}
           onToggle={setHexCollapsed}
-          expandedClass={diagramsCollapsed ? 'min-w-0 flex-1' : 'w-[27rem] shrink-0'}
+          expandedClass={
+            diagramsCollapsed
+              ? 'min-w-0 flex-1'
+              : 'w-[clamp(22rem,30vw,42rem)] shrink-0'
+          }
+          width={diagramsCollapsed ? null : hexWidth}
           className="border-l border-zinc-800"
           scrollFocusable
         >
@@ -339,6 +367,7 @@ function Pane({
   collapsed,
   onToggle,
   expandedClass,
+  width = null,
   className = '',
   scrollFocusable = false,
   children,
@@ -347,6 +376,7 @@ function Pane({
   collapsed: boolean;
   onToggle: (collapsed: boolean) => void;
   expandedClass: string;
+  width?: number | null;
   className?: string;
   scrollFocusable?: boolean;
   children: React.ReactNode;
@@ -372,6 +402,7 @@ function Pane({
   return (
     <div
       className={`flex min-h-0 flex-col ${expandedClass} ${className}`}
+      style={width === null ? undefined : { width }}
       role="region"
       aria-label={title}
     >
@@ -391,6 +422,91 @@ function Pane({
       <div className="min-h-0 flex-1 overflow-auto" tabIndex={scrollFocusable ? 0 : undefined}>
         {children}
       </div>
+    </div>
+  );
+}
+
+const MIN_PANE_WIDTH = 288;
+const MAX_PANE_WIDTH = 960;
+
+function usePersistedPaneWidth(key: string): [number | null, (width: number | null) => void] {
+  const [width, setWidth] = useState<number | null>(() => {
+    const stored = Number(localStorage.getItem(key));
+    return Number.isFinite(stored) && stored >= MIN_PANE_WIDTH ? stored : null;
+  });
+  return [
+    width,
+    (next) => {
+      setWidth(next);
+      if (next === null) localStorage.removeItem(key);
+      else localStorage.setItem(key, String(next));
+    },
+  ];
+}
+
+/** Pointer- and keyboard-operable split handle between adjacent builder panes. */
+function PaneResizeHandle({
+  label,
+  side,
+  value,
+  onChange,
+}: {
+  label: string;
+  side: 'left' | 'right';
+  value: number | null;
+  onChange: (width: number | null) => void;
+}) {
+  const drag = useRef<{ pointerId: number; x: number; width: number } | null>(null);
+  const adjacentWidth = (handle: HTMLElement) => {
+    const pane = side === 'left' ? handle.previousElementSibling : handle.nextElementSibling;
+    return pane?.getBoundingClientRect().width ?? MIN_PANE_WIDTH;
+  };
+  const clampWidth = (width: number) =>
+    Math.max(MIN_PANE_WIDTH, Math.min(MAX_PANE_WIDTH, Math.round(width)));
+
+  return (
+    <div
+      role="separator"
+      aria-label={label}
+      aria-orientation="vertical"
+      aria-valuemin={MIN_PANE_WIDTH}
+      aria-valuemax={MAX_PANE_WIDTH}
+      aria-valuenow={value ?? 480}
+      aria-valuetext={value === null ? 'Responsive default' : `${value} pixels`}
+      tabIndex={0}
+      title="Drag or use arrow keys to resize; press Home to reset"
+      className="group relative z-10 w-2 shrink-0 cursor-col-resize touch-none bg-zinc-950 focus-visible:outline-2 focus-visible:outline-cyan-400"
+      onDoubleClick={() => onChange(null)}
+      onPointerDown={(event) => {
+        event.currentTarget.setPointerCapture(event.pointerId);
+        drag.current = {
+          pointerId: event.pointerId,
+          x: event.clientX,
+          width: adjacentWidth(event.currentTarget),
+        };
+      }}
+      onPointerMove={(event) => {
+        if (drag.current?.pointerId !== event.pointerId) return;
+        const movement = event.clientX - drag.current.x;
+        onChange(clampWidth(drag.current.width + (side === 'left' ? movement : -movement)));
+      }}
+      onPointerUp={(event) => {
+        if (drag.current?.pointerId === event.pointerId) drag.current = null;
+      }}
+      onKeyDown={(event) => {
+        if (event.key === 'Home') {
+          event.preventDefault();
+          onChange(null);
+          return;
+        }
+        if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+        event.preventDefault();
+        const movement = event.key === 'ArrowLeft' ? -24 : 24;
+        const width = value ?? adjacentWidth(event.currentTarget);
+        onChange(clampWidth(width + (side === 'left' ? movement : -movement)));
+      }}
+    >
+      <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-zinc-800 group-hover:bg-cyan-700 group-focus:bg-cyan-500" />
     </div>
   );
 }
