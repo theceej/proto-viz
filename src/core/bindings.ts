@@ -27,6 +27,7 @@ export const NS = {
   llcSap: 'llc-sap', // 802.2 LLC DSAP (802.3 frames select payload by SAP)
   gtpPayload: 'gtp-payload', // opaque: GTP-U tunnels a user IP packet
   snapPid: 'snap-pid', // SNAP protocol ID within an OUI (how CDP is selected)
+  eapolPacket: 'eapol-packet', // IEEE 802.1X EAPOL packet type
 } as const;
 
 export interface ResolvedBinding {
