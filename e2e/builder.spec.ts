@@ -128,6 +128,24 @@ test('exports a standalone packet diagram as SVG', async ({ page }) => {
   expect(contents).not.toContain('class=');
 });
 
+test('copies the packet diagram to the clipboard as a PNG', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await loadTcpPreset(page);
+  await page.getByRole('button', { name: 'Diagram', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Export diagram' });
+  const bounds = await dialog.boundingBox();
+  expect(bounds?.width).toBeGreaterThan(800);
+  expect(bounds?.height).toBeGreaterThan(600);
+  await expect(dialog).toHaveCSS('resize', 'both');
+
+  await dialog.getByRole('button', { name: 'Copy image' }).click();
+  await expect(dialog.getByRole('status')).toHaveText('Image copied');
+  const types = await page.evaluate(async () =>
+    (await navigator.clipboard.read()).flatMap((item) => item.types),
+  );
+  expect(types).toContain('image/png');
+});
+
 test('persists collapsed builder panes across reloads', async ({ page }) => {
   await loadTcpPreset(page);
   await page.getByRole('button', { name: 'Collapse packet diagrams pane' }).click();
