@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { HashRouter, NavLink, Navigate, Route, Routes } from 'react-router-dom';
 import {
   Boxes,
@@ -13,12 +13,13 @@ import {
 import LibraryPage from './pages/LibraryPage';
 import BuilderPage from './pages/BuilderPage';
 import ImportWizard from './pages/ImportWizard';
-import HelpPage from './pages/HelpPage';
 import { useLibraryStore } from '../store/libraryStore';
 import { loadCustomProtocols } from '../store/persistence';
 import { usePersistedFlag } from './usePersistedFlag';
 import PwaStatus from './components/PwaStatus';
 import BuilderTour from './components/BuilderTour';
+
+const HelpPage = lazy(() => import('./pages/HelpPage'));
 
 const GITHUB_URL = 'https://github.com/theceej/proto-viz';
 const BUILD_COMMIT = import.meta.env.VITE_BUILD_COMMIT;
@@ -186,7 +187,14 @@ export default function App() {
             <Route path="/library" element={<LibraryPage />} />
             <Route path="/library/:protocolId" element={<LibraryPage />} />
             <Route path="/import" element={<ImportWizard />} />
-            <Route path="/help" element={<HelpPage onStartTour={() => setTourOpen(true)} />} />
+            <Route
+              path="/help"
+              element={
+                <Suspense fallback={null}>
+                  <HelpPage onStartTour={() => setTourOpen(true)} />
+                </Suspense>
+              }
+            />
           </Routes>
         </main>
         {tourOpen && <BuilderTour onClose={() => setTourOpen(false)} />}

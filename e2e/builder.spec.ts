@@ -136,3 +136,24 @@ test('persists collapsed builder panes across reloads', async ({ page }) => {
   await page.reload();
   await expect(page.getByRole('button', { name: 'Expand packet diagrams pane' })).toBeVisible();
 });
+
+test('resizes builder panes with the keyboard and persists the split', async ({ page }) => {
+  await loadTcpPreset(page);
+  const fieldPane = page.getByRole('region', { name: 'Field editor' });
+  const handle = page.getByRole('separator', {
+    name: 'Resize field editor and packet diagrams',
+  });
+  const before = await fieldPane.evaluate((element) => element.getBoundingClientRect().width);
+
+  await handle.focus();
+  await page.keyboard.press('ArrowRight');
+  await expect.poll(() => fieldPane.evaluate((element) => element.getBoundingClientRect().width)).toBe(
+    Math.round(before) + 24,
+  );
+
+  await page.reload();
+  await expect(fieldPane).toHaveCSS('width', `${Math.round(before) + 24}px`);
+  await handle.focus();
+  await page.keyboard.press('Home');
+  await expect(handle).toHaveAttribute('aria-valuetext', 'Responsive default');
+});

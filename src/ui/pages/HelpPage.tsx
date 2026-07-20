@@ -44,8 +44,10 @@ export default function HelpPage({ onStartTour }: { onStartTour: () => void }) {
           RFC-style bit diagrams, and a hex dump. Hovering or focusing a field in
           any pane highlights it in all of them; click (or press <Key>Enter</Key>{' '}
           on a diagram field) to lock the highlight. Each pane collapses via the
-          chevron in its header — hide the diagrams to give the editor and hex dump
-          the full width.
+          chevron in its header. Drag the dividers between panes to resize them;
+          focus a divider and use the arrow keys for precise resizing, or press
+          <Key>Home</Key> to restore its responsive default. Pane sizes and collapsed
+          states persist across visits.
         </p>
         <p>
           Use the <Ui>Detail</Ui> control above the hex dump to choose Compact,
@@ -164,6 +166,8 @@ const SHORTCUTS: [string[], string][] = [
   [['Tab'], 'Move through layers, fields, and diagram cells'],
   [['Enter', 'Space'], 'Lock or unlock the highlight on a focused diagram field'],
   [['Space'], 'On a layer grip handle: lift the layer; arrows move it, Space drops'],
+  [['←', '→'], 'Resize a focused divider between builder panes'],
+  [['Home'], 'Reset a focused pane divider to its responsive default'],
   [['Escape'], 'Close any dialog or menu'],
 ];
 
