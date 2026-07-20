@@ -56,6 +56,8 @@ import { cdp, ethernetSnap, nbns, pim, ripv1 } from './legacy';
 import { ipv6DestOptions, ipv6Fragment, ipv6HopByHop, ipv6Routing } from './ipv6ext';
 import { quic } from './quic';
 import { isis } from './isis';
+import { igmpv3 } from './igmpv3';
+import { mldv2 } from './mldv2';
 
 export const builtinProtocols: ProtocolDefinition[] = [
   ethernet,
@@ -131,6 +133,8 @@ export const builtinProtocols: ProtocolDefinition[] = [
   ipv6DestOptions,
   quic,
   isis,
+  igmpv3,
+  mldv2,
 ];
 
 export { enumTables };
