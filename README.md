@@ -22,14 +22,17 @@ your browser. Nothing is uploaded anywhere.
 ## Features
 
 - **Protocol library** — Dozens of built-in protocols with full bit-level
-  field layouts. Core: Ethernet II, 802.3 (LLC and SNAP), 802.1Q, ARP, IPv4, IPv6,
-  ICMP, ICMPv6, IGMP, TCP, UDP, SCTP. Infrastructure: STP, LLDP, CDP, VRRP,
-  HSRP, RIPv1/v2, EIGRP, OSPF, BGP, BFD, PIM, NetFlow v5. Applications:
-  DNS, mDNS, LLMNR, NBNS, DHCP, DHCPv6, HTTP/1.1, HTTP/2, WebSocket, TLS
-  record, NTP, TFTP, RADIUS, STUN, RTP, RTCP, SIP, RTSP, MQTT, CoAP,
-  Modbus TCP, SMB2, FTP, SMTP, POP3, IMAP, Telnet, IRC, Syslog, SSDP.
-  Tunnels & VPN: GRE, VXLAN, GENEVE, MPLS, GTP-U, IPsec AH/ESP, WireGuard,
-  PPPoE, L2TP. RFC references in the library link to the full documents.
+  field layouts. Core: Ethernet II, 802.3 (LLC and SNAP), 802.1Q, ARP, IPv4,
+  IPv6 (with Hop-by-Hop, Routing, Fragment, and Destination Options extension
+  headers), ICMP, ICMPv6 (incl. NDP), IGMP, TCP, UDP, SCTP. Infrastructure:
+  STP, LLDP, CDP, VRRP, HSRP, RIPv1/v2, EIGRP, OSPF, IS-IS, BGP, BFD, PIM,
+  NetFlow v5. Applications: DNS, mDNS, LLMNR, NBNS, DHCP, DHCPv6, HTTP/1.1,
+  HTTP/2, WebSocket, TLS record, QUIC, NTP, TFTP, RADIUS, STUN, RTP, RTCP,
+  SIP, RTSP, MQTT, CoAP, Modbus TCP, SMB2, FTP, SMTP, POP3, IMAP, Telnet,
+  IRC, Syslog, SSDP. Tunnels & VPN: GRE, VXLAN, GENEVE, MPLS, GTP-U, IPsec
+  AH/ESP, WireGuard, PPPoE, L2TP. RFC references in the library link to the
+  full documents. The library is searchable, groups protocols by layer with
+  an OSI-model overlay, and can be re-sorted into a flat A–Z list.
 - **Stack builder** — compose arbitrary stacks (VXLAN overlays, Q-in-Q,
   GRE tunnels, MPLS label stacks…). Validity is checked from a generic
   binding model (EtherType / IP protocol / port assignments): illegal
@@ -43,16 +46,22 @@ your browser. Nothing is uploaded anywhere.
   shared as a short word code (a What3Words-style handle: Ethernet › IPv4 ›
   TCP becomes `army.borrow.advice`) drawn from the BIP-39 wordlist, with a
   checksum that rejects mistyped codes; the code also embeds in a link that
-  opens the stack directly. The decoder runs the other way: paste packet
+  opens the stack directly. The word code carries the layer structure only,
+  while an optional "exact packet" link additionally restores every field
+  edit and the payload. The decoder runs the other way: paste packet
   hex (Wireshark's "copy as hex stream", or the hex view's own copy
   button) and the stack is identified by walking the same binding model —
   computed fields that don't reproduce the pasted bytes, like a wrong
   checksum, are pinned so the exact packet is preserved.
 - **Packet visualisation** — classic RFC-style 32-bit-per-row diagrams, a
-  full-packet hex dump with layer tinting, and a typed field editor.
-  Hovering a field highlights it in all three views. Computed fields
-  (lengths, IHL/data offset, checksums incl. TCP/UDP pseudo-header and
-  SCTP CRC32c) update live and can be pinned to deliberate wrong values.
+  full-packet hex dump with layer tinting whose hex and ASCII columns toggle
+  independently, and a typed field editor. Hovering a field highlights it in
+  all views, and selecting one opens an inspector that explains its value and
+  links its spec; an inspection-detail control (Compact / Explain / Deep)
+  tunes how much interpretation the views show. Computed fields (lengths,
+  IHL/data offset, checksums incl. TCP/UDP pseudo-header and SCTP CRC32c)
+  update live and can be pinned to deliberate wrong values. A guided tour,
+  restartable from Help, walks through the whole workflow.
 - **PCAP export** — download classic pcap files: single packets or generated
   sequences (TCP three-way handshake, DNS query/response, ICMP ping pair,
   DHCP DORA) with coherent sequence numbers, flipped directions, and fresh

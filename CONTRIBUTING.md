@@ -131,9 +131,10 @@ Field essentials:
 model can't express (TLV chains, varints, >125-byte WebSocket frames), pick
 a representative fixed shape and say so in the `description` — see LLDP,
 MQTT, and RIPv2 for the pattern. Text protocols (FTP, SIP, …) are editable
-templates like HTTP/1.1. Protocols that are mostly ciphertext (QUIC, SSH
-transport) or ASN.1/BER (SNMP, LDAP) generally don't model well — ask in an
-issue first.
+templates like HTTP/1.1. When only a header is in the clear, model that and
+leave the encrypted remainder an opaque bytes field — see QUIC (long header)
+and WireGuard. Protocols that are almost entirely ciphertext (SSH transport)
+or ASN.1/BER (SNMP, LDAP) generally don't model well — ask in an issue first.
 
 ### 3. Register it — three places
 
