@@ -1,7 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 
-const routes = ['/builder', '/library', '/import', '/help'];
+const routes = ['/builder', '/scenario', '/library', '/import', '/help'];
 const themes = ['dark', 'light'] as const;
 
 async function expectNoWcagViolations(page: Page) {

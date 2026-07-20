@@ -3,6 +3,7 @@ import { HashRouter, NavLink, Navigate, Route, Routes } from 'react-router-dom';
 import {
   Boxes,
   CircleHelp,
+  Clapperboard,
   FileUp,
   Layers,
   Moon,
@@ -12,6 +13,7 @@ import {
 } from 'lucide-react';
 import LibraryPage from './pages/LibraryPage';
 import BuilderPage from './pages/BuilderPage';
+import ScenarioPage from './pages/ScenarioPage';
 import ImportWizard from './pages/ImportWizard';
 import { useLibraryStore } from '../store/libraryStore';
 import { loadCustomProtocols } from '../store/persistence';
@@ -27,6 +29,7 @@ const BUILD_LABEL = BUILD_COMMIT === 'development' ? BUILD_COMMIT : BUILD_COMMIT
 
 const NAV = [
   { to: '/builder', label: 'Stack Builder', icon: Layers },
+  { to: '/scenario', label: 'Scenario Timeline', icon: Clapperboard },
   { to: '/library', label: 'Protocol Library', icon: Boxes },
   { to: '/import', label: 'Import Spec', icon: FileUp },
   { to: '/help', label: 'Help', icon: CircleHelp },
@@ -184,6 +187,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Navigate to="/builder" replace />} />
             <Route path="/builder" element={<BuilderPage />} />
+            <Route path="/scenario" element={<ScenarioPage />} />
             <Route path="/library" element={<LibraryPage />} />
             <Route path="/library/:protocolId" element={<LibraryPage />} />
             <Route path="/import" element={<ImportWizard />} />
