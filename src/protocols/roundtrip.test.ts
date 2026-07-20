@@ -39,6 +39,7 @@ const TSHARK_PROTOCOL_NAMES: Record<string, string> = {
   'ipv6-routing': 'ipv6.routing',
   'ipv6-frag': 'ipv6.fraghdr',
   'ipv6-dstopts': 'ipv6.dstopts',
+  eap: 'eapol', // EAP is a subtree of EAPOL in tshark's frame.protocols list
 };
 
 /** A legal carrier stack exercising every builtin protocol. */
@@ -118,6 +119,8 @@ const STACKS: Record<string, string[]> = {
   isis: ['ethernet-8023', 'isis'],
   igmpv3: ['ethernet', 'ipv4', 'igmpv3'],
   mldv2: ['ethernet', 'ipv6', 'mldv2'],
+  eapol: ['ethernet', 'eapol', 'eap'],
+  eap: ['ethernet', 'eapol', 'eap'],
 };
 
 describe('every builtin protocol', () => {
@@ -249,6 +252,25 @@ describe.runIf(process.env.TSHARK === '1')('tshark export validation', () => {
         if (!protocols) failures.push(`${id}: no protocols dissected`);
         if (!protocols.split(':').includes(expectedProtocol)) {
           failures.push(`${id}: expected ${expectedProtocol} in ${protocols}`);
+        }
+        if (id === 'eap') {
+          const decodedEap = execFileSync(
+            'tshark',
+            [
+              '-r', path,
+              '-T', 'fields',
+              '-e', 'eap.code',
+              '-e', 'eap.id',
+              '-e', 'eap.len',
+              '-e', 'eap.type',
+              '-e', 'eap.identity',
+              '-E', 'separator=|',
+            ],
+            { encoding: 'utf8' },
+          ).trim();
+          if (decodedEap !== '2|1|14|1|proto-viz') {
+            failures.push(`eap: unexpected decoded fields (${decodedEap || 'empty'})`);
+          }
         }
       }
 
@@ -455,6 +477,24 @@ describe('protocol-specific spot checks', () => {
       layouts[1]!.headerBytes,
     );
     expect(layouts[1]!.headerBytes).toBe(36); // 27 fixed + 9 TLV bytes
+  });
+
+  it('EAPOL and EAP bind selectors and compute their nested lengths', () => {
+    const stack: StackInstance = {
+      layers: STACKS.eap!.map(newLayer),
+    };
+    const { bytes, layers } = serializeStack(stack, registry);
+    const eapolStart = layers[1]!.byteOffset;
+    const eapStart = layers[2]!.byteOffset;
+    expect((bytes[12]! << 8) | bytes[13]!).toBe(0x888e);
+    expect(bytes[eapolStart + 1]).toBe(0); // EAP Packet from binding
+    expect((bytes[eapolStart + 2]! << 8) | bytes[eapolStart + 3]!).toBe(
+      layers[2]!.headerBytes,
+    );
+    expect((bytes[eapStart + 2]! << 8) | bytes[eapStart + 3]!).toBe(
+      layers[2]!.headerBytes,
+    );
+    expect(new TextDecoder().decode(bytes.subarray(eapStart + 5))).toBe('proto-viz');
   });
 
   it('AH next-header auto-sets to the protected protocol', () => {

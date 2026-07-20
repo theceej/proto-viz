@@ -136,7 +136,7 @@ leave the encrypted remainder an opaque bytes field — see QUIC (long header)
 and WireGuard. Protocols that are almost entirely ciphertext (SSH transport)
 or ASN.1/BER (SNMP, LDAP) generally don't model well — ask in an issue first.
 
-### 3. Register it — three places
+### 3. Register it — four places
 
 1. Import and append in [src/protocols/index.ts](src/protocols/index.ts).
 2. **Append** the id to `SHARE_PROTOCOL_IDS` in
@@ -147,6 +147,10 @@ or ASN.1/BER (SNMP, LDAP) generally don't model well — ask in an issue first.
    [src/protocols/roundtrip.test.ts](src/protocols/roundtrip.test.ts).
    A registry-wide test fails if any built-in protocol lacks one; each
    stack is validated, serialized, and byte-round-tripped automatically.
+4. Add the protocol to the categorized built-in inventory under
+   **Protocol library** in [README.md](README.md). Keep the list scannable and
+   place the protocol in the closest existing family rather than creating a
+   one-item category.
 
 ### 4. Test the interesting parts
 

@@ -94,6 +94,8 @@ export const SHARE_PROTOCOL_IDS: readonly string[] = [
   'isis',
   'igmpv3',
   'mldv2',
+  'eapol',
+  'eap',
 ];
 
 export class ShareCodeError extends Error {}

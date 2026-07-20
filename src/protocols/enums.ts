@@ -15,6 +15,7 @@ export const enumTables: EnumTable[] = [
       0x8864: 'PPPoE Session',
       0x88a8: '802.1ad Q-in-Q',
       0x88cc: 'LLDP',
+      0x888e: 'EAPOL / IEEE 802.1X',
     },
   },
   {
@@ -289,5 +290,20 @@ export const enumTables: EnumTable[] = [
     id: 'quic-long-type',
     name: 'QUIC long-header packet types (v1)',
     values: { 0: 'Initial', 1: '0-RTT', 2: 'Handshake', 3: 'Retry' },
+  },
+  {
+    id: 'eapol-packet-type',
+    name: 'EAPOL packet types',
+    values: { 0: 'EAP Packet', 1: 'Start', 2: 'Logoff', 3: 'Key', 4: 'ASF Alert' },
+  },
+  {
+    id: 'eap-code',
+    name: 'EAP codes',
+    values: { 1: 'Request', 2: 'Response', 3: 'Success', 4: 'Failure', 5: 'Initiate', 6: 'Finish' },
+  },
+  {
+    id: 'eap-type',
+    name: 'EAP methods',
+    values: { 1: 'Identity', 2: 'Notification', 3: 'Nak', 4: 'MD5-Challenge', 13: 'EAP-TLS', 21: 'EAP-TTLS', 25: 'PEAP' },
   },
 ];

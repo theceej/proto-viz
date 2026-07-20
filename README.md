@@ -24,9 +24,10 @@ your browser. Nothing is uploaded anywhere.
 - **Protocol library** — Dozens of built-in protocols with full bit-level
   field layouts. Core: Ethernet II, 802.3 (LLC and SNAP), 802.1Q, ARP, IPv4,
   IPv6 (with Hop-by-Hop, Routing, Fragment, and Destination Options extension
-  headers), ICMP, ICMPv6 (incl. NDP), IGMP, TCP, UDP, SCTP. Infrastructure:
-  STP, LLDP, CDP, VRRP, HSRP, RIPv1/v2, EIGRP, OSPF, IS-IS, BGP, BFD, PIM,
-  NetFlow v5. Applications: DNS, mDNS, LLMNR, NBNS, DHCP, DHCPv6, HTTP/1.1,
+  headers), ICMP, ICMPv6 (incl. NDP and MLDv2), IGMP v2/v3, TCP, UDP, SCTP,
+  EAPOL/802.1X. Infrastructure: STP, LLDP, CDP, VRRP, HSRP, RIPv1/v2,
+  EIGRP, OSPF, IS-IS, BGP, BFD, PIM,
+  NetFlow v5. Applications: EAP, DNS, mDNS, LLMNR, NBNS, DHCP, DHCPv6, HTTP/1.1,
   HTTP/2, WebSocket, TLS record, QUIC, NTP, TFTP, RADIUS, STUN, RTP, RTCP,
   SIP, RTSP, MQTT, CoAP, Modbus TCP, SMB2, FTP, SMTP, POP3, IMAP, Telnet,
   IRC, Syslog, SSDP. Tunnels & VPN: GRE, VXLAN, GENEVE, MPLS, GTP-U, IPsec
@@ -217,7 +218,7 @@ than a public issue.
 
 Contributions are welcome — especially new protocol definitions, which
 need no UI work at all. [CONTRIBUTING.md](CONTRIBUTING.md) walks through
-the binding model, the definition format, and the three registration
+the binding model, the definition format, and the four registration
 points step by step.
 
 ## License

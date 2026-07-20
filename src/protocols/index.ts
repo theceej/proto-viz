@@ -58,6 +58,8 @@ import { quic } from './quic';
 import { isis } from './isis';
 import { igmpv3 } from './igmpv3';
 import { mldv2 } from './mldv2';
+import { eapol } from './eapol';
+import { eap } from './eap';
 
 export const builtinProtocols: ProtocolDefinition[] = [
   ethernet,
@@ -135,6 +137,8 @@ export const builtinProtocols: ProtocolDefinition[] = [
   isis,
   igmpv3,
   mldv2,
+  eapol,
+  eap,
 ];
 
 export { enumTables };
