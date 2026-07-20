@@ -1,51 +1,78 @@
 /**
  * Linking protocol references (RFC, IEEE, 3GPP, …) to their published specs.
  *
- * Each spec family has a base URL that can be overridden at build time so a
- * deployment can point at a mirror:
+ * Each spec family resolves through a URL *template* containing `%s`, which is
+ * replaced by the reference's identifier — the same idea as a browser's
+ * keyword-search URL. Templates are overridable at build time so a deployment
+ * can point at a mirror whose paths are shaped differently (the number in the
+ * middle, a `.txt` suffix, no `rfc` prefix, …), not just at a different host:
  *
- *   VITE_RFC_BASE_URL   https://www.rfc-editor.org/rfc      (deep link /rfc<n>)
- *   VITE_3GPP_BASE_URL  https://www.3gpp.org/DynaReport     (deep link /<series><n>.htm)
- *   VITE_MS_SPECS_BASE_URL  https://learn.microsoft.com/openspecs/windows_protocols
- *   VITE_IEEE_BASE_URL  https://standards.ieee.org          (standards search)
+ *   VITE_RFC_BASE_URL       https://www.rfc-editor.org/rfc/rfc%s
+ *   VITE_3GPP_BASE_URL      https://www.3gpp.org/DynaReport/%s.htm
+ *   VITE_MS_SPECS_BASE_URL  https://learn.microsoft.com/openspecs/windows_protocols/%s/
+ *   VITE_IEEE_BASE_URL      https://standards.ieee.org/search/?q=%s
  *
- * IEEE has no stable per-designation deep link (the document URLs use internal
- * ids), so an IEEE reference resolves to a search on that base — still useful,
- * and still redirectable to an institutional mirror.
+ * For backward compatibility an override with no `%s` is treated as a base URL
+ * and the family's default deep-link tail is appended, so the earlier
+ * base-only overrides keep resolving exactly as before.
+ *
+ * IEEE has no stable per-designation deep link (document URLs use internal
+ * ids), so its default template runs a standards search; a mirror can point
+ * this at a direct-link scheme instead.
  */
 
 const strip = (url: string) => url.replace(/\/$/, '');
 
-interface SpecSource {
-  base: string;
+export interface SpecSource {
+  /** Build-time override (env var), if set. */
+  override?: string;
+  /** Default URL template with a single `%s` placeholder. */
+  template: string;
+  /** Matches a reference string and captures its identifier parts. */
   match: RegExp;
-  url: (m: RegExpExecArray, base: string) => string;
+  /** The `%s` substitution derived from a match. */
+  token: (m: RegExpExecArray) => string;
+  /** Composition for a base-only (no `%s`) override — the pre-template scheme. */
+  legacy: (base: string, token: string) => string;
 }
 
 const SOURCES: SpecSource[] = [
   {
-    base: import.meta.env.VITE_RFC_BASE_URL ?? 'https://www.rfc-editor.org/rfc',
+    override: import.meta.env.VITE_RFC_BASE_URL,
+    template: 'https://www.rfc-editor.org/rfc/rfc%s',
     match: /^RFC (\d+)$/,
-    url: (m, base) => `${strip(base)}/rfc${m[1]}`,
+    token: (m) => m[1]!,
+    legacy: (base, t) => `${strip(base)}/rfc${t}`,
   },
   {
-    base: import.meta.env.VITE_3GPP_BASE_URL ?? 'https://www.3gpp.org/DynaReport',
+    override: import.meta.env.VITE_3GPP_BASE_URL,
+    template: 'https://www.3gpp.org/DynaReport/%s.htm',
     match: /^3GPP TS (\d+)\.(\d+)/,
-    url: (m, base) => `${strip(base)}/${m[1]}${m[2]}.htm`,
+    token: (m) => `${m[1]}${m[2]}`,
+    legacy: (base, t) => `${strip(base)}/${t}.htm`,
   },
   {
-    base:
-      import.meta.env.VITE_MS_SPECS_BASE_URL ??
-      'https://learn.microsoft.com/openspecs/windows_protocols',
+    override: import.meta.env.VITE_MS_SPECS_BASE_URL,
+    template: 'https://learn.microsoft.com/openspecs/windows_protocols/%s/',
     match: /^(MS-[A-Z0-9]+)$/,
-    url: (m, base) => `${strip(base)}/${m[1]!.toLowerCase()}/`,
+    token: (m) => m[1]!.toLowerCase(),
+    legacy: (base, t) => `${strip(base)}/${t}/`,
   },
   {
-    base: import.meta.env.VITE_IEEE_BASE_URL ?? 'https://standards.ieee.org',
+    override: import.meta.env.VITE_IEEE_BASE_URL,
+    template: 'https://standards.ieee.org/search/?q=%s',
     match: /^IEEE (\S+)/,
-    url: (m, base) => `${strip(base)}/search/?q=${encodeURIComponent(`IEEE ${m[1]}`)}`,
+    token: (m) => encodeURIComponent(`IEEE ${m[1]}`),
+    legacy: (base, t) => `${strip(base)}/search/?q=${t}`,
   },
 ];
+
+export function resolve(source: SpecSource, token: string): string {
+  const { override } = source;
+  if (override?.includes('%s')) return override.replaceAll('%s', token);
+  if (override) return source.legacy(override, token);
+  return source.template.replaceAll('%s', token);
+}
 
 /** Canonical fixed URLs for one-off references (single authoritative source). */
 const EXACT: Record<string, string> = {
@@ -60,7 +87,7 @@ export function specUrl(reference: string): string | null {
   if (EXACT[ref]) return EXACT[ref];
   for (const source of SOURCES) {
     const m = source.match.exec(ref);
-    if (m) return source.url(m, source.base);
+    if (m) return resolve(source, source.token(m));
   }
   return null;
 }

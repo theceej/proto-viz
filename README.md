@@ -89,25 +89,32 @@ npx serve dist         # Serve the production build locally
 ```
 
 Spec references in the library link to their published source. Each family
-has a base URL that can be pointed at a mirror at build time:
+resolves through a URL *template* containing `%s` — replaced by the reference
+identifier, like a browser's keyword-search URL — which can be pointed at a
+mirror at build time. Because the whole path is templated, a mirror can put
+the number wherever it needs (a `.txt` suffix, no `rfc` prefix, and so on),
+not just swap the host:
 
-| Reference | Env var | Default |
+| Reference | Env var | Default template |
 | --- | --- | --- |
-| RFC | `VITE_RFC_BASE_URL` | `https://www.rfc-editor.org/rfc` (deep link `/rfc<n>`) |
-| 3GPP TS | `VITE_3GPP_BASE_URL` | `https://www.3gpp.org/DynaReport` (deep link `/<series><n>.htm`) |
-| Microsoft (MS-*) | `VITE_MS_SPECS_BASE_URL` | `https://learn.microsoft.com/openspecs/windows_protocols` |
-| IEEE | `VITE_IEEE_BASE_URL` | `https://standards.ieee.org` (standards search) |
+| RFC | `VITE_RFC_BASE_URL` | `https://www.rfc-editor.org/rfc/rfc%s` |
+| 3GPP TS | `VITE_3GPP_BASE_URL` | `https://www.3gpp.org/DynaReport/%s.htm` |
+| Microsoft (MS-*) | `VITE_MS_SPECS_BASE_URL` | `https://learn.microsoft.com/openspecs/windows_protocols/%s/` |
+| IEEE | `VITE_IEEE_BASE_URL` | `https://standards.ieee.org/search/?q=%s` |
 
 ```bash
 # examples — use the IETF datatracker for RFCs and an IEEE mirror
-VITE_RFC_BASE_URL=https://datatracker.ietf.org/doc/html \
-VITE_IEEE_BASE_URL=https://standards.example.edu/ieee \
+VITE_RFC_BASE_URL=https://datatracker.ietf.org/doc/html/rfc%s \
+VITE_IEEE_BASE_URL=https://standards.example.edu/ieee/%s \
   npm run build
 ```
 
-IEEE has no stable per-designation document URL (the real URLs use internal
-ids), so an IEEE reference resolves to a search on that base rather than a
-direct link. A few one-off references (WireGuard whitepaper, MQTT/OASIS)
+An override without a `%s` is accepted as a legacy base URL — the family's
+default deep-link tail is appended — so earlier base-only overrides keep
+working. IEEE has no stable per-designation document URL (the real URLs use
+internal ids), so the default template runs a standards search rather than a
+direct link; a mirror can template a direct-link scheme instead. A few
+one-off references (WireGuard whitepaper, MQTT/OASIS)
 link to their single canonical source; others without a public spec URL
 (Cisco, Modbus, UPnP) stay as plain text.
 
