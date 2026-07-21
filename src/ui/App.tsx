@@ -3,6 +3,7 @@ import { HashRouter, NavLink, Navigate, Route, Routes } from 'react-router-dom';
 import {
   Boxes,
   CircleHelp,
+  Clapperboard,
   FileUp,
   Layers,
   Moon,
@@ -19,6 +20,8 @@ import { usePersistedFlag } from './usePersistedFlag';
 import PwaStatus from './components/PwaStatus';
 import BuilderTour from './components/BuilderTour';
 
+// Secondary routes are code-split so they stay out of the initial entry chunk.
+const ScenarioPage = lazy(() => import('./pages/ScenarioPage'));
 const HelpPage = lazy(() => import('./pages/HelpPage'));
 
 const GITHUB_URL = 'https://github.com/theceej/proto-viz';
@@ -27,6 +30,7 @@ const BUILD_LABEL = BUILD_COMMIT === 'development' ? BUILD_COMMIT : BUILD_COMMIT
 
 const NAV = [
   { to: '/builder', label: 'Stack Builder', icon: Layers },
+  { to: '/scenario', label: 'Scenario Timeline', icon: Clapperboard },
   { to: '/library', label: 'Protocol Library', icon: Boxes },
   { to: '/import', label: 'Import Spec', icon: FileUp },
   { to: '/help', label: 'Help', icon: CircleHelp },
@@ -184,6 +188,14 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Navigate to="/builder" replace />} />
             <Route path="/builder" element={<BuilderPage />} />
+            <Route
+              path="/scenario"
+              element={
+                <Suspense fallback={null}>
+                  <ScenarioPage />
+                </Suspense>
+              }
+            />
             <Route path="/library" element={<LibraryPage />} />
             <Route path="/library/:protocolId" element={<LibraryPage />} />
             <Route path="/import" element={<ImportWizard />} />

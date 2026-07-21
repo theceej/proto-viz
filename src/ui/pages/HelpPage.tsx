@@ -86,13 +86,25 @@ export default function HelpPage({ onStartTour }: { onStartTour: () => void }) {
         </p>
       </Section>
 
+      <Section title="Playing scenarios as a timeline">
+        <p>
+          <Link className={link} to="/scenario">Scenario Timeline</Link> animates the
+          same generated exchanges the current stack supports — TCP handshake, DNS
+          query/response, ICMP ping, DHCP DORA, ARP/NDP resolution. Pick a scenario,
+          then step with <Ui>Previous</Ui> / <Ui>Next</Ui> or <Ui>Play</Ui> (arrow
+          keys work too). Each step shows its direction between the two endpoints and
+          loads that packet into the diagram, hex, validation, and (read-only) field
+          panes. Motion is suppressed when your system prefers reduced motion.
+        </p>
+      </Section>
+
       <Section title="Exporting PCAPs">
         <p>
           <Ui>Export PCAP</Ui> writes a classic pcap file openable in Wireshark or
-          tcpdump. Beyond a single packet, scenario generators produce coherent
-          sequences — TCP three-way handshake, DNS query/response, ICMP ping pair,
-          DHCP DORA — with flipped directions and fresh checksums. To verify
-          checksums in Wireshark, enable{' '}
+          tcpdump. Beyond a single packet, the same scenario generators produce
+          coherent sequences — TCP three-way handshake, DNS query/response, ICMP
+          ping pair, DHCP DORA — with flipped directions and fresh checksums. To
+          verify checksums in Wireshark, enable{' '}
           <em>Preferences → Protocols → IPv4 / TCP / UDP → Validate checksums</em>.
         </p>
       </Section>

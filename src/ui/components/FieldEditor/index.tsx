@@ -12,15 +12,22 @@ import TcpOptionsInput from './TcpOptionsInput';
 import Ipv4OptionsInput from './Ipv4OptionsInput';
 import PayloadSection from './PayloadSection';
 
-/** Editable field tree for every layer in the stack, plus the trailing payload. */
+/**
+ * Editable field tree for every layer in the stack, plus the trailing payload.
+ * In `readOnly` mode (e.g. inspecting a generated scenario step) every value is
+ * shown but not editable, and the payload is read from the packet rather than
+ * the store.
+ */
 export default function FieldEditor({
   layers,
   packet,
   registry,
+  readOnly = false,
 }: {
   layers: LayerInstance[];
   packet: SerializedPacket | null;
   registry: Registry;
+  readOnly?: boolean;
 }) {
   return (
     <div className="flex flex-col gap-4 p-4">
@@ -31,10 +38,32 @@ export default function FieldEditor({
           layerIndex={i}
           packet={packet}
           registry={registry}
+          readOnly={readOnly}
         />
       ))}
-      <PayloadSection />
+      {readOnly ? <ReadOnlyPayload packet={packet} /> : <PayloadSection />}
     </div>
+  );
+}
+
+/** Trailing-payload summary for a fixed packet (no editing). */
+function ReadOnlyPayload({ packet }: { packet: SerializedPacket | null }) {
+  const bytes = packet ? packet.bytes.slice(packet.payloadOffset) : new Uint8Array();
+  if (bytes.length === 0) return null;
+  const preview = [...bytes.slice(0, 48)]
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join(' ');
+  return (
+    <section className="overflow-hidden rounded-lg border border-zinc-800 bg-zinc-900/40">
+      <header className="flex items-center gap-2 border-b border-zinc-800 border-l-3 border-l-zinc-500 px-3 py-2">
+        <span className="text-[13px] font-semibold text-zinc-100">Payload</span>
+        <span className="font-mono text-[11px] text-zinc-500">{bytes.length} bytes</span>
+      </header>
+      <div className="px-3 py-2 font-mono text-[12px] break-all text-zinc-400">
+        {preview}
+        {bytes.length > 48 && ' …'}
+      </div>
+    </section>
   );
 }
 
@@ -43,11 +72,13 @@ function LayerSection({
   layerIndex,
   packet,
   registry,
+  readOnly,
 }: {
   layer: LayerInstance;
   layerIndex: number;
   packet: SerializedPacket | null;
   registry: Registry;
+  readOnly: boolean;
 }) {
   const def = registry.get(layer.protocolId);
   const color = layerColor(layerIndex);
@@ -85,6 +116,7 @@ function LayerSection({
               field={field}
               value={span?.value ?? layer.overrides[field.id] ?? field.default}
               registry={registry}
+              readOnly={readOnly}
             />
           );
         })}
@@ -98,11 +130,13 @@ function FieldRow({
   field,
   value,
   registry,
+  readOnly,
 }: {
   layer: LayerInstance;
   field: FieldDef;
   value: FieldValue | undefined;
   registry: Registry;
+  readOnly: boolean;
 }) {
   const { setHovered, toggleLocked } = useHighlightStore();
   const hovered = useHighlightStore((s) => s.hovered);
@@ -113,7 +147,7 @@ function FieldRow({
     isActive(hovered, layer.uid, field.id) || isActive(locked, layer.uid, field.id);
   const pinned = layer.pinned.includes(field.id);
   const isComputed = field.computed !== undefined;
-  const editable = !isComputed || pinned;
+  const editable = (!isComputed || pinned) && !readOnly;
   const hasOverride = field.id in layer.overrides;
   const enumTable = field.enumRef ? registry.getEnum(field.enumRef) : undefined;
 
@@ -183,7 +217,7 @@ function FieldRow({
         )}
       </div>
 
-      {isComputed && (
+      {isComputed && !readOnly && (
         <button
           className="shrink-0 cursor-pointer p-1.5 text-zinc-500 hover:text-zinc-200"
           aria-label={`${field.name}: ${pinned ? 'restore automatic value' : 'pin a manual value'}`}
@@ -205,7 +239,7 @@ function FieldRow({
           )}
         </button>
       )}
-      {!isComputed && hasOverride && (
+      {!isComputed && hasOverride && !readOnly && (
         <button
           className="shrink-0 cursor-pointer p-1.5 text-zinc-500 hover:text-zinc-200"
           aria-label={`Reset ${field.name} to default`}

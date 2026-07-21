@@ -129,6 +129,42 @@ describe('FieldEditor tree', () => {
     expect(useStackStore.getState().layers[1]!.pinned).not.toContain('ihl');
   });
 
+  it('shows values without inputs or edit controls in read-only mode', () => {
+    const ipv4: LayerInstance = { ...newLayer('ipv4'), overrides: { ttl: 55 } };
+    const layers = [newLayer('ethernet'), ipv4];
+    const packet = serializeStack({ layers, trailingPayload: new Uint8Array() }, registry);
+    render(
+      createElement(
+        MemoryRouter,
+        null,
+        createElement(FieldEditor, { layers, packet, registry, readOnly: true }),
+      ),
+    );
+    // Values are shown, but no editable input, no pin, and no reset controls.
+    expect(container.textContent).toContain('IPv4');
+    expect(container.querySelector('input')).toBeNull();
+    expect(container.querySelector('textarea')).toBeNull(); // read-only payload, not the editor
+    expect(byLabel('Reset TTL to default')).toBeUndefined();
+    expect(byLabel('IHL: pin a manual value')).toBeUndefined();
+    // The highlight toggle stays available for cross-view inspection.
+    expect(byLabel('Highlight TTL in the packet views')).toBeDefined();
+  });
+
+  it('shows a read-only payload summary when given trailing bytes', () => {
+    const layers = [newLayer('ethernet'), newLayer('ipv4'), newLayer('udp')];
+    const stack = { layers, trailingPayload: new Uint8Array([0xde, 0xad, 0xbe, 0xef]) };
+    const packet = serializeStack(stack, registry);
+    render(
+      createElement(
+        MemoryRouter,
+        null,
+        createElement(FieldEditor, { layers, packet, registry, readOnly: true }),
+      ),
+    );
+    expect(container.textContent).toContain('Payload');
+    expect(container.textContent).toContain('de ad be ef');
+  });
+
   it('renders nothing for a layer whose protocol is unknown, without a packet', () => {
     const bad: LayerInstance = { ...newLayer('ethernet'), protocolId: 'does-not-exist' };
     render(

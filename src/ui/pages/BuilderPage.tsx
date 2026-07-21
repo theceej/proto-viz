@@ -23,16 +23,13 @@ import { usePersistedFlag } from '../usePersistedFlag';
 import SavedStacks from '../components/SavedStacks';
 import StackStrip from '../components/StackStrip';
 import ValidationPanel from '../components/ValidationPanel';
-import BitGrid from '../components/BitGrid';
 import HexView from '../components/HexView';
 import FieldEditor from '../components/FieldEditor';
+import PacketDiagrams from '../components/PacketDiagrams';
 import ExportDialog from '../components/ExportDialog';
 import ShareDialog from '../components/ShareDialog';
 import DecodeDialog from '../components/DecodeDialog';
 import DiagramExportDialog from '../components/DiagramExportDialog';
-import ProtocolInfoLink from '../components/ProtocolInfoLink';
-import { layerColor, PAYLOAD_COLOR } from '../colors';
-import { bitsLabel } from '../format';
 import { useInspectionMode } from '../inspectionMode';
 
 const PRESETS: { name: string; ids: string[]; payload?: string }[] = [
@@ -276,55 +273,7 @@ export default function BuilderPage() {
           expandedClass="min-w-0 flex-1"
         >
           {packet && packet.layers.length > 0 ? (
-            <div className="flex flex-col gap-5 p-5">
-              {packet.layers.map((layout, i) => {
-                const def = registry.get(layout.protocolId);
-                if (!def) return null;
-                const spans = packet.spans.filter((s) => s.layerUid === layout.uid);
-                const color = layerColor(i);
-                return (
-                  <div key={layout.uid}>
-                    <div className="mb-1 flex items-baseline gap-2">
-                      <span
-                        className="size-2 self-center rounded-full"
-                        style={{ background: color.accent }}
-                      />
-                      <span className="text-[13px] font-semibold text-zinc-100">
-                        {def.name}
-                      </span>
-                      <ProtocolInfoLink protocolId={def.id} name={def.name} />
-                      <span className="font-mono text-[11px] text-zinc-500">
-                        {bitsLabel(layout.headerBytes * 8)} · offset {layout.byteOffset}
-                      </span>
-                    </div>
-                    <BitGrid def={def} layout={layout} spans={spans} color={color} />
-                  </div>
-                );
-              })}
-              {packet.bytes.length > packet.payloadOffset && (
-                <div>
-                  <div className="mb-1 flex items-baseline gap-2">
-                    <span
-                      className="size-2 self-center rounded-full"
-                      style={{ background: PAYLOAD_COLOR.accent }}
-                    />
-                    <span className="text-[13px] font-semibold text-zinc-100">Payload</span>
-                    <span className="font-mono text-[11px] text-zinc-500">
-                      {packet.bytes.length - packet.payloadOffset} bytes
-                    </span>
-                  </div>
-                  <div
-                    className="rounded-md px-3 py-2 text-[12px] text-zinc-400 italic"
-                    style={{
-                      background: PAYLOAD_COLOR.fill,
-                      boxShadow: `inset 0 0 0 1px ${PAYLOAD_COLOR.border}`,
-                    }}
-                  >
-                    opaque payload — edit under “Payload” on the left
-                  </div>
-                </div>
-              )}
-            </div>
+            <PacketDiagrams packet={packet} registry={registry} />
           ) : (
             <EmptyState />
           )}

@@ -63,10 +63,15 @@ your browser. Nothing is uploaded anywhere.
   IHL/data offset, checksums incl. TCP/UDP pseudo-header and SCTP CRC32c)
   update live and can be pinned to deliberate wrong values. A guided tour,
   restartable from Help, walks through the whole workflow.
-- **PCAP export** — download classic pcap files: single packets or generated
-  sequences (TCP three-way handshake, DNS query/response, ICMP ping pair,
-  DHCP DORA) with coherent sequence numbers, flipped directions, and fresh
-  checksums per packet.
+- **Scenario timeline** — replay a stack's generated exchange (TCP handshake,
+  DNS query/response, ICMP ping, DHCP DORA, ARP/NDP resolution) as an animated
+  packet timeline. Previous / Play-Pause / Next controls (keyboard-operable)
+  step between messages; each step shows its direction between the two
+  endpoints and loads that packet into the diagram, hex, validation, and
+  read-only field views. Respects the reduced-motion preference.
+- **PCAP export** — download classic pcap files: single packets or the same
+  generated sequences with coherent sequence numbers, flipped directions, and
+  fresh checksums per packet.
 - **Spec import** — upload an RFC or protocol spec as TXT, HTML, DOCX, or
   PDF. ASCII packet diagrams (including RFC 768's 1-char-per-bit style and
   DNS's 16-bit rows) are detected and parsed with confidence scoring, then
