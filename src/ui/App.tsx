@@ -13,7 +13,6 @@ import {
 } from 'lucide-react';
 import LibraryPage from './pages/LibraryPage';
 import BuilderPage from './pages/BuilderPage';
-import ScenarioPage from './pages/ScenarioPage';
 import ImportWizard from './pages/ImportWizard';
 import { useLibraryStore } from '../store/libraryStore';
 import { loadCustomProtocols } from '../store/persistence';
@@ -21,6 +20,8 @@ import { usePersistedFlag } from './usePersistedFlag';
 import PwaStatus from './components/PwaStatus';
 import BuilderTour from './components/BuilderTour';
 
+// Secondary routes are code-split so they stay out of the initial entry chunk.
+const ScenarioPage = lazy(() => import('./pages/ScenarioPage'));
 const HelpPage = lazy(() => import('./pages/HelpPage'));
 
 const GITHUB_URL = 'https://github.com/theceej/proto-viz';
@@ -187,7 +188,14 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Navigate to="/builder" replace />} />
             <Route path="/builder" element={<BuilderPage />} />
-            <Route path="/scenario" element={<ScenarioPage />} />
+            <Route
+              path="/scenario"
+              element={
+                <Suspense fallback={null}>
+                  <ScenarioPage />
+                </Suspense>
+              }
+            />
             <Route path="/library" element={<LibraryPage />} />
             <Route path="/library/:protocolId" element={<LibraryPage />} />
             <Route path="/import" element={<ImportWizard />} />
