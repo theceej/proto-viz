@@ -94,7 +94,10 @@ export default function HelpPage({ onStartTour }: { onStartTour: () => void }) {
           then step with <Ui>Previous</Ui> / <Ui>Next</Ui> or <Ui>Play</Ui> (arrow
           keys work too). Each step shows its direction between the two endpoints and
           loads that packet into the diagram, hex, validation, and (read-only) field
-          panes. Motion is suppressed when your system prefers reduced motion.
+          panes. Choose <Ui>Compare packets</Ui> to align any two steps by protocol and
+          field, distinguish editable changes from computed values such as checksums,
+          and synchronize a selected field with its bytes. Motion is suppressed when
+          your system prefers reduced motion.
         </p>
       </Section>
 

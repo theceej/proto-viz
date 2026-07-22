@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
 
 test('steps through a scenario timeline and updates the inspection panes', async ({ page }) => {
   await page.goto('/#/scenario');
@@ -58,4 +59,32 @@ test('collapses and resizes the scenario inspection panes', async ({ page }) => 
   await expect
     .poll(() => hexPane.evaluate((el) => el.getBoundingClientRect().width))
     .toBe(Math.round(before) + 24);
+});
+
+test('compares scenario packets by fields and synchronized bytes', async ({ page }) => {
+  await page.goto('/#/scenario');
+  await page.getByRole('combobox', { name: 'Scenario' }).selectOption({
+    label: 'TCP three-way handshake',
+  });
+  await page.getByRole('button', { name: 'Compare packets' }).click();
+
+  await expect(page.getByRole('region', { name: 'Packet comparison' })).toBeVisible();
+  await page.getByRole('combobox', { name: 'Packet A' }).selectOption({ label: '#1 SYN' });
+  await page.getByRole('combobox', { name: 'Packet B' }).selectOption({ label: '#2 SYN-ACK' });
+  await expect(page.getByText(/\d+ editable/)).toBeVisible();
+  await expect(page.getByText(/\d+ computed/)).toBeVisible();
+
+  const computedChange = page.getByRole('button', { name: /Changed, computed/ }).first();
+  await computedChange.focus();
+  await computedChange.press('Enter');
+  await expect(computedChange).toHaveAttribute('aria-pressed', 'true');
+  expect(
+    await page.locator('button[aria-label^="Byte "][aria-pressed="true"]').count(),
+  ).toBeGreaterThan(0);
+
+  const results = await new AxeBuilder({ page })
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22a', 'wcag22aa'])
+    .disableRules(['target-size'])
+    .analyze();
+  expect(results.violations).toEqual([]);
 });
