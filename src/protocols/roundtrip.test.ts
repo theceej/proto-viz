@@ -283,10 +283,14 @@ describe.runIf(process.env.TSHARK === '1')('tshark export validation', () => {
           layers: ['ethernet', 'ipv4', 'tcp'].map(newLayer),
           trailingPayload: new TextEncoder().encode('hello'),
         },
+        'tcp-rst': { layers: ['ethernet', 'ipv4', 'tcp'].map(newLayer) },
         'tls-hello-exchange': { layers: ['ethernet', 'ipv4', 'tcp', 'tls'].map(newLayer) },
         'icmp-ping': { layers: ['ethernet', 'ipv4', 'icmp'].map(newLayer) },
+        'icmpv6-ping': { layers: ['ethernet', 'ipv6', 'icmpv6'].map(newLayer) },
+        'ntp-exchange': { layers: ['ethernet', 'ipv4', 'udp', 'ntp'].map(newLayer) },
         'dns-query-response': { layers: ['ethernet', 'ipv4', 'udp', 'dns'].map(newLayer) },
         'dhcp-dora': { layers: ['ethernet', 'ipv4', 'udp', 'dhcp'].map(newLayer) },
+        'dhcpv6-exchange': { layers: ['ethernet', 'ipv6', 'udp', 'dhcpv6'].map(newLayer) },
       };
       const scenarioProtocols: Record<string, string[]> = {
         single: ['udp'],
@@ -294,10 +298,14 @@ describe.runIf(process.env.TSHARK === '1')('tshark export validation', () => {
         'ndp-exchange': ['icmpv6', 'udp'],
         'tcp-handshake': ['tcp'],
         'tcp-session': ['tcp'],
+        'tcp-rst': ['tcp'],
         'tls-hello-exchange': ['tls'],
         'icmp-ping': ['icmp'],
+        'icmpv6-ping': ['icmpv6'],
+        'ntp-exchange': ['ntp'],
         'dns-query-response': ['dns'],
         'dhcp-dora': ['dhcp'],
+        'dhcpv6-exchange': ['dhcpv6'],
       };
       for (const scenario of scenarios) {
         const stack = scenarioStacks[scenario.id];
