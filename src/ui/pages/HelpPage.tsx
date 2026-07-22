@@ -137,6 +137,7 @@ export default function HelpPage({ onStartTour }: { onStartTour: () => void }) {
       </Section>
 
       <Section title="Keyboard reference">
+        <div className="overflow-x-auto">
         <table className="mt-1 w-full border-collapse text-[13px]">
           <thead>
             <tr className="text-left text-[11px] tracking-widest text-zinc-500 uppercase">
@@ -160,6 +161,7 @@ export default function HelpPage({ onStartTour }: { onStartTour: () => void }) {
             ))}
           </tbody>
         </table>
+        </div>
       </Section>
 
       <Section title="Privacy and license">
