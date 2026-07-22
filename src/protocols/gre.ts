@@ -8,7 +8,6 @@ export const gre: ProtocolDefinition = {
   fullName: 'Generic Routing Encapsulation',
   layerHint: 'tunnel',
   source: 'builtin',
-  references: ['RFC 2784'],
   description:
     'Simple IP tunneling. The Protocol Type field uses EtherType values and is auto-set from the inner layer. Enable the C bit to add the optional checksum.',
   fields: [

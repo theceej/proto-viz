@@ -8,7 +8,6 @@ export const tls: ProtocolDefinition = {
   fullName: 'Transport Layer Security record layer',
   layerHint: 'application',
   source: 'builtin',
-  references: ['RFC 8446'],
   description:
     'The 5-byte TLS record framing. Whatever follows (a handshake message, or an application-data payload such as HTTP) forms the record fragment; its length is computed automatically. Real application data would be encrypted — here it is shown in the clear for study.',
   fields: [

@@ -8,7 +8,6 @@ export const http2: ProtocolDefinition = {
   fullName: 'HTTP/2 frame',
   layerHint: 'application',
   source: 'builtin',
-  references: ['RFC 9113'],
   description:
     'Binary framing for multiplexed HTTP. Every frame starts with this 9-byte header; the payload is the frame body (HEADERS bodies are HPACK-compressed). Normally inside TLS via ALPN "h2".',
   fields: [

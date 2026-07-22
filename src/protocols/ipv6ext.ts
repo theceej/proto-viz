@@ -25,7 +25,6 @@ export const ipv6HopByHop: ProtocolDefinition = {
   fullName: 'IPv6 Hop-by-Hop Options Header',
   layerHint: 'network',
   source: 'builtin',
-  references: ['RFC 8200'],
   description:
     'Options examined by every router on the path (Next Header 0). Must sit immediately after the IPv6 header — the model cannot enforce that ordering, so place it first yourself. Options are raw TLV bytes and must fill the header to a multiple of 8 octets; the default is a 6-byte PadN option.',
   fields: [
@@ -54,7 +53,6 @@ export const ipv6Routing: ProtocolDefinition = {
   fullName: 'IPv6 Routing Header (Segment Routing)',
   layerHint: 'network',
   source: 'builtin',
-  references: ['RFC 8200', 'RFC 8754'],
   description:
     'Directs the packet through intermediate nodes (Next Header 43). Modeled as an SRv6 Segment Routing Header (Routing Type 4) with exactly one segment — real SRHs carry a variable-length segment list. Shown in flight (Segments Left 1), so the IPv6 Destination Address holds the current segment while the Segment List carries the final destination; a transport checksum below therefore uses that final segment, per RFC 8200 §8.1. Setting Segments Left to 0 (packet at its final destination) makes the checksum use the IPv6 Destination Address instead.',
   fields: [
@@ -83,7 +81,6 @@ export const ipv6Fragment: ProtocolDefinition = {
   fullName: 'IPv6 Fragment Header',
   layerHint: 'network',
   source: 'builtin',
-  references: ['RFC 8200'],
   description:
     'Carries one fragment of a larger packet (Next Header 44) — in IPv6 only the source fragments, never routers. Defaults describe a first fragment (offset 0, M set); the payload that follows is the start of the fragmented packet.',
   fields: [
@@ -110,7 +107,6 @@ export const ipv6DestOptions: ProtocolDefinition = {
   fullName: 'IPv6 Destination Options Header',
   layerHint: 'network',
   source: 'builtin',
-  references: ['RFC 8200'],
   description:
     'Options examined only by the destination (Next Header 60). Options are raw TLV bytes and must fill the header to a multiple of 8 octets; the default is a 6-byte PadN option.',
   fields: [

@@ -7,7 +7,6 @@ export const mpls: ProtocolDefinition = {
   fullName: 'Multiprotocol Label Switching label',
   layerHint: 'tunnel',
   source: 'builtin',
-  references: ['RFC 3032'],
   description:
     'A 4-byte label-switching shim. Stack several MPLS layers for a label stack — clear the S bit on all but the innermost label. The payload type is not encoded; routers know it from the label.',
   fields: [

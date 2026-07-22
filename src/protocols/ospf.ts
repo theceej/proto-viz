@@ -8,7 +8,6 @@ export const ospf: ProtocolDefinition = {
   fullName: 'Open Shortest Path First v2 header',
   layerHint: 'network',
   source: 'builtin',
-  references: ['RFC 2328'],
   description:
     'Link-state routing directly over IP (protocol 89). The 24-byte common header is modeled; packet-type-specific bodies go in the payload. The standard checksum excludes the authentication field — which matches this computation as long as authentication is null (zeros).',
   fields: [

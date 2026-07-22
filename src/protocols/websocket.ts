@@ -9,7 +9,6 @@ export const websocket: ProtocolDefinition = {
   fullName: 'WebSocket frame',
   layerHint: 'application',
   source: 'builtin',
-  references: ['RFC 6455'],
   description:
     'Framing that follows the HTTP Upgrade handshake on the same TCP connection. Modeled as an unmasked server frame with a 7-bit length, so payloads up to 125 bytes; client frames would set Mask and carry a masking key.',
   fields: [

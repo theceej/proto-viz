@@ -7,7 +7,6 @@ export const ntp: ProtocolDefinition = {
   fullName: 'Network Time Protocol v4',
   layerHint: 'application',
   source: 'builtin',
-  references: ['RFC 5905'],
   description:
     'Clock synchronisation over UDP 123. Defaults model a client request. Timestamps are 64-bit NTP format (seconds since 1900 · 2³²).',
   fields: [

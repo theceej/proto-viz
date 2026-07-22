@@ -23,3 +23,20 @@ test('switches the library between layer grouping and a flat A–Z list', async 
   await expect(page.getByRole('heading', { name: 'Link layer' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'OSI model' })).toBeEnabled();
 });
+
+test('shows merged protocol references in a dedicated section', async ({ page }) => {
+  await page.goto('/#/library/bfd');
+  const panel = page.getByRole('complementary');
+
+  await expect(panel.getByRole('heading', { name: 'BFD' })).toBeVisible();
+  await expect(panel.getByRole('heading', { name: 'References' })).toBeVisible();
+  await expect(panel.getByRole('listitem')).toHaveCount(2);
+  await expect(panel.getByRole('link', { name: 'RFC 5880' })).toHaveAttribute(
+    'href',
+    'https://www.rfc-editor.org/rfc/rfc5880',
+  );
+  await expect(panel.getByRole('link', { name: 'RFC 5881' })).toHaveAttribute(
+    'href',
+    'https://www.rfc-editor.org/rfc/rfc5881',
+  );
+});

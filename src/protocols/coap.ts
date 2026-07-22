@@ -7,7 +7,6 @@ export const coap: ProtocolDefinition = {
   fullName: 'Constrained Application Protocol',
   layerHint: 'application',
   source: 'builtin',
-  references: ['RFC 7252'],
   description:
     'REST for constrained devices over UDP 5683. Codes read as class.detail (0.01 = GET, 2.05 = Content); options and payload follow as packet payload.',
   fields: [

@@ -8,7 +8,6 @@ export const tftp: ProtocolDefinition = {
   fullName: 'Trivial File Transfer Protocol (read request)',
   layerHint: 'application',
   source: 'builtin',
-  references: ['RFC 1350'],
   description:
     'Minimal file transfer over UDP 69. Modeled as an RRQ/WRQ packet: opcode, then a zero-terminated filename and transfer mode.',
   fields: [

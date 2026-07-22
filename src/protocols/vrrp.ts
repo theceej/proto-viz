@@ -7,7 +7,6 @@ export const vrrp: ProtocolDefinition = {
   fullName: 'Virtual Router Redundancy Protocol (v2)',
   layerHint: 'network',
   source: 'builtin',
-  references: ['RFC 3768'],
   description:
     'First-hop redundancy: routers share a virtual IP, and the highest-priority one answers for it. Sent to multicast 224.0.0.18 with IP protocol 112. Modeled with one virtual address.',
   fields: [

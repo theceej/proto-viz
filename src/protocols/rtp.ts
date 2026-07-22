@@ -7,7 +7,6 @@ export const rtp: ProtocolDefinition = {
   fullName: 'Real-time Transport Protocol',
   layerHint: 'application',
   source: 'builtin',
-  references: ['RFC 3550'],
   description:
     'Carries live audio/video samples. Sequence numbers order packets; the timestamp advances in media clock units (e.g. 160 per 20 ms of 8 kHz audio).',
   fields: [

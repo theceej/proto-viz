@@ -92,7 +92,6 @@ export const rtcp: ProtocolDefinition = {
   fullName: 'RTP Control Protocol (Sender Report)',
   layerHint: 'application',         // link | network | transport | application | tunnel
   source: 'builtin',
-  references: ['RFC 3550'],         // "RFC N" strings auto-link in the library
   description: '…what it is, and any modeling simplifications…',
   fields: [
     { id: 'version', name: 'V', type: 'uint', bitLength: 2, default: 2 },
@@ -136,7 +135,41 @@ leave the encrypted remainder an opaque bytes field — see QUIC (long header)
 and WireGuard. Protocols that are almost entirely ciphertext (SSH transport)
 or ASN.1/BER (SNMP, LDAP) generally don't model well — ask in an issue first.
 
-### 3. Register it — four places
+### 3. Add references
+
+Protocol references live beside the built-in definitions under
+`src/protocols/refs`. Add `src/protocols/refs/<id>.1.ts` using the protocol's
+exact id. Each module exports full name/URL entries, usually through a common
+source helper:
+
+```ts
+import { rfc } from './sources';
+
+export default [rfc(3550)];
+```
+
+References appear as a bulleted list in the library detail panel. More than
+one file may contribute to a protocol: `<id>.1.ts`, `<id>.2.ts`, and so on are
+discovered automatically and merged in filename order. This lets downstream
+deployments add local documentation without modifying an upstream file:
+
+```ts
+// src/protocols/refs/rtcp.2.ts
+export default [
+  { name: 'Our RTCP deployment guide', url: 'https://docs.example/rtcp' },
+];
+```
+
+Use `rfc`, `ieee`, `threeGpp`, or `microsoft` from `sources.ts` for common
+publishers. They respect `VITE_RFC_BASE_URL`, `VITE_IEEE_BASE_URL`,
+`VITE_3GPP_BASE_URL`, and `VITE_MS_SPECS_BASE_URL`; each override may be a
+base URL or a template containing `%s`. Use an explicit URL for other sources.
+
+The name-only `references` field on `ProtocolDefinition` remains supported for
+imported custom protocols, but built-ins should use reference modules so links
+and labels stay together.
+
+### 4. Register it — four places
 
 1. Import and append in [src/protocols/index.ts](src/protocols/index.ts).
 2. **Append** the id to `SHARE_PROTOCOL_IDS` in
@@ -152,7 +185,7 @@ or ASN.1/BER (SNMP, LDAP) generally don't model well — ask in an issue first.
    place the protocol in the closest existing family rather than creating a
    one-item category.
 
-### 4. Test the interesting parts
+### 5. Test the interesting parts
 
 The round-trip suite covers the basics for free. Add spot checks in
 `roundtrip.test.ts` for anything with mechanics: checksum correctness
@@ -161,7 +194,7 @@ binding auto-set values, computed lengths, `presentIf` growth. If you have
 tcpdump or Wireshark, export a PCAP from the builder and confirm the
 dissector agrees — that has caught real bugs here.
 
-### 5. Before opening the PR
+### 6. Before opening the PR
 
 ```bash
 npm test && npx eslint . && npm run build

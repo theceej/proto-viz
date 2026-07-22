@@ -9,7 +9,6 @@ export const isis: ProtocolDefinition = {
   fullName: 'Intermediate System to Intermediate System (Level-1 LAN IIH)',
   layerHint: 'network',
   source: 'builtin',
-  references: ['ISO 10589', 'RFC 1195'],
   description:
     'Link-state routing carried directly by an IEEE 802.3 LLC frame (DSAP and SSAP 0xFE), not by IP. This models a Level-1 LAN IIH fixed header followed by representative Area Addresses and Protocols Supported TLVs. IS-IS permits an extensible TLV chain, so other TLVs remain editable as raw bytes. Use destination MAC 01:80:c2:00:00:14 for an AllL1IS multicast frame and set the carrier LLC SSAP to 0xFE.',
   fields: [

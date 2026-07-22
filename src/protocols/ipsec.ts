@@ -8,7 +8,6 @@ export const ipsecEsp: ProtocolDefinition = {
   fullName: 'Encapsulating Security Payload',
   layerHint: 'tunnel',
   source: 'builtin',
-  references: ['RFC 4303'],
   description:
     'Encrypted IPsec payload (IP protocol 50). Only the SPI and sequence number are visible on the wire — everything after them is ciphertext, so nothing can layer inside.',
   fields: [
@@ -25,7 +24,6 @@ export const ipsecAh: ProtocolDefinition = {
   fullName: 'Authentication Header',
   layerHint: 'tunnel',
   source: 'builtin',
-  references: ['RFC 4302'],
   description:
     'Integrity protection without encryption (IP protocol 51). Next Header selects the protected payload, so protocols can layer inside; the ICV is modeled as 12 zero bytes.',
   fields: [

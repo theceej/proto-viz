@@ -8,7 +8,6 @@ export const netflow5: ProtocolDefinition = {
   fullName: 'Cisco NetFlow version 5 export',
   layerHint: 'application',
   source: 'builtin',
-  references: ['Cisco NetFlow v5'],
   description:
     'Flow accounting export on UDP 2055: a 24-byte header and fixed 48-byte flow records. Modeled with a single record describing one TCP flow.',
   fields: [

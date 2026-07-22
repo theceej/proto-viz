@@ -8,7 +8,6 @@ export const gtpu: ProtocolDefinition = {
   fullName: 'GPRS Tunnelling Protocol (user plane)',
   layerHint: 'tunnel',
   source: 'builtin',
-  references: ['3GPP TS 29.281'],
   description:
     'How mobile networks carry subscriber traffic between base station and core (UDP 2152). The TEID identifies the bearer; the payload is the subscriber IP packet.',
   fields: [

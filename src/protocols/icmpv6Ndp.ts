@@ -8,7 +8,6 @@ export const icmpv6Ndp: ProtocolDefinition = {
   fullName: 'ICMPv6 Neighbor Discovery',
   layerHint: 'network',
   source: 'builtin',
-  references: ['RFC 4861'],
   description:
     'Neighbor Solicitation or Advertisement with one link-layer-address option. Solicitation uses type 135, zero flags, and option type 1; Advertisement uses type 136, R/S/O flags, and option type 2.',
   fields: [

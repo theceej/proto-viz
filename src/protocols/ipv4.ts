@@ -8,7 +8,6 @@ export const ipv4: ProtocolDefinition = {
   fullName: 'Internet Protocol version 4',
   layerHint: 'network',
   source: 'builtin',
-  references: ['RFC 791'],
   description:
     'The Internet Protocol. Version, IHL, Total Length, and Header Checksum are computed automatically; the Protocol field is auto-set from the next layer in the stack.',
   fields: [

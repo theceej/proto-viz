@@ -8,7 +8,6 @@ export const igmpv3: ProtocolDefinition = {
   fullName: 'IGMP v3 Membership Report',
   layerHint: 'network',
   source: 'builtin',
-  references: ['RFC 3376'],
   description:
     'The IGMPv3 report a host sends to declare its multicast interests (IP protocol 2, type 0x22). Unlike the v2 join, v3 carries a list of Group Records, each naming a multicast group and a source-address list for source-specific multicast. Modeled with a single group record and one source; real reports carry a variable number of both.',
   fields: [

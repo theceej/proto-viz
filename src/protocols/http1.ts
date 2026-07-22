@@ -7,7 +7,6 @@ export const http1: ProtocolDefinition = {
   fullName: 'Hypertext Transfer Protocol 1.1',
   layerHint: 'application',
   source: 'builtin',
-  references: ['RFC 9112'],
   description:
     'Text-based request framing: start line, header lines, blank line. HTTP is a byte stream, not a fixed header — the bit grid shows the text bytes. A message body (e.g. for POST) goes in the trailing payload.',
   notes: 'Header lines are separated with CRLF; the terminator supplies the final CRLF CRLF.',

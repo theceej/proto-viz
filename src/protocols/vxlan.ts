@@ -7,7 +7,6 @@ export const vxlan: ProtocolDefinition = {
   fullName: 'Virtual eXtensible LAN',
   layerHint: 'tunnel',
   source: 'builtin',
-  references: ['RFC 7348'],
   description:
     'Layer-2-over-UDP overlay tunneling (port 4789). The payload is always an inner Ethernet frame, identified by the 24-bit VNI.',
   fields: [

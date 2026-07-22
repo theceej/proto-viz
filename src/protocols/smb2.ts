@@ -8,7 +8,6 @@ export const smb2: ProtocolDefinition = {
   fullName: 'Server Message Block 2 header',
   layerHint: 'application',
   source: 'builtin',
-  references: ['MS-SMB2'],
   description:
     'Windows file sharing on TCP 445. The 4-byte NetBIOS session header and fixed 64-byte SMB2 sync header are modeled; the command body follows as payload.',
   fields: [

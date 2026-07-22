@@ -7,7 +7,6 @@ export const wireguard: ProtocolDefinition = {
   fullName: 'WireGuard handshake initiation',
   layerHint: 'tunnel',
   source: 'builtin',
-  references: ['WireGuard whitepaper (Donenfeld)'],
   description:
     'Modern VPN handshake (UDP 51820, Noise IK). The ephemeral key is the only plaintext key material; the static key and timestamp are already encrypted. Transport data packets that follow are fully opaque.',
   fields: [

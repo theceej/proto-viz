@@ -8,7 +8,6 @@ export const tcp: ProtocolDefinition = {
   fullName: 'Transmission Control Protocol',
   layerHint: 'transport',
   source: 'builtin',
-  references: ['RFC 9293'],
   description:
     'Reliable, connection-oriented transport. Data Offset and Checksum are computed automatically (the checksum includes the IP pseudo-header). The destination port is auto-set when an application protocol follows.',
   fields: [

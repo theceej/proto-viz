@@ -9,7 +9,6 @@ export const ethernet8023: ProtocolDefinition = {
   fullName: 'IEEE 802.3 frame with 802.2 LLC header',
   layerHint: 'link',
   source: 'builtin',
-  references: ['IEEE 802.3', 'IEEE 802.2'],
   description:
     'Classic IEEE framing: the field after the MACs is a length, not an EtherType, and an LLC header selects the payload by SAP. Spanning Tree BPDUs are the best-known traffic carried this way.',
   fields: [

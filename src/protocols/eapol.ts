@@ -9,7 +9,6 @@ export const eapol: ProtocolDefinition = {
   fullName: 'IEEE 802.1X Extensible Authentication Protocol over LAN',
   layerHint: 'link',
   source: 'builtin',
-  references: ['IEEE 802.1X'],
   description:
     'The 802.1X LAN envelope carried directly by EtherType 0x888E. Packet type 0 carries an EAP packet; Start, Logoff, Key, and ASF Alert bodies remain opaque payload bytes.',
   fields: [

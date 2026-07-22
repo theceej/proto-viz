@@ -10,7 +10,6 @@ export const bgp: ProtocolDefinition = {
   fullName: 'Border Gateway Protocol 4 message header',
   layerHint: 'application',
   source: 'builtin',
-  references: ['RFC 4271'],
   description:
     'Inter-domain routing over TCP 179. The 19-byte message header is modeled; the default type is KEEPALIVE, which is a complete, valid message on its own. OPEN/UPDATE bodies go in the payload.',
   fields: [

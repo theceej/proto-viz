@@ -7,7 +7,6 @@ export const sctp: ProtocolDefinition = {
   fullName: 'Stream Control Transmission Protocol',
   layerHint: 'transport',
   source: 'builtin',
-  references: ['RFC 4960'],
   description:
     'Message-oriented transport with multi-streaming. Only the 12-byte common header is modeled; chunks go in the payload. The CRC32c checksum covers the whole packet and is stored byte-swapped per RFC 4960 appendix B.',
   fields: [

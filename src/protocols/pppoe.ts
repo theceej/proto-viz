@@ -8,7 +8,6 @@ export const pppoe: ProtocolDefinition = {
   fullName: 'PPP over Ethernet (session stage)',
   layerHint: 'link',
   source: 'builtin',
-  references: ['RFC 2516'],
   description:
     'Carries PPP sessions over Ethernet (EtherType 0x8864). The PPP protocol field is included here, so IPv4/IPv6 bind onto it directly. Length is computed automatically.',
   fields: [

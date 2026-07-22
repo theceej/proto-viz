@@ -7,7 +7,6 @@ export const hsrp: ProtocolDefinition = {
   fullName: 'Hot Standby Router Protocol (v1)',
   layerHint: 'network',
   source: 'builtin',
-  references: ['RFC 2281'],
   description:
     "Cisco's first-hop redundancy protocol: hellos to 224.0.0.2 on UDP 1985 elect an active router for the virtual IP.",
   fields: [
