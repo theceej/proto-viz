@@ -124,8 +124,6 @@ export default function BuilderPage() {
         <h1 className="mr-1 text-[15px] font-semibold tracking-tight text-zinc-100">
           Stack Builder
         </h1>
-        <PresetsMenu />
-        <SavedStacks stack={stack} registry={registry} />
         <div className="flex items-center gap-1" role="group" aria-label="Edit history">
           <button
             className="cursor-pointer rounded-md border border-zinc-700 p-1.5 text-zinc-300 hover:border-cyan-600 hover:text-cyan-300 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-600"
@@ -146,13 +144,19 @@ export default function BuilderPage() {
             <Redo2 className="size-3.5" />
           </button>
         </div>
+        <PresetsMenu />
+        <SavedStacks
+          stack={stack}
+          registry={registry}
+          labelClass="hidden @min-[48rem]:inline"
+        />
         <ToolbarButton
           icon={ImageDown}
           label="Diagram"
           title="Export packet diagram as SVG or PNG"
           disabled={!packet}
           onClick={() => setExportingDiagram(true)}
-          labelClass="hidden @min-[72rem]:inline"
+          labelClass="hidden @min-[54rem]:inline"
         />
         <ToolbarButton
           icon={Dices}
@@ -160,13 +164,13 @@ export default function BuilderPage() {
           title="Generate a random valid stack"
           hover="hover:border-fuchsia-500 hover:text-fuchsia-300"
           onClick={rollRandomStack}
-          labelClass="hidden @min-[66rem]:inline"
+          labelClass="hidden @min-[60rem]:inline"
         />
         <ExperimentsMenu
           stack={stack}
           registry={registry}
           packet={packet}
-          labelClass="hidden @min-[60rem]:inline"
+          labelClass="hidden @min-[66rem]:inline"
           onApply={setExperiment}
         />
         <ToolbarButton
@@ -174,30 +178,28 @@ export default function BuilderPage() {
           label="Share"
           title="Share this stack as a word code"
           onClick={() => setSharing(true)}
-          labelClass="hidden @min-[54rem]:inline"
+          labelClass="hidden @min-[72rem]:inline"
         />
         <ToolbarButton
           icon={ClipboardPaste}
           label="Decode"
           title="Paste packet hex and decode it into a stack"
           onClick={() => setDecoding(true)}
-          labelClass="hidden @min-[48rem]:inline"
+          labelClass="hidden @min-[78rem]:inline"
         />
         <AddToCompareButton
           packet={packet}
           label="Stack Builder packet"
-          labelClass="hidden @min-[42rem]:inline"
+          labelClass="hidden @min-[84rem]:inline"
         />
-        <div className="ml-auto">
-          <ToolbarButton
-            icon={Download}
-            label="Export PCAP"
-            title="Export the stack as a .pcap file"
-            disabled={stack.layers.length === 0}
-            onClick={() => setExporting(true)}
-            labelClass="hidden @min-[36rem]:inline"
-          />
-        </div>
+        <ToolbarButton
+          icon={Download}
+          label="Export PCAP"
+          title="Export the stack as a .pcap file"
+          disabled={stack.layers.length === 0}
+          onClick={() => setExporting(true)}
+          labelClass="hidden @min-[90rem]:inline"
+        />
       </header>
 
       {exporting && (

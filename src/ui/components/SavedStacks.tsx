@@ -15,9 +15,12 @@ import {
 export default function SavedStacks({
   stack,
   registry,
+  labelClass = '',
 }: {
   stack: StackInstance;
   registry: Registry;
+  /** Extra classes controlling when the button text shows (container queries). */
+  labelClass?: string;
 }) {
   const restoreStack = useStackStore((s) => s.restoreStack);
   const [saving, setSaving] = useState(false);
@@ -67,8 +70,9 @@ export default function SavedStacks({
     <div className="flex items-center gap-2">
       <div className="relative">
         <button
-          className="flex cursor-pointer items-center gap-1 rounded-md border border-zinc-700 px-2.5 py-1 text-[12px] text-zinc-300 hover:border-zinc-500 disabled:cursor-not-allowed disabled:opacity-40"
+          className="flex cursor-pointer items-center gap-1 rounded-md border border-zinc-700 px-2 py-1 text-[12px] text-zinc-300 hover:border-zinc-500 disabled:cursor-not-allowed disabled:opacity-40"
           disabled={stack.layers.length === 0}
+          aria-label="Save"
           title="Save this stack in your browser"
           aria-expanded={saving}
           aria-haspopup="dialog"
@@ -77,8 +81,8 @@ export default function SavedStacks({
             setName('');
           }}
         >
-          <Bookmark className="size-3.5" />
-          Save
+          <Bookmark className="size-3.5 shrink-0" />
+          <span className={labelClass}>Save</span>
         </button>
         {saving && (
           <>
@@ -111,7 +115,8 @@ export default function SavedStacks({
 
       <div className="relative">
         <button
-          className="flex cursor-pointer items-center gap-1 rounded-md border border-zinc-700 px-2.5 py-1 text-[12px] text-zinc-300 hover:border-zinc-500"
+          className="flex cursor-pointer items-center gap-1 rounded-md border border-zinc-700 px-2 py-1 text-[12px] text-zinc-300 hover:border-zinc-500"
+          aria-label="Saved"
           title="Load a saved stack"
           aria-expanded={open}
           aria-haspopup="menu"
@@ -123,8 +128,8 @@ export default function SavedStacks({
             }
           }}
         >
-          <FolderOpen className="size-3.5" />
-          Saved
+          <FolderOpen className="size-3.5 shrink-0" />
+          <span className={labelClass}>Saved</span>
         </button>
         {open && (
           <>
