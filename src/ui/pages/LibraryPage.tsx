@@ -104,7 +104,7 @@ export default function LibraryPage() {
   return (
     <div className="flex h-full">
       <div className="min-w-0 flex-1 overflow-auto">
-        <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-zinc-800 bg-zinc-950/90 px-6 py-3 backdrop-blur">
+        <header className="sticky top-0 z-10 flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-zinc-800 bg-zinc-950/90 px-6 py-3 backdrop-blur">
           <h1 className="text-[15px] font-semibold tracking-tight text-zinc-100">
             Protocol Library
           </h1>
@@ -154,7 +154,7 @@ export default function LibraryPage() {
               A–Z
             </button>
           </div>
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-2 sm:flex-none">
             {custom.length > 0 && (
               <button
                 className="flex cursor-pointer items-center gap-1 rounded-md border border-zinc-700 px-2 py-1 text-[12px] text-zinc-300 hover:border-zinc-500"
@@ -180,11 +180,11 @@ export default function LibraryPage() {
                 }}
               />
             </label>
-            <div className="relative">
+            <div className="relative min-w-0 flex-1 sm:flex-none">
               <Search className="absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-zinc-500" />
               <input
                 type="search"
-                className="w-56 rounded-md border border-zinc-700 bg-zinc-900 py-1 pr-2 pl-7 text-[13px] text-zinc-200 outline-none placeholder:text-zinc-600 focus:border-cyan-600"
+                className="w-full rounded-md border border-zinc-700 bg-zinc-900 py-1 pr-2 pl-7 text-[13px] text-zinc-200 outline-none placeholder:text-zinc-600 focus:border-cyan-600 sm:w-56"
                 placeholder="Search protocols…"
                 aria-label="Search protocols"
                 value={query}

@@ -63,7 +63,7 @@ export default function DecodeDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="decode-dialog-title"
-        className="w-[30rem] rounded-xl border border-zinc-700 bg-zinc-900 shadow-2xl"
+        className="w-[min(30rem,calc(100vw-2rem))] rounded-xl border border-zinc-700 bg-zinc-900 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <header className="flex items-center border-b border-zinc-800 px-5 py-3">

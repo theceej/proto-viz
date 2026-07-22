@@ -80,7 +80,7 @@ export default function ShareDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="share-dialog-title"
-        className="w-[26rem] rounded-xl border border-zinc-700 bg-zinc-900 shadow-2xl"
+        className="w-[min(26rem,calc(100vw-2rem))] rounded-xl border border-zinc-700 bg-zinc-900 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <header className="flex items-center border-b border-zinc-800 px-5 py-3">
