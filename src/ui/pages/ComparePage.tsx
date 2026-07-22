@@ -63,8 +63,8 @@ export default function ComparePage() {
           <p className="text-sm text-zinc-300">Add {packets.length === 0 ? 'two packets' : 'one more packet'} to start comparing.</p>
           <p className="max-w-lg text-[13px] leading-relaxed text-zinc-500">
             Use <strong className="font-medium text-zinc-400">Add to compare</strong> in the{' '}
-            <Link className="text-cyan-400 hover:underline" to="/builder">Stack Builder</Link> or on any step in the{' '}
-            <Link className="text-cyan-400 hover:underline" to="/scenario">Scenario Timeline</Link>.
+            <Link className="text-cyan-400 underline underline-offset-2" to="/builder">Stack Builder</Link> or on any step in the{' '}
+            <Link className="text-cyan-400 underline underline-offset-2" to="/scenario">Scenario Timeline</Link>.
             Adding a third packet replaces the oldest selection.
           </p>
         </div>
