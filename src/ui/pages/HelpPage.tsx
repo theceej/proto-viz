@@ -61,6 +61,14 @@ export default function HelpPage({ onStartTour }: { onStartTour: () => void }) {
           serializer warns rather than silently correcting it. The payload editor
           accepts text or hex, and the dice button fills it with random bytes.
         </p>
+        <p>
+          <Ui>Break this packet</Ui> turns that into guided experiments: it offers
+          only the corruptions that apply to your stack — a bad checksum, a
+          mismatched length, an invalid IHL/data offset, a selector pointing at the
+          wrong protocol — applies one with a single click, and explains the
+          diagnostic to look for. Each is one pinned field; <Ui>Undo</Ui> restores
+          the exact previous packet.
+        </p>
       </Section>
 
       <Section title="Saving and sharing">
