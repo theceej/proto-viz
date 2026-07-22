@@ -82,13 +82,17 @@ export default function App() {
         )}
         <aside
           className={`flex shrink-0 flex-col border-r border-zinc-800 bg-zinc-900/60 transition-[width] duration-150 ${
-            collapsed ? 'w-14' : 'w-56'
+            collapsed ? 'w-14' : 'w-14 md:w-56'
           }`}
         >
-          <div className={`flex items-center gap-2.5 pt-5 pb-6 ${collapsed ? 'justify-center px-0' : 'px-5'}`}>
+          <div
+            className={`flex items-center gap-2.5 pt-5 pb-6 ${
+              collapsed ? 'justify-center px-0' : 'justify-center px-0 md:justify-start md:px-5'
+            }`}
+          >
             <LogoMark className="size-8 shrink-0" />
             {!collapsed && (
-              <div className="min-w-0">
+              <div className="hidden min-w-0 md:block">
                 <div className="truncate text-sm font-semibold tracking-tight text-zinc-100">
                   proto-viz
                 </div>
@@ -96,7 +100,7 @@ export default function App() {
               </div>
             )}
           </div>
-          <nav className={`flex flex-col gap-1 ${collapsed ? 'px-2' : 'px-3'}`}>
+          <nav className={`flex flex-col gap-1 ${collapsed ? 'px-2' : 'px-2 md:px-3'}`}>
             {NAV.map(({ to, label, icon: Icon }) => (
               <NavLink
                 key={to}
@@ -104,7 +108,7 @@ export default function App() {
                 title={label}
                 className={({ isActive }) =>
                   `flex items-center gap-2.5 rounded-md py-2 text-sm transition-colors ${
-                    collapsed ? 'justify-center px-0' : 'px-3'
+                    collapsed ? 'justify-center px-0' : 'justify-center px-0 md:justify-start md:px-3'
                   } ${
                     isActive
                       ? 'bg-cyan-500/10 font-medium text-cyan-300'
@@ -113,13 +117,13 @@ export default function App() {
                 }
               >
                 <Icon className="size-4 shrink-0" />
-                {!collapsed && label}
+                {!collapsed && <span className="hidden md:inline">{label}</span>}
               </NavLink>
             ))}
           </nav>
           <div className="mt-auto">
             {!collapsed && (
-              <div className="px-5 py-3 text-[11px] leading-relaxed text-zinc-600">
+              <div className="hidden px-5 py-3 text-[11px] leading-relaxed text-zinc-600 md:block">
                 Runs entirely in your browser.
                 <br />
                 Nothing is uploaded anywhere.
@@ -147,7 +151,7 @@ export default function App() {
             )}
             <div
               className={`flex items-center gap-1 border-t border-zinc-800 py-2 ${
-                collapsed ? 'flex-col px-2' : 'px-3'
+                collapsed ? 'flex-col px-2' : 'flex-col px-2 md:flex-row md:px-3'
               }`}
             >
               <button
@@ -169,7 +173,7 @@ export default function App() {
                 <GithubIcon className="size-4" />
               </a>
               <button
-                className={`cursor-pointer rounded-md p-2 text-zinc-500 hover:bg-zinc-800/60 hover:text-zinc-200 ${
+                className={`hidden cursor-pointer rounded-md p-2 text-zinc-500 hover:bg-zinc-800/60 hover:text-zinc-200 md:block ${
                   collapsed ? '' : 'ml-auto'
                 }`}
                 title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
