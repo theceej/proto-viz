@@ -39,3 +39,23 @@ test('steps through a scenario timeline and updates the inspection panes', async
   await page.getByRole('button', { name: 'Pause' }).click();
   await expect(page.getByRole('button', { name: 'Play' })).toBeVisible();
 });
+
+test('collapses and resizes the scenario inspection panes', async ({ page }) => {
+  await page.goto('/#/scenario');
+
+  // Collapse the packet diagrams pane; state persists across a reload.
+  await page.getByRole('button', { name: 'Collapse packet diagrams pane' }).click();
+  await expect(page.getByRole('button', { name: 'Expand packet diagrams pane' })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'Expand packet diagrams pane' })).toBeVisible();
+
+  // With diagrams collapsed the outer panes stay resizable via the divider.
+  const hexPane = page.getByRole('region', { name: 'Hex dump' });
+  const handle = page.getByRole('separator', { name: 'Resize field editor and hex dump' });
+  const before = await hexPane.evaluate((el) => el.getBoundingClientRect().width);
+  await handle.focus();
+  await handle.press('ArrowLeft');
+  await expect
+    .poll(() => hexPane.evaluate((el) => el.getBoundingClientRect().width))
+    .toBe(Math.round(before) + 24);
+});
