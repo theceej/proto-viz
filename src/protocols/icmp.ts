@@ -7,7 +7,6 @@ export const icmp: ProtocolDefinition = {
   fullName: 'Internet Control Message Protocol',
   layerHint: 'network',
   source: 'builtin',
-  references: ['RFC 792'],
   description:
     'Control and error messages for IPv4. Defaults model an echo request (ping); error messages quote the offending datagram as payload.',
   fields: [

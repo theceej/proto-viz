@@ -8,7 +8,6 @@ export const ripv1: ProtocolDefinition = {
   fullName: 'Routing Information Protocol version 1',
   layerHint: 'network',
   source: 'builtin',
-  references: ['RFC 1058'],
   description:
     'The 1988 original: classful (no subnet masks), broadcast rather than multicast. Modeled with one route entry.',
   fields: [
@@ -32,7 +31,6 @@ export const pim: ProtocolDefinition = {
   fullName: 'Protocol Independent Multicast (v2 header)',
   layerHint: 'network',
   source: 'builtin',
-  references: ['RFC 7761'],
   description:
     'Multicast tree building (IP protocol 103, multicast 224.0.0.13). This is the common header; message bodies (Hello options, Join/Prune lists) follow as payload.',
   fields: [
@@ -54,7 +52,6 @@ export const nbns: ProtocolDefinition = {
   id: 'nbns',
   name: 'NBNS',
   fullName: 'NetBIOS Name Service',
-  references: ['RFC 1002'],
   description:
     'Legacy Windows name resolution on UDP 137 (WINS). DNS wire format; NetBIOS names are 16 bytes, half-ASCII encoded into a 32-character label.',
   encapsulations: [{ namespaceId: NS.udpDstPort, value: 137 }],
@@ -67,7 +64,6 @@ export const ethernetSnap: ProtocolDefinition = {
   fullName: 'IEEE 802.3 frame with LLC/SNAP header',
   layerHint: 'link',
   source: 'builtin',
-  references: ['IEEE 802.3', 'IEEE 802.2'],
   description:
     'LLC with DSAP/SSAP 0xAA extends the frame with a SNAP header: an OUI and a protocol ID, giving vendors their own protocol space. Cisco protocols (CDP, VTP) live here under OUI 00:00:0C.',
   fields: [
@@ -96,7 +92,6 @@ export const cdp: ProtocolDefinition = {
   fullName: 'Cisco Discovery Protocol',
   layerHint: 'link',
   source: 'builtin',
-  references: ['Cisco CDP'],
   description:
     'Cisco neighbour discovery over SNAP (PID 0x2000). Modeled with the header and a Device ID TLV; further TLVs (addresses, port, capabilities) can follow as payload.',
   fields: [

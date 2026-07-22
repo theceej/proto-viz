@@ -7,7 +7,6 @@ export const geneve: ProtocolDefinition = {
   fullName: 'Generic Network Virtualization Encapsulation',
   layerHint: 'tunnel',
   source: 'builtin',
-  references: ['RFC 8926'],
   description:
     "VXLAN's successor for overlay networks (UDP 6081): the same VNI idea plus an EtherType-coded protocol field and extensible options, so it can carry more than Ethernet.",
   fields: [

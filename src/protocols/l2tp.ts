@@ -8,7 +8,6 @@ export const l2tp: ProtocolDefinition = {
   fullName: 'Layer 2 Tunneling Protocol v2',
   layerHint: 'tunnel',
   source: 'builtin',
-  references: ['RFC 2661'],
   description:
     'Tunnels PPP frames over UDP 1701. Defaults model a data message with the optional Length field present; sequence and offset fields appear when their flag bits are set.',
   fields: [

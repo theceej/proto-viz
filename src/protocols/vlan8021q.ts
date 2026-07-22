@@ -7,7 +7,6 @@ export const vlan8021q: ProtocolDefinition = {
   fullName: 'IEEE 802.1Q VLAN tag',
   layerHint: 'link',
   source: 'builtin',
-  references: ['IEEE 802.1Q'],
   description:
     'A 4-byte tag inserted after the Ethernet source address. On the wire, the TPID 0x8100 occupies the EtherType position of the outer frame and the tag carries the real EtherType — which is exactly how the stack serializes here. Stack two tags for Q-in-Q.',
   fields: [

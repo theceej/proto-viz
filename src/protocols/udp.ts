@@ -8,7 +8,6 @@ export const udp: ProtocolDefinition = {
   fullName: 'User Datagram Protocol',
   layerHint: 'transport',
   source: 'builtin',
-  references: ['RFC 768'],
   description:
     'Connectionless transport. Length and Checksum are computed automatically (the checksum includes the IP pseudo-header). The destination port is auto-set when an application protocol follows.',
   fields: [

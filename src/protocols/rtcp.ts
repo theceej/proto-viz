@@ -8,7 +8,6 @@ export const rtcp: ProtocolDefinition = {
   fullName: 'RTP Control Protocol (Sender Report)',
   layerHint: 'application',
   source: 'builtin',
-  references: ['RFC 3550'],
   description:
     'Quality feedback for an RTP session, modeled as a Sender Report with no reception blocks. Length is in 32-bit words minus one.',
   fields: [

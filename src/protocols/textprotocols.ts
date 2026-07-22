@@ -29,7 +29,6 @@ export const ftp: ProtocolDefinition = {
   fullName: 'File Transfer Protocol (control channel)',
   layerHint: 'application',
   source: 'builtin',
-  references: ['RFC 959'],
   description:
     'Text command channel on TCP 21; file data flows on a separate connection negotiated with PORT/PASV.',
   fields: textLine('RETR firmware.bin', 'One FTP command with its argument.'),
@@ -43,7 +42,6 @@ export const smtp: ProtocolDefinition = {
   fullName: 'Simple Mail Transfer Protocol',
   layerHint: 'application',
   source: 'builtin',
-  references: ['RFC 5321'],
   description:
     'Mail relay dialogue on TCP 25: EHLO, MAIL FROM, RCPT TO, DATA. One command per packet here.',
   fields: textLine('EHLO client.example.com', 'One SMTP command.'),
@@ -57,7 +55,6 @@ export const pop3: ProtocolDefinition = {
   fullName: 'Post Office Protocol version 3',
   layerHint: 'application',
   source: 'builtin',
-  references: ['RFC 1939'],
   description: 'Simple mailbox retrieval on TCP 110: USER, PASS, LIST, RETR, DELE.',
   fields: textLine('RETR 1', 'One POP3 command.'),
   providesNamespaces: [],
@@ -70,7 +67,6 @@ export const imap: ProtocolDefinition = {
   fullName: 'Internet Message Access Protocol',
   layerHint: 'application',
   source: 'builtin',
-  references: ['RFC 9051'],
   description:
     'Server-side mailbox access on TCP 143. Every client command carries a tag the server echoes in its response.',
   fields: textLine('a001 SELECT INBOX', 'Tagged IMAP command.'),
@@ -84,7 +80,6 @@ export const telnet: ProtocolDefinition = {
   fullName: 'Telnet remote terminal',
   layerHint: 'application',
   source: 'builtin',
-  references: ['RFC 854'],
   description:
     'Raw terminal bytes on TCP 23, with in-band option negotiation: 0xFF (IAC) introduces commands like DO/WILL. Modeled as one negotiation followed by text.',
   fields: [
@@ -101,7 +96,6 @@ export const irc: ProtocolDefinition = {
   fullName: 'Internet Relay Chat',
   layerHint: 'application',
   source: 'builtin',
-  references: ['RFC 2812'],
   description: 'Chat protocol on TCP 6667: one CRLF-terminated command per line.',
   fields: textLine('PRIVMSG #network :hello from proto-viz', 'One IRC message.'),
   providesNamespaces: [],
@@ -114,7 +108,6 @@ export const sip: ProtocolDefinition = {
   fullName: 'Session Initiation Protocol',
   layerHint: 'application',
   source: 'builtin',
-  references: ['RFC 3261'],
   description:
     'Call signalling for VoIP, HTTP-like text over UDP 5060. An INVITE sets up the session; the media itself flows as RTP.',
   fields: [
@@ -138,7 +131,6 @@ export const rtsp: ProtocolDefinition = {
   fullName: 'Real Time Streaming Protocol',
   layerHint: 'application',
   source: 'builtin',
-  references: ['RFC 7826'],
   description:
     'VCR-style control (DESCRIBE, SETUP, PLAY) for media sessions on TCP 554; the media flows separately as RTP.',
   fields: [
@@ -157,7 +149,6 @@ export const syslog: ProtocolDefinition = {
   fullName: 'Syslog event message',
   layerHint: 'application',
   source: 'builtin',
-  references: ['RFC 5424'],
   description:
     'Event logging on UDP 514. The priority combines facility and severity: <134> is facility 16 (local0), severity 6 (info).',
   fields: [
@@ -174,7 +165,6 @@ export const ssdp: ProtocolDefinition = {
   fullName: 'Simple Service Discovery Protocol',
   layerHint: 'application',
   source: 'builtin',
-  references: ['UPnP Device Architecture 2.0'],
   description:
     'UPnP device discovery: HTTP-formatted requests multicast to 239.255.255.250 on UDP 1900.',
   fields: [

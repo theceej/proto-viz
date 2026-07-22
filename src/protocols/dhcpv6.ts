@@ -7,7 +7,6 @@ export const dhcpv6: ProtocolDefinition = {
   fullName: 'Dynamic Host Configuration Protocol for IPv6',
   layerHint: 'application',
   source: 'builtin',
-  references: ['RFC 8415'],
   description:
     'IPv6 address assignment: clients multicast to ff02::1:2 on UDP 547. The fixed header is tiny; everything else is options carried here as raw bytes.',
   fields: [

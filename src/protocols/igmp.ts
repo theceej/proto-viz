@@ -7,7 +7,6 @@ export const igmp: ProtocolDefinition = {
   fullName: 'Internet Group Management Protocol v2',
   layerHint: 'network',
   source: 'builtin',
-  references: ['RFC 2236'],
   description:
     'Multicast group membership signalling between hosts and routers. Defaults model a general membership query.',
   fields: [

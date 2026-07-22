@@ -7,7 +7,6 @@ export const stp: ProtocolDefinition = {
   fullName: 'Spanning Tree Protocol (Configuration BPDU)',
   layerHint: 'link',
   source: 'builtin',
-  references: ['IEEE 802.1D'],
   description:
     'Bridge Protocol Data Unit that elects the root bridge and breaks loops. Bridge IDs are 2 priority bytes followed by a MAC; times are in 1/256ths of a second.',
   fields: [

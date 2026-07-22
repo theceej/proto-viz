@@ -7,7 +7,6 @@ export const quic: ProtocolDefinition = {
   fullName: 'QUIC v1 long header (Initial)',
   layerHint: 'application',
   source: 'builtin',
-  references: ['RFC 9000', 'RFC 8999'],
   description:
     'The transport under HTTP/3 (UDP 443). Modeled as a v1 long-header Initial packet: the header form, version, and connection IDs are the version-independent invariants that are always on the wire (RFC 8999); everything the Length field covers — the packet number and payload — is header-protected and AEAD-encrypted, so it stays opaque. QUIC uses variable-length integers for the connection-ID lengths, Token Length, and Length; they are shown here as fixed-width fields with representative values.',
   fields: [

@@ -3,10 +3,10 @@ import type { FieldSpan, SerializedPacket } from '../../core/serialize';
 import type { ValidationIssue } from '../../core/validate';
 import type { FieldRef } from '../../store/highlightStore';
 import { bitsLabel, formatFieldValue } from '../format';
-import { specUrl } from '../refs';
 import type { InspectionMode } from '../inspectionMode';
 import type { ComputedSpec, Expr } from '../../core/model';
 import { resolveBinding } from '../../core/bindings';
+import { referencesFor } from '../../protocols/refs';
 
 export function asciiByte(byte: number): string {
   return byte >= 0x20 && byte < 0x7f ? String.fromCharCode(byte) : '.';
@@ -53,8 +53,7 @@ export default function FieldInspector({
     ? { start: packet.payloadOffset, end: packet.bytes.length - 1 }
     : spanByteRange(span!);
   const raw = packet.bytes.slice(range.start, range.end + 1);
-  const reference = def?.references?.[0];
-  const referenceUrl = reference ? specUrl(reference) : null;
+  const reference = def ? referencesFor(def.id, def.references)[0] : undefined;
   const layerIndex = layout ? packet.layers.indexOf(layout) : -1;
   const issueMessages = [
     ...packet.issues
@@ -116,17 +115,17 @@ export default function FieldInspector({
       )}
       {mode === 'deep' && reference && (
         <p className="mt-1">
-          {referenceUrl ? (
+          {reference.url ? (
             <a
-              href={referenceUrl}
+              href={reference.url}
               target="_blank"
               rel="noreferrer noopener"
               className="text-cyan-400 hover:underline"
             >
-              {reference}
+              {reference.name}
             </a>
           ) : (
-            reference
+            reference.name
           )}
         </p>
       )}

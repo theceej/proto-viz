@@ -10,7 +10,6 @@ export const dhcp: ProtocolDefinition = {
   fullName: 'Dynamic Host Configuration Protocol',
   layerHint: 'application',
   source: 'builtin',
-  references: ['RFC 2131'],
   description:
     'IP address assignment over UDP 67/68 using the BOOTP wire format. Defaults model a DISCOVER (option 53 = 1 in the Options field). The large sname/file fields are zero-filled as usual.',
   fields: [

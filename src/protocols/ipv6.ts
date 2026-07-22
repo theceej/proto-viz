@@ -8,7 +8,6 @@ export const ipv6: ProtocolDefinition = {
   fullName: 'Internet Protocol version 6',
   layerHint: 'network',
   source: 'builtin',
-  references: ['RFC 8200'],
   description:
     'The 128-bit-address Internet Protocol. Payload Length is computed automatically and Next Header is auto-set from the next layer. Extension headers (Hop-by-Hop, Routing, Fragment, Destination Options) are separate protocols you can layer in between IPv6 and the transport header.',
   fields: [

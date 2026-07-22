@@ -8,7 +8,6 @@ export const lldp: ProtocolDefinition = {
   fullName: 'Link Layer Discovery Protocol',
   layerHint: 'link',
   source: 'builtin',
-  references: ['IEEE 802.1AB'],
   description:
     'Neighbour discovery advertisement. Modeled as the mandatory Chassis ID, Port ID, and TTL TLVs followed by the End TLV; each TLV header is a 7-bit type and 9-bit length. Optional TLVs can be appended as payload before the End TLV in a real frame.',
   fields: [

@@ -8,7 +8,6 @@ export const radius: ProtocolDefinition = {
   fullName: 'Remote Authentication Dial In User Service',
   layerHint: 'application',
   source: 'builtin',
-  references: ['RFC 2865'],
   description:
     'AAA protocol on UDP 1812. Attributes (username, NAS address, …) are TLVs carried here as payload; Length covers the whole datagram.',
   fields: [

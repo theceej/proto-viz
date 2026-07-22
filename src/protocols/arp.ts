@@ -7,7 +7,6 @@ export const arp: ProtocolDefinition = {
   fullName: 'Address Resolution Protocol',
   layerHint: 'network',
   source: 'builtin',
-  references: ['RFC 826'],
   description:
     'Maps IPv4 addresses to link-layer (MAC) addresses. Defaults model a who-has request; the target MAC is zero because it is what the request is asking for.',
   fields: [

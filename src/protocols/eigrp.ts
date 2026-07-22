@@ -7,7 +7,6 @@ export const eigrp: ProtocolDefinition = {
   fullName: 'Enhanced Interior Gateway Routing Protocol',
   layerHint: 'network',
   source: 'builtin',
-  references: ['RFC 7868'],
   description:
     'Advanced distance-vector routing (IP protocol 88, multicast 224.0.0.10). This is the common 20-byte header; TLVs follow as payload.',
   fields: [

@@ -7,7 +7,6 @@ export const icmpv6: ProtocolDefinition = {
   fullName: 'Internet Control Message Protocol for IPv6',
   layerHint: 'network',
   source: 'builtin',
-  references: ['RFC 4443'],
   description:
     'Control, error, and neighbor-discovery messages for IPv6. The checksum includes the IPv6 pseudo-header. Defaults model an echo request.',
   fields: [

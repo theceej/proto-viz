@@ -8,7 +8,6 @@ export const stun: ProtocolDefinition = {
   fullName: 'Session Traversal Utilities for NAT',
   layerHint: 'application',
   source: 'builtin',
-  references: ['RFC 8489'],
   description:
     'NAT discovery used by WebRTC and VoIP. The magic cookie 0x2112A442 distinguishes STUN from other traffic on the same port; attributes ride as payload.',
   fields: [

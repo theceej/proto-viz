@@ -9,7 +9,6 @@ export const eap: ProtocolDefinition = {
   fullName: 'Extensible Authentication Protocol (Response/Identity)',
   layerHint: 'application',
   source: 'builtin',
-  references: ['RFC 3748'],
   description:
     'The authentication exchange carried by EAPOL and other lower layers. This definition models a Response/Identity packet, including its variable identity text. Other Request/Response method data can be edited in the body; Success and Failure packets contain only the first four bytes, a shape not represented by this template.',
   fields: [

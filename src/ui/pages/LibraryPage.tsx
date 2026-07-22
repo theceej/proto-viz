@@ -23,9 +23,9 @@ import { exportLibraryJson, importLibraryJson } from '../../store/libraryJson';
 import BitGrid from '../components/BitGrid';
 import OsiModel from '../components/OsiModel';
 import { layerColor } from '../colors';
-import { specUrl } from '../refs';
 import { usePersistedFlag } from '../usePersistedFlag';
 import { bitsLabel } from '../format';
+import { referencesFor } from '../../protocols/refs';
 
 const LAYER_ORDER: LayerHint[] = ['link', 'network', 'transport', 'application', 'tunnel'];
 const LAYER_LABEL: Record<LayerHint, string> = {
@@ -265,6 +265,7 @@ function ProtocolTile({
   onAdd: () => void;
 }) {
   const [added, flash] = useAddedFeedback();
+  const references = referencesFor(def.id, def.references);
   return (
     <div
       className={`group relative flex rounded-lg border transition-colors ${
@@ -288,9 +289,9 @@ function ProtocolTile({
         <p className="mt-1 line-clamp-2 text-[12px] leading-snug text-zinc-500">
           {def.fullName ?? def.description ?? ''}
         </p>
-        {def.references?.[0] && (
+        {references[0] && (
           <span className="mt-1.5 inline-block rounded border border-zinc-700/60 bg-zinc-800/50 px-1.5 py-0.5 font-mono text-[10px] text-zinc-400">
-            {def.references[0]}
+            {references[0].name}
           </span>
         )}
       </button>
@@ -316,6 +317,7 @@ function ProtocolTile({
 function DetailPanel({ def, onClose }: { def: ProtocolDefinition; onClose: () => void }) {
   const registry = useLibraryStore((s) => s.registry);
   const removeCustom = useLibraryStore((s) => s.removeCustom);
+  const references = referencesFor(def.id, def.references);
 
   // Render the header diagram by serializing a single-layer stack with defaults.
   const preview = useMemo(() => {
@@ -340,30 +342,7 @@ function DetailPanel({ def, onClose }: { def: ProtocolDefinition; onClose: () =>
       <header className="sticky top-0 flex items-start gap-2 border-b border-zinc-800 bg-zinc-950/90 px-5 py-3 backdrop-blur">
         <div>
           <h2 className="text-[15px] font-semibold text-zinc-100">{def.name}</h2>
-          <p className="text-[12px] text-zinc-500">
-            {def.fullName}
-            {def.references?.map((ref, i) => {
-              const url = specUrl(ref);
-              return (
-                <span key={ref}>
-                  {i === 0 ? ' · ' : ', '}
-                  {url ? (
-                    <a
-                      className="underline decoration-zinc-600 hover:text-cyan-300 hover:decoration-cyan-300"
-                      href={url}
-                      target="_blank"
-                      rel="noreferrer noopener"
-                      title={`Open ${ref} (opens in a new tab)`}
-                    >
-                      {ref}
-                    </a>
-                  ) : (
-                    ref
-                  )}
-                </span>
-              );
-            })}
-          </p>
+          {def.fullName && <p className="text-[12px] text-zinc-500">{def.fullName}</p>}
         </div>
         <div className="ml-auto flex items-center gap-1">
           {def.source === 'custom' && (
@@ -394,6 +373,36 @@ function DetailPanel({ def, onClose }: { def: ProtocolDefinition; onClose: () =>
 
         {def.description && (
           <p className="text-[13px] leading-relaxed text-zinc-400">{def.description}</p>
+        )}
+
+        {references.length > 0 && (
+          <section aria-labelledby="protocol-references-heading">
+            <h3
+              id="protocol-references-heading"
+              className="mb-1.5 text-[11px] font-semibold tracking-widest text-zinc-500 uppercase"
+            >
+              References
+            </h3>
+            <ul className="list-disc space-y-1 pl-5 text-[12px] text-zinc-400">
+              {references.map(({ name, url }) => (
+                <li key={`${name}:${url ?? ''}`}>
+                  {url ? (
+                    <a
+                      className="underline decoration-zinc-600 hover:text-cyan-300 hover:decoration-cyan-300"
+                      href={url}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      title={`Open ${name} (opens in a new tab)`}
+                    >
+                      {name}
+                    </a>
+                  ) : (
+                    name
+                  )}
+                </li>
+              ))}
+            </ul>
+          </section>
         )}
 
         {preview && preview.layers[0] && (

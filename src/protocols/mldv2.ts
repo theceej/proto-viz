@@ -9,7 +9,6 @@ export const mldv2: ProtocolDefinition = {
   fullName: 'Multicast Listener Discovery v2 Report',
   layerHint: 'network',
   source: 'builtin',
-  references: ['RFC 3810'],
   description:
     "IPv6 multicast membership reporting, MLDv2's answer to IGMPv3. It rides on ICMPv6 (type 143) and, like IGMPv3, carries Multicast Address Records with per-group source lists. Modeled with one record and one source; the checksum covers the IPv6 pseudo-header.",
   fields: [

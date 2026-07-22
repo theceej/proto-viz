@@ -7,7 +7,6 @@ export const ethernet: ProtocolDefinition = {
   fullName: 'Ethernet II (DIX) frame',
   layerHint: 'link',
   source: 'builtin',
-  references: ['IEEE 802.3'],
   description:
     'The dominant link-layer framing on wired networks. The EtherType field selects the payload protocol. The frame check sequence (FCS) is omitted, matching what packet captures normally record.',
   fields: [

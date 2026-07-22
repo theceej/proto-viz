@@ -8,7 +8,6 @@ export const modbus: ProtocolDefinition = {
   fullName: 'Modbus application protocol over TCP',
   layerHint: 'application',
   source: 'builtin',
-  references: ['Modbus Application Protocol V1.1b3'],
   description:
     'The industrial-control staple on TCP 502: an MBAP header plus a function code. Request/response data (register addresses and values) rides as payload.',
   fields: [

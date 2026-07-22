@@ -8,7 +8,6 @@ export const ripv2: ProtocolDefinition = {
   fullName: 'Routing Information Protocol version 2',
   layerHint: 'network',
   source: 'builtin',
-  references: ['RFC 2453'],
   description:
     'Distance-vector routing over UDP 520 to multicast 224.0.0.9. Modeled with a single 20-byte route entry; responses may carry up to 25.',
   fields: [

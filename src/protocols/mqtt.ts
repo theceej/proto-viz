@@ -8,7 +8,6 @@ export const mqtt: ProtocolDefinition = {
   fullName: 'Message Queuing Telemetry Transport',
   layerHint: 'application',
   source: 'builtin',
-  references: ['MQTT 3.1.1 (OASIS)'],
   description:
     'Publish/subscribe messaging for IoT on TCP 1883. The variable header and payload ride as packet payload; Remaining Length is modeled as one byte, so packets up to 127 bytes.',
   fields: [

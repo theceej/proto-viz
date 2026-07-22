@@ -7,7 +7,6 @@ export const dns: ProtocolDefinition = {
   fullName: 'Domain Name System',
   layerHint: 'application',
   source: 'builtin',
-  references: ['RFC 1035'],
   description:
     'Name resolution. The header flag bits are modeled individually; one question is included (name encoded as uncompressed labels). Answer/authority/additional records go in the Records field as raw bytes.',
   notes:

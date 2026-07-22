@@ -8,7 +8,6 @@ export const bfd: ProtocolDefinition = {
   fullName: 'Bidirectional Forwarding Detection',
   layerHint: 'network',
   source: 'builtin',
-  references: ['RFC 5880', 'RFC 5881'],
   description:
     'Millisecond-scale liveness detection between forwarding engines, typically over UDP 3784. Timer values are microseconds.',
   fields: [
