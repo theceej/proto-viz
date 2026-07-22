@@ -1,6 +1,16 @@
 import { expect, test, type Page } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 
+test('adds the current builder packet to the comparison page', async ({ page }) => {
+  await page.goto('/#/builder');
+  await page.getByRole('button', { name: /Add to compare/ }).click();
+  await page.getByRole('link', { name: 'Packet Comparison' }).click();
+
+  const selections = page.getByRole('region', { name: 'Packets selected for comparison' });
+  await expect(selections).toContainText('Stack Builder packet');
+  await expect(page.getByText('Add one more packet to start comparing.')).toBeVisible();
+});
+
 test('offers an app-wide tour from Help and persists inspection detail', async ({ page }) => {
   await page.goto('/#/builder');
   await page.getByRole('radio', { name: 'Deep' }).click();

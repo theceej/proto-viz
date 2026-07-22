@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
-import { GitCompareArrows, Pause, Play, Radio, SkipBack, SkipForward } from 'lucide-react';
+import { Pause, Play, Radio, SkipBack, SkipForward } from 'lucide-react';
 import { useStackStore } from '../../store/stackStore';
 import { useLibraryStore } from '../../store/libraryStore';
 import { applicableScenarios, type Scenario } from '../../core/scenarios';
@@ -19,7 +19,7 @@ import HexView from '../components/HexView';
 import FieldEditor from '../components/FieldEditor';
 import PacketDiagrams from '../components/PacketDiagrams';
 import ResizablePanes from '../components/ResizablePanes';
-import PacketComparisonView from '../components/PacketComparisonView';
+import AddToCompareButton from '../components/AddToCompareButton';
 
 const ENDPOINT_LETTERS = ['A', 'B', 'C', 'D'];
 const ENDPOINT_TINT = [
@@ -50,9 +50,6 @@ export default function ScenarioPage() {
   const registry = useLibraryStore((s) => s.registry);
   const reducedMotion = usePrefersReducedMotion();
   const [inspectionMode, setInspectionMode] = useInspectionMode();
-  const [comparing, setComparing] = useState(false);
-  const [compareLeft, setCompareLeft] = useState(0);
-  const [compareRight, setCompareRight] = useState(1);
 
   const base = useMemo<StackInstance>(
     () => ({ layers, trailingPayload }),
@@ -88,10 +85,6 @@ export default function ScenarioPage() {
   const stepIndex = Math.min(playback.step, Math.max(0, count - 1));
   const step = timeline?.steps[stepIndex] ?? null;
   const packet = step?.packet ?? null;
-  const leftIndex = Math.min(compareLeft, Math.max(0, count - 1));
-  const rightIndex = Math.min(compareRight, Math.max(0, count - 1));
-  const leftStep = timeline?.steps[leftIndex] ?? null;
-  const rightStep = timeline?.steps[rightIndex] ?? null;
 
   // Keep the active step marker visible in the scrollable strip.
   const stepRefs = useRef<(HTMLButtonElement | null)[]>([]);
@@ -151,23 +144,12 @@ export default function ScenarioPage() {
         {scenario && (
           <span className="text-[12px] text-zinc-500">{scenario.description}</span>
         )}
-        <button
-          className={`flex cursor-pointer items-center gap-1.5 rounded-md border px-2 py-1 text-[12px] disabled:cursor-not-allowed disabled:opacity-50 ${comparing ? 'border-cyan-600 bg-cyan-500/10 text-cyan-300' : 'border-zinc-700 text-zinc-300 hover:border-zinc-500'}`}
-          aria-pressed={comparing}
-          disabled={count < 2}
-          onClick={() => setComparing((value) => !value)}
-        >
-          <GitCompareArrows className="size-3.5" aria-hidden /> Compare packets
-        </button>
-        {comparing && count >= 2 && (
-          <div className="flex items-center gap-2" role="group" aria-label="Packets to compare">
-            <PacketSelect label="Packet A" steps={timeline?.steps ?? []} value={leftIndex} onChange={setCompareLeft} />
-            <span className="text-zinc-600" aria-hidden>vs</span>
-            <PacketSelect label="Packet B" steps={timeline?.steps ?? []} value={rightIndex} onChange={setCompareRight} />
-          </div>
-        )}
+        <AddToCompareButton
+          packet={packet}
+          label={`${scenario?.name ?? 'Scenario'} · #${stepIndex + 1} ${step?.label ?? 'packet'}`}
+        />
         <span className="ml-auto font-mono text-[12px] text-zinc-500">
-          {comparing ? 'Comparison view' : count > 0 ? `Step ${stepIndex + 1} of ${count}` : '—'}
+          {count > 0 ? `Step ${stepIndex + 1} of ${count}` : '—'}
         </span>
       </header>
 
@@ -268,29 +250,15 @@ export default function ScenarioPage() {
         </ol>
       </section>
 
-      {!comparing && <ValidationPanel validation={step?.validation ?? []} serializeIssues={packet?.issues ?? []} />}
+      <ValidationPanel validation={step?.validation ?? []} serializeIssues={packet?.issues ?? []} />
 
-      {!comparing && step?.serializeError && (
+      {step?.serializeError && (
         <div className="px-6 pb-2 text-[12px] text-rose-400">
           Serialization failed: {step.serializeError}
         </div>
       )}
 
-      {comparing && leftStep?.packet && rightStep?.packet ? (
-        <PacketComparisonView
-          key={`${scenario?.id}:${leftIndex}:${rightIndex}`}
-          leftLabel={`#${leftIndex + 1} ${leftStep.label}`}
-          rightLabel={`#${rightIndex + 1} ${rightStep.label}`}
-          leftPacket={leftStep.packet}
-          rightPacket={rightStep.packet}
-          registry={registry}
-        />
-      ) : comparing ? (
-        <div role="status" className="p-6 text-[13px] text-amber-300">
-          Both selected packets must serialize successfully before they can be compared.
-        </div>
-      ) : (
-        <ResizablePanes
+      <ResizablePanes
         storagePrefix="pv-scenario-pane"
         left={{
           title: 'Field editor',
@@ -326,37 +294,8 @@ export default function ScenarioPage() {
             />
           ),
         }}
-        />
-      )}
+      />
     </div>
-  );
-}
-
-function PacketSelect({
-  label,
-  steps,
-  value,
-  onChange,
-}: {
-  label: string;
-  steps: TimelineStep[];
-  value: number;
-  onChange: (value: number) => void;
-}) {
-  return (
-    <label className="flex items-center gap-1 text-[11px] text-zinc-500">
-      {label}
-      <select
-        className="cursor-pointer rounded border border-zinc-700 bg-zinc-900 px-1.5 py-1 text-[11px] text-zinc-200"
-        aria-label={label}
-        value={value}
-        onChange={(event) => onChange(Number(event.target.value))}
-      >
-        {steps.map((step, index) => (
-          <option key={step.index} value={index}>#{index + 1} {step.label}</option>
-        ))}
-      </select>
-    </label>
   );
 }
 

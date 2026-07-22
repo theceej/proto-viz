@@ -11,17 +11,18 @@ import {
   PanelLeftOpen,
   Sun,
 } from 'lucide-react';
-import LibraryPage from './pages/LibraryPage';
 import BuilderPage from './pages/BuilderPage';
-import ImportWizard from './pages/ImportWizard';
 import { useLibraryStore } from '../store/libraryStore';
 import { loadCustomProtocols } from '../store/persistence';
 import { usePersistedFlag } from './usePersistedFlag';
 import PwaStatus from './components/PwaStatus';
 import BuilderTour from './components/BuilderTour';
 
-// Secondary routes are code-split so they stay out of the initial entry chunk.
+// Secondary feature pages are code-split so they stay out of the initial shell chunk.
 const ScenarioPage = lazy(() => import('./pages/ScenarioPage'));
+const ComparePage = lazy(() => import('./pages/ComparePage'));
+const LibraryPage = lazy(() => import('./pages/LibraryPage'));
+const ImportWizard = lazy(() => import('./pages/ImportWizard'));
 const HelpPage = lazy(() => import('./pages/HelpPage'));
 
 const GITHUB_URL = 'https://github.com/theceej/proto-viz';
@@ -31,6 +32,7 @@ const BUILD_LABEL = BUILD_COMMIT === 'development' ? BUILD_COMMIT : BUILD_COMMIT
 const NAV = [
   { to: '/builder', label: 'Stack Builder', icon: Layers },
   { to: '/scenario', label: 'Scenario Timeline', icon: Clapperboard },
+  { to: '/compare', label: 'Packet Comparison', icon: Boxes },
   { to: '/library', label: 'Protocol Library', icon: Boxes },
   { to: '/import', label: 'Import Spec', icon: FileUp },
   { to: '/help', label: 'Help', icon: CircleHelp },
@@ -196,9 +198,38 @@ export default function App() {
                 </Suspense>
               }
             />
-            <Route path="/library" element={<LibraryPage />} />
-            <Route path="/library/:protocolId" element={<LibraryPage />} />
-            <Route path="/import" element={<ImportWizard />} />
+            <Route
+              path="/compare"
+              element={
+                <Suspense fallback={null}>
+                  <ComparePage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/library"
+              element={
+                <Suspense fallback={null}>
+                  <LibraryPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/library/:protocolId"
+              element={
+                <Suspense fallback={null}>
+                  <LibraryPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/import"
+              element={
+                <Suspense fallback={null}>
+                  <ImportWizard />
+                </Suspense>
+              }
+            />
             <Route
               path="/help"
               element={

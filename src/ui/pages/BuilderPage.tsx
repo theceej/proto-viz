@@ -29,6 +29,7 @@ import ShareDialog from '../components/ShareDialog';
 import DecodeDialog from '../components/DecodeDialog';
 import DiagramExportDialog from '../components/DiagramExportDialog';
 import { useInspectionMode } from '../inspectionMode';
+import AddToCompareButton from '../components/AddToCompareButton';
 
 const PRESETS: { name: string; ids: string[]; payload?: string }[] = [
   { name: 'TCP over Ethernet', ids: ['ethernet', 'ipv4', 'tcp'] },
@@ -114,7 +115,7 @@ export default function BuilderPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex items-center gap-3 border-b border-zinc-800 px-6 py-3">
+      <header className="flex flex-wrap items-center gap-3 border-b border-zinc-800 px-6 py-3">
         <h1 className="text-[15px] font-semibold tracking-tight text-zinc-100">
           Stack Builder
         </h1>
@@ -173,6 +174,7 @@ export default function BuilderPage() {
           <ClipboardPaste className="size-3.5" />
           Decode
         </button>
+        <AddToCompareButton packet={packet} label="Stack Builder packet" />
         <div className="ml-auto flex items-center gap-3">
           {packet && (
             <span className="font-mono text-[12px] text-zinc-500">
