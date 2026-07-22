@@ -286,7 +286,14 @@ function resolvedNumber(
   return typeof v === 'number' ? v : fallback;
 }
 
-const TCP_FLAGS = { SYN: 0x02, ACK: 0x10, SYNACK: 0x12, PSHACK: 0x18, FINACK: 0x11 };
+const TCP_FLAGS = {
+  SYN: 0x02,
+  ACK: 0x10,
+  SYNACK: 0x12,
+  PSHACK: 0x18,
+  FINACK: 0x11,
+  RSTACK: 0x14,
+};
 
 function fullTcpSession(stack: StackInstance, registry: Registry): PacketPlan[] {
   const clientSeq = resolvedNumber(stack, registry, 'tcp', 'seq', 1000);
@@ -555,6 +562,35 @@ export const scenarios: Scenario[] = [
     generate: fullTcpSession,
   },
   {
+    id: 'tcp-rst',
+    name: 'TCP connection refused',
+    description:
+      'A SYN met with a RST/ACK — the destination port is closed, so the handshake is rejected.',
+    applicableWhen: (stack) => has(stack, 'tcp'),
+    generate: (stack, registry) => {
+      const seq = resolvedNumber(stack, registry, 'tcp', 'seq', 1000);
+      return [
+        {
+          label: 'SYN',
+          atUsec: 0,
+          stack: cloneWith(stack, registry, {
+            dropPayload: true,
+            set: { tcp: { flags: TCP_FLAGS.SYN, seq, ack: 0 } },
+          }),
+        },
+        {
+          label: 'RST-ACK',
+          atUsec: 15_000,
+          stack: cloneWith(stack, registry, {
+            flip: true,
+            dropPayload: true,
+            set: { tcp: { flags: TCP_FLAGS.RSTACK, seq: 0, ack: seq + 1 } },
+          }),
+        },
+      ];
+    },
+  },
+  {
     id: 'tls-hello-exchange',
     name: 'TLS hello exchange',
     description:
@@ -580,6 +616,48 @@ export const scenarios: Scenario[] = [
         stack: cloneWith(stack, registry, {
           flip: true,
           set: { icmp: { type: 0, code: 0 } },
+        }),
+      },
+    ],
+  },
+  {
+    id: 'icmpv6-ping',
+    name: 'ICMPv6 echo request + reply',
+    description: 'IPv6 ping and its reply, with addresses flipped and matching id/sequence.',
+    applicableWhen: (stack) => has(stack, 'icmpv6'),
+    generate: (stack, registry) => [
+      {
+        label: 'echo request',
+        atUsec: 0,
+        stack: cloneWith(stack, registry, { set: { icmpv6: { type: 128, code: 0 } } }),
+      },
+      {
+        label: 'echo reply',
+        atUsec: 15_000,
+        stack: cloneWith(stack, registry, {
+          flip: true,
+          set: { icmpv6: { type: 129, code: 0 } },
+        }),
+      },
+    ],
+  },
+  {
+    id: 'ntp-exchange',
+    name: 'NTP request + response',
+    description: 'A client poll (mode 3) and the server’s reply (mode 4), directions flipped.',
+    applicableWhen: (stack) => has(stack, 'ntp'),
+    generate: (stack, registry) => [
+      {
+        label: 'client request',
+        atUsec: 0,
+        stack: cloneWith(stack, registry, { set: { ntp: { mode: 3, stratum: 0 } } }),
+      },
+      {
+        label: 'server response',
+        atUsec: 40_000,
+        stack: cloneWith(stack, registry, {
+          flip: true,
+          set: { ntp: { mode: 4, stratum: 2 } },
         }),
       },
     ],
@@ -651,6 +729,34 @@ export const scenarios: Scenario[] = [
           label: 'ACK',
           atUsec: 90_000,
           stack: cloneWith(stack, registry, { flip: true, set: server(5) }),
+        },
+      ];
+    },
+  },
+  {
+    id: 'dhcpv6-exchange',
+    name: 'DHCPv6 Solicit → Reply',
+    description:
+      'Solicit, Advertise, Request, Reply — the four-message DHCPv6 address assignment.',
+    applicableWhen: (stack) => has(stack, 'dhcpv6'),
+    generate: (stack, registry) => {
+      const msg = (msgType: number) => ({ dhcpv6: { msgType } });
+      return [
+        { label: 'SOLICIT', atUsec: 0, stack: cloneWith(stack, registry, { set: msg(1) }) },
+        {
+          label: 'ADVERTISE',
+          atUsec: 30_000,
+          stack: cloneWith(stack, registry, { flip: true, set: msg(2) }),
+        },
+        {
+          label: 'REQUEST',
+          atUsec: 60_000,
+          stack: cloneWith(stack, registry, { set: msg(3) }),
+        },
+        {
+          label: 'REPLY',
+          atUsec: 90_000,
+          stack: cloneWith(stack, registry, { flip: true, set: msg(7) }),
         },
       ];
     },

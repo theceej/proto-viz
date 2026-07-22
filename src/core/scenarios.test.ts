@@ -261,3 +261,67 @@ describe('scenarios', () => {
     expect(rep!.issues).toEqual([]);
   });
 });
+
+describe('additional scenarios', () => {
+  const errorsOf = (plan: { stack: StackInstance }) =>
+    serializeStack(plan.stack, registry).issues.filter((i) => i.severity === 'error');
+
+  it('offers TCP refusal whenever TCP is present, and generates SYN → RST-ACK', () => {
+    expect(
+      applicableScenarios(stack(['ethernet', 'ipv4', 'tcp', 'http1']), registry).map((s) => s.id),
+    ).toContain('tcp-rst');
+
+    const plans = byId('tcp-rst').generate(stack(['ethernet', 'ipv4', 'tcp']), registry);
+    expect(plans.map((p) => p.label)).toEqual(['SYN', 'RST-ACK']);
+    const [syn, rst] = plans.map((p) => serializeStack(p.stack, registry));
+    const flagsAt = 34 + 13;
+    expect(syn!.bytes[flagsAt]).toBe(0x02); // SYN
+    expect(rst!.bytes[flagsAt]).toBe(0x14); // RST|ACK
+    expect([...rst!.bytes.slice(0, 6)]).toEqual([...syn!.bytes.slice(6, 12)]); // flipped MACs
+    plans.forEach((p) => expect(errorsOf(p)).toEqual([]));
+  });
+
+  it('offers ICMPv6 echo only for ICMPv6, and flips the addresses', () => {
+    expect(
+      applicableScenarios(stack(['ethernet', 'ipv4', 'icmp']), registry).map((s) => s.id),
+    ).not.toContain('icmpv6-ping');
+
+    const plans = byId('icmpv6-ping').generate(
+      stack(['ethernet', 'ipv6', 'icmpv6'], 'abcdefgh'),
+      registry,
+    );
+    expect(plans.map((p) => p.label)).toEqual(['echo request', 'echo reply']);
+    const [req, rep] = plans.map((p) => serializeStack(p.stack, registry));
+    expect(req!.bytes[54]).toBe(128); // echo request
+    expect(rep!.bytes[54]).toBe(129); // echo reply
+    expect([...rep!.bytes.slice(22, 38)]).toEqual([...req!.bytes.slice(38, 54)]); // IPv6 src/dst swap
+    plans.forEach((p) => expect(errorsOf(p)).toEqual([]));
+  });
+
+  it('generates an NTP client poll and server reply with flipped modes', () => {
+    const plans = byId('ntp-exchange').generate(
+      stack(['ethernet', 'ipv4', 'udp', 'ntp']),
+      registry,
+    );
+    expect(plans.map((p) => p.label)).toEqual(['client request', 'server response']);
+    const [req, rep] = plans.map((p) => serializeStack(p.stack, registry));
+    const ntpAt = 42;
+    expect(req!.bytes[ntpAt]! & 0x07).toBe(3); // mode 3 = client
+    expect(rep!.bytes[ntpAt]! & 0x07).toBe(4); // mode 4 = server
+    expect(rep!.bytes[ntpAt + 1]).toBe(2); // server stratum
+    expect(req!.bytes.slice(0, 6)).toEqual(rep!.bytes.slice(6, 12)); // flipped MACs
+    plans.forEach((p) => expect(errorsOf(p)).toEqual([]));
+  });
+
+  it('generates the four-message DHCPv6 exchange', () => {
+    const plans = byId('dhcpv6-exchange').generate(
+      stack(['ethernet', 'ipv6', 'udp', 'dhcpv6']),
+      registry,
+    );
+    expect(plans.map((p) => p.label)).toEqual(['SOLICIT', 'ADVERTISE', 'REQUEST', 'REPLY']);
+    const msgTypeAt = 62;
+    const packets = plans.map((p) => serializeStack(p.stack, registry));
+    expect(packets.map((p) => p.bytes[msgTypeAt])).toEqual([1, 2, 3, 7]);
+    plans.forEach((p) => expect(errorsOf(p)).toEqual([]));
+  });
+});

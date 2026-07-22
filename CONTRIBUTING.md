@@ -206,6 +206,67 @@ and the checks are required before a PR can merge. Keep the definition
 style consistent with neighbouring files (field description strings,
 defaults, ordering).
 
+## Adding a scenario
+
+Scenarios turn the built stack into a short, coherent packet sequence — a
+handshake, a request/response pair, a resolution exchange. They power both
+the Scenario Timeline view and the multi-packet PCAP export. Everything
+lives in one file: `src/core/scenarios.ts`.
+
+Append a `Scenario` to the `scenarios` array:
+
+```ts
+{
+  id: 'ntp-exchange',                       // stable, unique
+  name: 'NTP request + response',           // shown in the dropdowns
+  description: 'A client poll (mode 3) and the server’s reply (mode 4)…',
+  applicableWhen: (stack) => has(stack, 'ntp'),
+  generate: (stack, registry) => [
+    {
+      label: 'client request',              // the step / message name
+      atUsec: 0,                            // offset from the sequence start
+      stack: cloneWith(stack, registry, { set: { ntp: { mode: 3, stratum: 0 } } }),
+    },
+    {
+      label: 'server response',
+      atUsec: 40_000,
+      stack: cloneWith(stack, registry, {
+        flip: true,                          // reverse direction
+        set: { ntp: { mode: 4, stratum: 2 } },
+      }),
+    },
+  ],
+},
+```
+
+Build each step's stack with the `cloneWith(stack, registry, changes)` helper
+rather than by hand:
+
+- `flip: true` swaps the Ethernet/IP addresses and TCP/UDP ports so the
+  packet travels the other way; `set: { protocolId: { fieldId: value } }`
+  overrides fields (computed ones are pinned automatically so they survive).
+  `dropPayload` / `payload` control the trailing bytes.
+- Every step is re-serialized, so lengths and checksums stay correct per
+  packet — never precompute them.
+- Direction and the two endpoints are inferred from the packets' addresses
+  by the timeline; you don't declare them. Read identities back from a
+  serialized packet with the `resolved*` helpers (see `arpResolution`) when a
+  later packet must echo an earlier one's values.
+
+`applicableWhen` gates visibility: `has(stack, id)` for "contains this
+protocol", `startsWith(stack, …)` or `stack.layers.at(-1)?.protocolId` for
+position-sensitive ones (compare ARP-resolution vs. the full TCP session).
+
+Add spot checks to `src/core/scenarios.test.ts`: the step labels, a few
+identifying bytes (message type, flags), that `flip` swapped what you expect,
+and that each packet serializes with no error-severity issues. One
+registration is required: the gated tshark job dissects every scenario, so
+add a fixture stack (and the protocols you expect tshark to report) to
+`scenarioStacks` / `scenarioProtocols` in `src/protocols/roundtrip.test.ts` —
+this independently proves the generated packets are well-formed. No UI work
+is needed; applicable scenarios appear in the timeline and export dialogs
+automatically.
+
 ## Other contributions
 
 - **Import/parsing**: the ASCII-diagram parser (`src/import/diagram.ts`) is
