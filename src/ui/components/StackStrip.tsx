@@ -18,6 +18,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { AlertTriangle, ChevronRight, GripVertical, OctagonX, Plus, X } from 'lucide-react';
 import type { LayerInstance } from '../../core/model';
 import type { Registry } from '../../core/registry';
+import type { SerializedPacket } from '../../core/serialize';
 import { resolveBinding } from '../../core/bindings';
 import {
   getValidNextProtocols,
@@ -33,10 +34,12 @@ export default function StackStrip({
   layers,
   registry,
   validation,
+  packet,
 }: {
   layers: LayerInstance[];
   registry: Registry;
   validation: ValidationIssue[];
+  packet?: SerializedPacket | null;
 }) {
   const { moveLayer, removeLayer } = useStackStore();
   const sensors = useSensors(
@@ -103,6 +106,11 @@ export default function StackStrip({
         </SortableContext>
       </DndContext>
       <AddLayerButton layers={layers} registry={registry} />
+      {packet && (
+        <span className="ml-auto self-center font-mono text-[12px] whitespace-nowrap text-zinc-500">
+          {packet.bytes.length} bytes · {packet.payloadOffset} headers
+        </span>
+      )}
     </div>
   );
 }

@@ -204,3 +204,26 @@ test('keeps the outer panes resizable when packet diagrams are collapsed', async
     Math.round(before) + 24,
   );
 });
+
+test('runs a malformed-packet experiment and undoes it', async ({ page }) => {
+  await loadTcpPreset(page);
+
+  // Apply the "corrupt the IPv4 checksum" experiment.
+  await page.getByRole('button', { name: 'Break this packet' }).click();
+  await page.getByRole('menuitem', { name: /Corrupt the IPv4 header checksum/ }).click();
+
+  // The deliberate diagnostic and the explanatory banner both appear.
+  await expect(page.getByText(/correct checksum is/i)).toBeVisible();
+  await expect(page.getByText(/checksum-mismatch warning/i)).toBeVisible();
+
+  // Undo restores the valid packet.
+  await page.getByRole('button', { name: 'Undo experiment' }).click();
+  await expect(page.getByText(/correct checksum is/i)).toHaveCount(0);
+  await expect(page.getByText(/checksum-mismatch warning/i)).toHaveCount(0);
+});
+
+test('moves the byte summary into the stack strip', async ({ page }) => {
+  await loadTcpPreset(page);
+  // Ethernet(14) + IPv4(20) + TCP(20) = 54 bytes, 54 header bytes.
+  await expect(page.getByText(/54 bytes · 54 headers/)).toBeVisible();
+});
