@@ -1,7 +1,5 @@
 import {
   ChevronDown,
-  ChevronsLeftRight,
-  ChevronsRightLeft,
   ClipboardPaste,
   Dices,
   Download,
@@ -11,7 +9,7 @@ import {
   Undo2,
   X,
 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useStackStore } from '../../store/stackStore';
 import { randomStack } from '../../core/random';
@@ -19,13 +17,13 @@ import { decodeShare } from '../../core/share';
 import { decodePacketBlob } from '../../core/shareBlob';
 import { usePacket } from '../usePacket';
 import { useEscape } from '../a11y';
-import { usePersistedFlag } from '../usePersistedFlag';
 import SavedStacks from '../components/SavedStacks';
 import StackStrip from '../components/StackStrip';
 import ValidationPanel from '../components/ValidationPanel';
 import HexView from '../components/HexView';
 import FieldEditor from '../components/FieldEditor';
 import PacketDiagrams from '../components/PacketDiagrams';
+import ResizablePanes from '../components/ResizablePanes';
 import ExportDialog from '../components/ExportDialog';
 import ShareDialog from '../components/ShareDialog';
 import DecodeDialog from '../components/DecodeDialog';
@@ -113,15 +111,6 @@ export default function BuilderPage() {
     const random = randomStack(registry);
     replaceLayers(random.layers, random.trailingPayload);
   };
-
-  const [fieldsCollapsed, setFieldsCollapsed] = usePersistedFlag('pv-pane-fields', false);
-  const [diagramsCollapsed, setDiagramsCollapsed] = usePersistedFlag(
-    'pv-pane-diagrams',
-    false,
-  );
-  const [hexCollapsed, setHexCollapsed] = usePersistedFlag('pv-pane-hex', false);
-  const [fieldsWidth, setFieldsWidth] = usePersistedPaneWidth('pv-pane-fields-width');
-  const [hexWidth, setHexWidth] = usePersistedPaneWidth('pv-pane-hex-width');
 
   return (
     <div className="flex h-full flex-col">
@@ -244,213 +233,35 @@ export default function BuilderPage() {
         </div>
       )}
 
-      <div className="flex min-h-0 flex-1 border-t border-zinc-800">
-        <Pane
-          title="Field editor"
-          collapsed={fieldsCollapsed}
-          onToggle={setFieldsCollapsed}
-          expandedClass={
-            diagramsCollapsed
-              ? 'min-w-0 flex-1'
-              : 'w-[clamp(22rem,30vw,42rem)] shrink-0'
-          }
-          width={diagramsCollapsed ? null : fieldsWidth}
-          className="border-r border-zinc-800"
-        >
-          <FieldEditor layers={stack.layers} packet={packet} registry={registry} />
-        </Pane>
-        {!fieldsCollapsed && !diagramsCollapsed && (
-          <PaneResizeHandle
-            label="Resize field editor and packet diagrams"
-            value={fieldsWidth}
-            onChange={setFieldsWidth}
-          />
-        )}
-        <Pane
-          title="Packet diagrams"
-          collapsed={diagramsCollapsed}
-          onToggle={setDiagramsCollapsed}
-          expandedClass="min-w-0 flex-1"
-        >
-          {packet && packet.layers.length > 0 ? (
-            <PacketDiagrams packet={packet} registry={registry} />
-          ) : (
-            <EmptyState />
-          )}
-        </Pane>
-        {!hexCollapsed && (!diagramsCollapsed || !fieldsCollapsed) && (
-          <PaneResizeHandle
-            label={
-              diagramsCollapsed
-                ? 'Resize field editor and hex dump'
-                : 'Resize packet diagrams and hex dump'
-            }
-            reverse
-            value={hexWidth}
-            onChange={setHexWidth}
-          />
-        )}
-        <Pane
-          title="Hex dump"
-          collapsed={hexCollapsed}
-          onToggle={setHexCollapsed}
-          expandedClass={
-            diagramsCollapsed
-              ? fieldsCollapsed
-                ? 'min-w-0 flex-1'
-                : 'w-[clamp(22rem,30vw,42rem)] shrink-0'
-              : 'w-[clamp(22rem,30vw,42rem)] shrink-0'
-          }
-          width={diagramsCollapsed && fieldsCollapsed ? null : hexWidth}
-          className="border-l border-zinc-800"
-          scrollFocusable
-        >
-          {packet && <HexView packet={packet} registry={registry} validation={validation} inspectionMode={inspectionMode} onInspectionModeChange={setInspectionMode} />}
-        </Pane>
-      </div>
-    </div>
-  );
-}
-
-/**
- * Builder pane that collapses to a slim vertical strip. Collapse state
- * persists per pane; hiding the diagrams pane lets its neighbours grow.
- */
-function Pane({
-  title,
-  collapsed,
-  onToggle,
-  expandedClass,
-  width = null,
-  className = '',
-  scrollFocusable = false,
-  children,
-}: {
-  title: string;
-  collapsed: boolean;
-  onToggle: (collapsed: boolean) => void;
-  expandedClass: string;
-  width?: number | null;
-  className?: string;
-  scrollFocusable?: boolean;
-  children: React.ReactNode;
-}) {
-  if (collapsed) {
-    return (
-      <div className={`flex w-9 shrink-0 ${className}`}>
-        <button
-          className="flex w-full cursor-pointer flex-col items-center gap-2 py-2 text-zinc-500 hover:bg-zinc-900 hover:text-zinc-200"
-          aria-label={`Expand ${title.toLowerCase()} pane`}
-          aria-expanded={false}
-          onClick={() => onToggle(false)}
-        >
-          <ChevronsLeftRight className="size-4 shrink-0" aria-hidden />
-          <span className="text-[11px] tracking-wide select-none [writing-mode:vertical-rl]">
-            {title}
-          </span>
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <div
-      className={`flex min-h-0 flex-col ${expandedClass} ${className}`}
-      style={width === null ? undefined : { width }}
-      role="region"
-      aria-label={title}
-    >
-      <div className="flex shrink-0 items-center border-b border-zinc-800/70 py-0.5 pr-1 pl-3">
-        <span className="text-[10px] font-semibold tracking-widest text-zinc-600 uppercase select-none">
-          {title}
-        </span>
-        <button
-          className="ml-auto cursor-pointer rounded p-1.5 text-zinc-600 hover:bg-zinc-800/60 hover:text-zinc-200"
-          aria-label={`Collapse ${title.toLowerCase()} pane`}
-          aria-expanded
-          onClick={() => onToggle(true)}
-        >
-          <ChevronsRightLeft className="size-3.5" aria-hidden />
-        </button>
-      </div>
-      <div className="min-h-0 flex-1 overflow-auto" tabIndex={scrollFocusable ? 0 : undefined}>
-        {children}
-      </div>
-    </div>
-  );
-}
-
-const MIN_PANE_WIDTH = 288;
-const MAX_PANE_WIDTH = 960;
-
-function usePersistedPaneWidth(key: string): [number | null, (width: number | null) => void] {
-  const [width, setWidth] = useState<number | null>(() =>
-    Math.max(0, Number(localStorage.getItem(key))) || null,
-  );
-  return [
-    width,
-    (next) => {
-      setWidth(next);
-      if (next === null) localStorage.removeItem(key);
-      else localStorage.setItem(key, String(next));
-    },
-  ];
-}
-
-function PaneResizeHandle({
-  label,
-  reverse = false,
-  value,
-  onChange,
-}: {
-  label: string;
-  reverse?: boolean;
-  value: number | null;
-  onChange: (width: number | null) => void;
-}) {
-  const drag = useRef<[number, number] | null>(null);
-  const adjacentWidth = (handle: HTMLElement) => {
-    const pane = reverse ? handle.nextElementSibling : handle.previousElementSibling;
-    return pane?.getBoundingClientRect().width ?? MIN_PANE_WIDTH;
-  };
-  const clampWidth = (width: number) =>
-    Math.max(MIN_PANE_WIDTH, Math.min(MAX_PANE_WIDTH, width));
-
-  return (
-    <div
-      role="separator"
-      aria-label={label}
-      aria-orientation="vertical"
-      aria-valuemin={MIN_PANE_WIDTH}
-      aria-valuemax={MAX_PANE_WIDTH}
-      aria-valuenow={value ?? 480}
-      aria-valuetext={value === null ? 'Responsive default' : `${value} pixels`}
-      tabIndex={0}
-      className="group relative z-10 w-2 shrink-0 cursor-col-resize touch-none bg-zinc-950 focus-visible:outline-2 focus-visible:outline-cyan-400"
-      onPointerDown={(event) => {
-        event.currentTarget.setPointerCapture(event.pointerId);
-        drag.current = [event.clientX, adjacentWidth(event.currentTarget)];
-      }}
-      onPointerMove={(event) => {
-        if (!drag.current) return;
-        const movement = event.clientX - drag.current[0];
-        onChange(clampWidth(drag.current[1] + (reverse ? -movement : movement)));
-      }}
-      onPointerUp={() => (drag.current = null)}
-      onKeyDown={(event) => {
-        if (event.key === 'Home') {
-          event.preventDefault();
-          onChange(null);
-          return;
-        }
-        if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
-        event.preventDefault();
-        const movement = event.key === 'ArrowLeft' ? -24 : 24;
-        const width = value ?? adjacentWidth(event.currentTarget);
-        onChange(clampWidth(width + (reverse ? -movement : movement)));
-      }}
-    >
-      <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-zinc-800 group-hover:bg-cyan-700 group-focus:bg-cyan-500" />
+      <ResizablePanes
+        storagePrefix="pv-pane"
+        left={{
+          title: 'Field editor',
+          children: <FieldEditor layers={stack.layers} packet={packet} registry={registry} />,
+        }}
+        center={{
+          title: 'Packet diagrams',
+          children:
+            packet && packet.layers.length > 0 ? (
+              <PacketDiagrams packet={packet} registry={registry} />
+            ) : (
+              <EmptyState />
+            ),
+        }}
+        right={{
+          title: 'Hex dump',
+          scrollFocusable: true,
+          children: packet && (
+            <HexView
+              packet={packet}
+              registry={registry}
+              validation={validation}
+              inspectionMode={inspectionMode}
+              onInspectionModeChange={setInspectionMode}
+            />
+          ),
+        }}
+      />
     </div>
   );
 }

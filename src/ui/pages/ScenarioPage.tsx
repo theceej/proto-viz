@@ -18,6 +18,7 @@ import ValidationPanel from '../components/ValidationPanel';
 import HexView from '../components/HexView';
 import FieldEditor from '../components/FieldEditor';
 import PacketDiagrams from '../components/PacketDiagrams';
+import ResizablePanes from '../components/ResizablePanes';
 
 const ENDPOINT_LETTERS = ['A', 'B', 'C', 'D'];
 const ENDPOINT_TINT = [
@@ -252,23 +253,33 @@ export default function ScenarioPage() {
         </div>
       )}
 
-      <div className="flex min-h-0 flex-1 border-t border-zinc-800">
-        <Region label="Field editor" className="w-[26rem] shrink-0 border-r border-zinc-800">
-          {step && <FieldEditor layers={step.stack.layers} packet={packet} registry={registry} readOnly />}
-        </Region>
-        <Region label="Packet diagrams" className="min-w-0 flex-1">
-          {packet ? (
+      <ResizablePanes
+        storagePrefix="pv-scenario-pane"
+        left={{
+          title: 'Field editor',
+          children: step && (
+            <FieldEditor
+              layers={step.stack.layers}
+              packet={packet}
+              registry={registry}
+              readOnly
+            />
+          ),
+        }}
+        center={{
+          title: 'Packet diagrams',
+          children: packet ? (
             <PacketDiagrams packet={packet} registry={registry} />
           ) : (
-            <div className="p-6 text-[13px] text-zinc-600">No packet to show for this step.</div>
-          )}
-        </Region>
-        <Region
-          label="Hex dump"
-          className="w-[27rem] shrink-0 border-l border-zinc-800"
-          scrollFocusable
-        >
-          {packet && (
+            <div className="p-6 text-[13px] text-zinc-600">
+              No packet to show for this step.
+            </div>
+          ),
+        }}
+        right={{
+          title: 'Hex dump',
+          scrollFocusable: true,
+          children: packet && (
             <HexView
               packet={packet}
               registry={registry}
@@ -276,9 +287,9 @@ export default function ScenarioPage() {
               inspectionMode={inspectionMode}
               onInspectionModeChange={setInspectionMode}
             />
-          )}
-        </Region>
-      </div>
+          ),
+        }}
+      />
     </div>
   );
 }
@@ -296,27 +307,3 @@ function PageFrame({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Region({
-  label,
-  className = '',
-  scrollFocusable = false,
-  children,
-}: {
-  label: string;
-  className?: string;
-  scrollFocusable?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className={`flex min-h-0 flex-col ${className}`} role="region" aria-label={label}>
-      <div className="flex shrink-0 items-center border-b border-zinc-800/70 py-0.5 pr-1 pl-3">
-        <span className="text-[10px] font-semibold tracking-widest text-zinc-600 uppercase select-none">
-          {label}
-        </span>
-      </div>
-      <div className="min-h-0 flex-1 overflow-auto" tabIndex={scrollFocusable ? 0 : undefined}>
-        {children}
-      </div>
-    </div>
-  );
-}
