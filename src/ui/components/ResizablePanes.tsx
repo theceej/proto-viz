@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { ChevronsLeftRight, ChevronsRightLeft } from 'lucide-react';
 import { usePersistedFlag } from '../usePersistedFlag';
+import { useMediaQuery } from '../useMediaQuery';
 
 /**
  * The builder/scenario inspection row: three panes — field editor, packet
@@ -11,6 +12,9 @@ import { usePersistedFlag } from '../usePersistedFlag';
  * The centre (diagrams) pane always flexes; the outer two take a persisted
  * width. Collapsing the centre lets an outer pane flex to fill the space, and
  * the dividers relabel themselves to match whichever panes they sit between.
+ *
+ * Below the `md` breakpoint the three panes won't fit side by side, so they
+ * become a single full-width pane with a tab bar to switch between them.
  */
 export interface PaneContent {
   title: string;
@@ -21,6 +25,61 @@ export interface PaneContent {
 const OUTER_PANE_CLASS = 'w-[clamp(22rem,30vw,42rem)] shrink-0';
 
 export default function ResizablePanes({
+  storagePrefix,
+  left,
+  center,
+  right,
+}: {
+  storagePrefix: string;
+  left: PaneContent;
+  center: PaneContent;
+  right: PaneContent;
+}) {
+  const narrow = useMediaQuery('(max-width: 767px)');
+  if (narrow) {
+    return <TabbedPanes panes={[left, center, right]} />;
+  }
+  return <SplitPanes storagePrefix={storagePrefix} left={left} center={center} right={right} />;
+}
+
+/** Single full-width pane with a tab bar — the narrow-viewport layout. */
+function TabbedPanes({ panes }: { panes: PaneContent[] }) {
+  // Default to the diagrams (centre) tab, the most self-contained view.
+  const [active, setActive] = useState(1);
+  const current = panes[active] ?? panes[0]!;
+  return (
+    <div className="flex min-h-0 flex-1 flex-col border-t border-zinc-800">
+      <div role="tablist" aria-label="Packet views" className="flex shrink-0 border-b border-zinc-800">
+        {panes.map((pane, i) => (
+          <button
+            key={pane.title}
+            role="tab"
+            aria-selected={i === active}
+            className={`flex-1 cursor-pointer border-b-2 px-2 py-2 text-[12px] font-medium transition-colors ${
+              i === active
+                ? 'border-cyan-500 text-cyan-300'
+                : 'border-transparent text-zinc-400 hover:text-zinc-200'
+            }`}
+            onClick={() => setActive(i)}
+          >
+            {pane.title}
+          </button>
+        ))}
+      </div>
+      <div
+        role="tabpanel"
+        aria-label={current.title}
+        className="min-h-0 flex-1 overflow-auto"
+        tabIndex={0}
+      >
+        {current.children}
+      </div>
+    </div>
+  );
+}
+
+/** The desktop three-pane resizable row. */
+function SplitPanes({
   storagePrefix,
   left,
   center,
