@@ -148,7 +148,7 @@ export default function BuilderPage() {
         <SavedStacks
           stack={stack}
           registry={registry}
-          labelClass="hidden @min-[48rem]:inline"
+          labelClass="hidden @min-[42rem]:inline"
         />
         <ToolbarButton
           icon={ImageDown}
@@ -156,7 +156,7 @@ export default function BuilderPage() {
           title="Export packet diagram as SVG or PNG"
           disabled={!packet}
           onClick={() => setExportingDiagram(true)}
-          labelClass="hidden @min-[54rem]:inline"
+          labelClass="hidden @min-[45rem]:inline"
         />
         <ToolbarButton
           icon={Dices}
@@ -164,13 +164,13 @@ export default function BuilderPage() {
           title="Generate a random valid stack"
           hover="hover:border-fuchsia-500 hover:text-fuchsia-300"
           onClick={rollRandomStack}
-          labelClass="hidden @min-[60rem]:inline"
+          labelClass="hidden @min-[48rem]:inline"
         />
         <ExperimentsMenu
           stack={stack}
           registry={registry}
           packet={packet}
-          labelClass="hidden @min-[66rem]:inline"
+          labelClass="hidden @min-[51rem]:inline"
           onApply={setExperiment}
         />
         <ToolbarButton
@@ -178,19 +178,19 @@ export default function BuilderPage() {
           label="Share"
           title="Share this stack as a word code"
           onClick={() => setSharing(true)}
-          labelClass="hidden @min-[72rem]:inline"
+          labelClass="hidden @min-[54rem]:inline"
         />
         <ToolbarButton
           icon={ClipboardPaste}
           label="Decode"
           title="Paste packet hex and decode it into a stack"
           onClick={() => setDecoding(true)}
-          labelClass="hidden @min-[78rem]:inline"
+          labelClass="hidden @min-[57rem]:inline"
         />
         <AddToCompareButton
           packet={packet}
           label="Stack Builder packet"
-          labelClass="hidden @min-[84rem]:inline"
+          labelClass="hidden @min-[61rem]:inline"
         />
         <ToolbarButton
           icon={Download}
@@ -198,7 +198,7 @@ export default function BuilderPage() {
           title="Export the stack as a .pcap file"
           disabled={stack.layers.length === 0}
           onClick={() => setExporting(true)}
-          labelClass="hidden @min-[90rem]:inline"
+          labelClass="hidden @min-[66rem]:inline"
         />
       </header>
 

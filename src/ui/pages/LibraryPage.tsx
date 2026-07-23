@@ -421,6 +421,7 @@ function DetailPanel({ def, onClose }: { def: ProtocolDefinition; onClose: () =>
               layout={preview.layers[0]}
               spans={preview.spans}
               color={color}
+              minWidthClass=""
             />
           </div>
         )}

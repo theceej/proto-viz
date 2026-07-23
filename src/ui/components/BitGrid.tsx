@@ -23,11 +23,18 @@ export default function BitGrid({
   layout,
   spans,
   color,
+  minWidthClass = 'md:min-w-[32rem]',
 }: {
   def: ProtocolDefinition;
   layout: LayerLayout;
   spans: FieldSpan[];
   color: LayerColor;
+  /**
+   * Minimum-width class for the grid. Defaults to a legible 32rem for the wide
+   * builder panes; fixed-width hosts (the library detail panel) pass '' so the
+   * grid just fits its container instead of overflowing.
+   */
+  minWidthClass?: string;
 }) {
   const { setHovered, toggleLocked } = useHighlightStore();
   const hovered = useHighlightStore((s) => s.hovered);
@@ -46,7 +53,7 @@ export default function BitGrid({
     // phones the grid instead shrinks to fit the pane — a horizontal scroll
     // there is more annoying than tight columns. The ruler sticks while
     // scrolling down.
-    <div className="md:min-w-[32rem]">
+    <div className={minWidthClass}>
       {/* Bit ruler */}
       <div className="sticky top-0 z-10 grid grid-cols-32 bg-zinc-950 px-px font-mono text-[9px] text-zinc-600 select-none">
         {Array.from({ length: 32 }, (_, i) => (
