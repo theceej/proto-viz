@@ -41,9 +41,12 @@ export default function BitGrid({
   const fieldById = useMemo(() => new Map(def.fields.map((f) => [f.id, f])), [def]);
 
   return (
-    <div>
+    // Keep the 32-bit grid at a legible minimum width; narrower panes (a
+    // resized desktop pane, or a phone) scroll it horizontally rather than
+    // squashing the columns. The ruler sticks to the top while scrolling down.
+    <div className="min-w-[32rem]">
       {/* Bit ruler */}
-      <div className="grid grid-cols-32 px-px font-mono text-[9px] text-zinc-600 select-none">
+      <div className="sticky top-0 z-10 grid grid-cols-32 bg-zinc-950 px-px font-mono text-[9px] text-zinc-600 select-none">
         {Array.from({ length: 32 }, (_, i) => (
           <div key={i} className="border-l border-zinc-800/60 pl-0.5 pb-0.5">
             {i % 4 === 0 ? i : ' '}

@@ -7,6 +7,7 @@ import { buildSpanIndex } from '../../core/spanIndex';
 import { isActive, useHighlightStore, type FieldRef } from '../../store/highlightStore';
 import { layerColor, PAYLOAD_COLOR, type LayerColor } from '../colors';
 import { usePersistedFlag } from '../usePersistedFlag';
+import { useMediaQuery } from '../useMediaQuery';
 import FieldInspector, { asciiByte } from './FieldInspector';
 import InspectionModeSelector from './InspectionModeSelector';
 import type { InspectionMode } from '../inspectionMode';
@@ -37,6 +38,8 @@ export default function HexView({
   const byteRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const asciiRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const tabStopByte = Math.min(focusedByte, Math.max(0, packet.bytes.length - 1));
+  // Below the mobile breakpoint the 16-byte row doesn't fit; halve it to 8.
+  const bytesPerRow = useMediaQuery('(max-width: 767px)') ? 8 : 16;
 
   const spanIndex = useMemo(
     () => buildSpanIndex(packet.spans, packet.bytes.length),
@@ -52,7 +55,7 @@ export default function HexView({
   }, [packet]);
 
   const rows = [];
-  for (let off = 0; off < packet.bytes.length; off += 16) rows.push(off);
+  for (let off = 0; off < packet.bytes.length; off += bytesPerRow) rows.push(off);
   if (packet.bytes.length === 0) {
     return <div className="p-4 text-xs text-zinc-600 italic">empty packet</div>;
   }
@@ -91,8 +94,8 @@ export default function HexView({
     let next: number;
     if (key === 'ArrowLeft') next = Math.max(0, from - 1);
     else if (key === 'ArrowRight') next = Math.min(packet.bytes.length - 1, from + 1);
-    else if (key === 'ArrowUp') next = Math.max(0, from - 16);
-    else if (key === 'ArrowDown') next = Math.min(packet.bytes.length - 1, from + 16);
+    else if (key === 'ArrowUp') next = Math.max(0, from - bytesPerRow);
+    else if (key === 'ArrowDown') next = Math.min(packet.bytes.length - 1, from + bytesPerRow);
     else return false;
     setFocusedByte(next);
     refs.current[next]?.focus();
@@ -147,8 +150,8 @@ export default function HexView({
           <span className="w-10 shrink-0 text-right text-zinc-600">
             {off.toString(16).padStart(4, '0')}
           </span>
-          {hexVisible && <span className="flex" role="group" aria-label={`Hex bytes ${off} through ${Math.min(off + 15, packet.bytes.length - 1)}`}>
-            {Array.from({ length: 16 }, (_, i) => {
+          {hexVisible && <span className="flex" role="group" aria-label={`Hex bytes ${off} through ${Math.min(off + bytesPerRow - 1, packet.bytes.length - 1)}`}>
+            {Array.from({ length: bytesPerRow }, (_, i) => {
               const b = off + i;
               if (b >= packet.bytes.length)
                 return (
@@ -170,7 +173,7 @@ export default function HexView({
                   data-byte-offset={b}
                   aria-label={labelOfByte(b)}
                   aria-pressed={isActive(locked, ref.layerUid, ref.fieldId)}
-                  className={`cursor-pointer rounded-sm px-[3px] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cyan-400 ${i === 8 ? 'ml-2' : ''}`}
+                  className={`cursor-pointer rounded-sm px-[3px] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cyan-400 ${i === bytesPerRow / 2 ? 'ml-2' : ''}`}
                   style={{
                     background: active ? c.fillHover : c.tint,
                     color: active ? 'var(--hex-active-ink)' : undefined,
@@ -207,9 +210,9 @@ export default function HexView({
             <span
               className="flex shrink-0 text-zinc-500"
               role="group"
-              aria-label={`ASCII bytes ${off} through ${Math.min(off + 15, packet.bytes.length - 1)}`}
+              aria-label={`ASCII bytes ${off} through ${Math.min(off + bytesPerRow - 1, packet.bytes.length - 1)}`}
             >
-              {Array.from({ length: Math.min(16, packet.bytes.length - off) }, (_, i) => {
+              {Array.from({ length: Math.min(bytesPerRow, packet.bytes.length - off) }, (_, i) => {
               const b = off + i;
               const active = byteActive(b);
               const ref = refOfByte(b);
