@@ -120,7 +120,7 @@ export default function BuilderPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="@container flex items-center gap-2 border-b border-zinc-800 px-6 py-3">
+      <header className="@container flex flex-wrap items-center gap-2 border-b border-zinc-800 px-6 py-3">
         <h1 className="mr-1 text-[15px] font-semibold tracking-tight text-zinc-100">
           Stack Builder
         </h1>

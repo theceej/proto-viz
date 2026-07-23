@@ -27,4 +27,18 @@ test.describe('narrow viewport (375px)', () => {
       await page.keyboard.press('Escape');
     }
   });
+
+  test('library protocol details take over the screen, hiding the list', async ({ page }) => {
+    await page.goto('/#/library/ipv4');
+    await expect(page.getByRole('heading', { name: 'IPv4', level: 2 })).toBeVisible();
+    // The list header is hidden while the detail panel is open.
+    await expect(page.getByRole('heading', { name: 'Protocol Library' })).toBeHidden();
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(overflow).toBeLessThanOrEqual(0);
+    // Closing the detail brings the list back.
+    await page.getByRole('button', { name: 'Close protocol details' }).click();
+    await expect(page.getByRole('heading', { name: 'Protocol Library' })).toBeVisible();
+  });
 });

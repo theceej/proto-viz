@@ -41,10 +41,12 @@ export default function BitGrid({
   const fieldById = useMemo(() => new Map(def.fields.map((f) => [f.id, f])), [def]);
 
   return (
-    // Keep the 32-bit grid at a legible minimum width; narrower panes (a
-    // resized desktop pane, or a phone) scroll it horizontally rather than
-    // squashing the columns. The ruler sticks to the top while scrolling down.
-    <div className="min-w-[32rem]">
+    // On desktop keep the 32-bit grid at a legible minimum width, scrolling a
+    // narrow (resized) pane horizontally rather than squashing the columns. On
+    // phones the grid instead shrinks to fit the pane — a horizontal scroll
+    // there is more annoying than tight columns. The ruler sticks while
+    // scrolling down.
+    <div className="md:min-w-[32rem]">
       {/* Bit ruler */}
       <div className="sticky top-0 z-10 grid grid-cols-32 bg-zinc-950 px-px font-mono text-[9px] text-zinc-600 select-none">
         {Array.from({ length: 32 }, (_, i) => (
