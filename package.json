@@ -32,7 +32,7 @@
     "lucide-react": "^1.25.0",
     "mammoth": "^1.12.0",
     "pdfjs-dist": "^6.1.200",
-    "react": "^19.2.7",
+    "react": "^19.2.8",
     "react-dom": "^19.2.7",
     "react-router-dom": "^7.18.1",
     "zustand": "^5.0.14"
