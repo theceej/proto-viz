@@ -17,10 +17,13 @@ export default function ComparePage() {
         <span className="text-[12px] text-zinc-500">Compare packet fields and their encoded bytes.</span>
         {packets.length > 0 && (
           <button
-            className="ml-auto flex cursor-pointer items-center gap-1.5 rounded-md border border-zinc-700 px-2.5 py-1 text-[12px] text-zinc-300 hover:border-rose-700 hover:text-rose-300"
+            className="ml-auto flex cursor-pointer items-center gap-1.5 rounded-md border border-zinc-700 px-2 py-1 text-[12px] text-zinc-400 hover:border-rose-700 hover:bg-rose-500/5 hover:text-rose-300"
+            aria-label="Clear comparison"
+            title="Remove both packets from the comparison"
             onClick={clear}
           >
-            <Trash2 className="size-3.5" aria-hidden /> Clear comparison
+            <Trash2 className="size-3.5 shrink-0" aria-hidden />
+            <span className="hidden sm:inline">Clear</span>
           </button>
         )}
       </header>

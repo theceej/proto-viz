@@ -225,5 +225,5 @@ test('runs a malformed-packet experiment and undoes it', async ({ page }) => {
 test('moves the byte summary into the stack strip', async ({ page }) => {
   await loadTcpPreset(page);
   // Ethernet(14) + IPv4(20) + TCP(20) = 54 bytes, 54 header bytes.
-  await expect(page.getByText(/54 bytes · 54 headers/)).toBeVisible();
+  await expect(page.getByText(/54 B · 54 B header/)).toBeVisible();
 });

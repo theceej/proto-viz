@@ -1,11 +1,12 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { HashRouter, NavLink, Navigate, Route, Routes } from 'react-router-dom';
 import {
-  Boxes,
   CircleHelp,
   Clapperboard,
+  Columns2,
   FileUp,
   Layers,
+  Library,
   Moon,
   PanelLeftClose,
   PanelLeftOpen,
@@ -32,8 +33,8 @@ const BUILD_LABEL = BUILD_COMMIT === 'development' ? BUILD_COMMIT : BUILD_COMMIT
 const NAV = [
   { to: '/builder', label: 'Stack Builder', icon: Layers },
   { to: '/scenario', label: 'Scenario Timeline', icon: Clapperboard },
-  { to: '/compare', label: 'Packet Comparison', icon: Boxes },
-  { to: '/library', label: 'Protocol Library', icon: Boxes },
+  { to: '/compare', label: 'Packet Comparison', icon: Columns2 },
+  { to: '/library', label: 'Protocol Library', icon: Library },
   { to: '/import', label: 'Import Spec', icon: FileUp },
   { to: '/help', label: 'Help', icon: CircleHelp },
 ];

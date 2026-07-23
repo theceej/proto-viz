@@ -103,7 +103,9 @@ export default function LibraryPage() {
 
   return (
     <div className="flex h-full">
-      <div className="min-w-0 flex-1 overflow-auto">
+      {/* On phones the detail panel takes over the screen, so hide the list
+          while a protocol is open (the panel's close button brings it back). */}
+      <div className={`min-w-0 flex-1 overflow-auto ${selected ? 'max-md:hidden' : ''}`}>
         <header className="sticky top-0 z-10 flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-zinc-800 bg-zinc-950/90 px-6 py-3 backdrop-blur">
           <h1 className="text-[15px] font-semibold tracking-tight text-zinc-100">
             Protocol Library
@@ -158,20 +160,24 @@ export default function LibraryPage() {
             {custom.length > 0 && (
               <button
                 className="flex cursor-pointer items-center gap-1 rounded-md border border-zinc-700 px-2 py-1 text-[12px] text-zinc-300 hover:border-zinc-500"
+                aria-label="Export"
                 title="Download your custom protocols as JSON"
                 onClick={exportLibrary}
               >
-                <Download className="size-3.5" /> Export
+                <Download className="size-3.5 shrink-0" />
+                <span className="hidden sm:inline">Export</span>
               </button>
             )}
             <label
               className="flex cursor-pointer items-center gap-1 rounded-md border border-zinc-700 px-2 py-1 text-[12px] text-zinc-300 hover:border-zinc-500"
               title="Import a proto-viz library JSON file"
             >
-              <Upload className="size-3.5" /> Import
+              <Upload className="size-3.5 shrink-0" />
+              <span className="hidden sm:inline">Import</span>
               <input
                 type="file"
                 accept=".json"
+                aria-label="Import library JSON"
                 className="hidden"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
@@ -338,7 +344,7 @@ function DetailPanel({ def, onClose }: { def: ProtocolDefinition; onClose: () =>
   const color = layerColor(0);
 
   return (
-    <aside className="flex w-[30rem] shrink-0 flex-col overflow-auto border-l border-zinc-800 bg-zinc-900/30">
+    <aside className="flex w-full shrink-0 flex-col overflow-auto border-l border-zinc-800 bg-zinc-900/30 md:w-[30rem]">
       <header className="sticky top-0 flex items-start gap-2 border-b border-zinc-800 bg-zinc-950/90 px-5 py-3 backdrop-blur">
         <div>
           <h2 className="text-[15px] font-semibold text-zinc-100">{def.name}</h2>

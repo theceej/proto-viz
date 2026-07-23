@@ -107,8 +107,9 @@ export default function StackStrip({
       </DndContext>
       <AddLayerButton layers={layers} registry={registry} />
       {packet && (
-        <span className="ml-auto self-center font-mono text-[12px] whitespace-nowrap text-zinc-500">
-          {packet.bytes.length} bytes · {packet.payloadOffset} headers
+        <span className="ml-auto self-center rounded-md border border-zinc-800 bg-zinc-900/50 px-2 py-0.5 font-mono text-[11px] whitespace-nowrap text-zinc-400">
+          {packet.bytes.length} B
+          <span className="text-zinc-600"> · {packet.payloadOffset} B header</span>
         </span>
       )}
     </div>
