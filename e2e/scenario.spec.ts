@@ -9,7 +9,9 @@ test('steps through a scenario timeline and updates the inspection panes', async
   await page.getByRole('combobox', { name: 'Scenario' }).selectOption({
     label: 'TCP three-way handshake',
   });
-  await expect(page.getByText('Step 1 of 3')).toBeVisible();
+  const timeline = page.getByRole('region', { name: 'Packet timeline' });
+  await expect(timeline.getByRole('status')).toHaveText('Step 1 of 3');
+  await expect(page.locator('header').getByText('Step 1 of 3')).toHaveCount(0);
   await expect(page.getByRole('button', { name: /Step 1: SYN,/ })).toHaveAttribute(
     'aria-current',
     'step',
