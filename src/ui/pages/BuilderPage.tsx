@@ -269,7 +269,7 @@ export default function BuilderPage() {
         validation={validation}
         packet={packet}
       />
-      <ValidationPanel validation={validation} serializeIssues={packet?.issues ?? []} />
+      <ValidationPanel validation={validation} serializeIssues={packet?.issues ?? []} packet={packet} />
 
       {serializeError && (
         <div className="px-6 pb-2 text-[12px] text-rose-400">

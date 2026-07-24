@@ -61,8 +61,11 @@ your browser. Nothing is uploaded anywhere.
   links its spec; an inspection-detail control (Compact / Explain / Deep)
   tunes how much interpretation the views show. Computed fields (lengths,
   IHL/data offset, checksums incl. TCP/UDP pseudo-header and SCTP CRC32c)
-  update live and can be pinned to deliberate wrong values. A guided tour,
-  restartable from Help, walks through the whole workflow.
+  update live and can be pinned to deliberate wrong values. A field-anchored
+  semantic linter warns about encodable but suspicious values—such as zero hop
+  limits, reserved bits, contradictory TCP flags, invalid IPv6 UDP checksums,
+  and implausible source addresses—without preventing export or sharing. A
+  guided tour, restartable from Help, walks through the whole workflow.
 - **Scenario timeline** — replay a stack's generated exchange (TCP handshake,
   DNS query/response, ICMP ping, DHCP DORA, ARP/NDP resolution) as an animated
   packet timeline. Previous / Play-Pause / Next controls (keyboard-operable)

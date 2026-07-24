@@ -250,7 +250,7 @@ export default function ScenarioPage() {
         </ol>
       </section>
 
-      <ValidationPanel validation={step?.validation ?? []} serializeIssues={packet?.issues ?? []} />
+      <ValidationPanel validation={step?.validation ?? []} serializeIssues={packet?.issues ?? []} packet={packet} />
 
       {step?.serializeError && (
         <div className="px-6 pb-2 text-[12px] text-rose-400">

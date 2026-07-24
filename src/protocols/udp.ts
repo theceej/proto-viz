@@ -53,6 +53,11 @@ export const udp: ProtocolDefinition = {
       description: 'Internet checksum over pseudo-header, header, and payload.',
     },
   ],
+  lintRules: [
+    { kind: 'zeroWhenCarriedBy', fieldId: 'checksum', protocolId: 'ipv6', severity: 'warning', code: 'udp-zero-checksum-ipv6', message: 'A zero UDP checksum is prohibited for normal IPv6 packets.', reference: 'RFC 8200 §8.1' },
+    { kind: 'payloadBindingMismatch', fieldId: 'dstPort', severity: 'advisory', code: 'udp-port-payload-mismatch', message: 'The UDP destination port does not match the carried application protocol assignment.', reference: 'IANA Service Name and Transport Protocol Port Number Registry' },
+    { kind: 'wellKnownPayload', fieldId: 'dstPort', severity: 'advisory', code: 'udp-well-known-payload', message: 'This well-known UDP destination port usually carries a recognized application protocol, but no application layer follows.', reference: 'IANA Service Name and Transport Protocol Port Number Registry' },
+  ],
   providesNamespaces: [
     { id: NS.udpDstPort, displayName: 'UDP port', selectorFieldId: 'dstPort' },
   ],

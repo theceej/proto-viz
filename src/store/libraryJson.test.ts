@@ -14,6 +14,17 @@ const custom: ProtocolDefinition = {
   ],
   providesNamespaces: [],
   encapsulations: [{ namespaceId: 'udp-dstport', value: 4000 }],
+  lintRules: [
+    {
+      kind: 'value',
+      fieldId: 'len',
+      operator: 'equals',
+      value: 0,
+      severity: 'advisory',
+      code: 'empty-body',
+      message: 'A zero-length body is unusual.',
+    },
+  ],
 };
 
 describe('library JSON export/import', () => {
@@ -27,6 +38,7 @@ describe('library JSON export/import', () => {
     const len = restored!.fields.find((f) => f.id === 'len')!;
     expect(len.computed).toEqual({ kind: 'expr', expr: { kind: 'payloadBytes' } });
     expect(restored!.encapsulations).toEqual([{ namespaceId: 'udp-dstport', value: 4000 }]);
+    expect(restored!.lintRules).toEqual(custom.lintRules);
   });
 
   it('forces source to custom on import', () => {
@@ -43,5 +55,21 @@ describe('library JSON export/import', () => {
   it('rejects malformed protocol entries', () => {
     const bad = JSON.stringify({ app: 'proto-viz', version: 1, protocols: [{ id: 42 }] });
     expect(() => importLibraryJson(bad)).toThrow('invalid protocol');
+  });
+
+  it('rejects unsafe or malformed semantic lint rules', () => {
+    const unknownField = exportLibraryJson([
+      {
+        ...custom,
+        lintRules: [{ ...custom.lintRules![0]!, fieldId: 'missing' }],
+      },
+    ]);
+    expect(() => importLibraryJson(unknownField)).toThrow('invalid semantic lint rule');
+
+    const unknownKind = JSON.parse(exportLibraryJson([custom]));
+    unknownKind.protocols[0].lintRules[0].kind = 'execute-code';
+    expect(() => importLibraryJson(JSON.stringify(unknownKind))).toThrow(
+      'invalid semantic lint rule',
+    );
   });
 });

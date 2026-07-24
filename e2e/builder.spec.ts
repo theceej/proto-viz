@@ -54,6 +54,24 @@ test('builds a stack, edits a field, and updates the hex view', async ({ page })
   await expect(page.locator('[data-byte-offset="6"]')).toHaveText('aa');
 });
 
+test('semantic warnings focus the suspicious field across packet views', async ({ page }) => {
+  await page.goto('/#/builder');
+  await page.getByRole('textbox', { name: 'TTL', exact: true }).fill('0');
+
+  const warning = page
+    .getByRole('status')
+    .filter({ hasText: 'A TTL of 0 cannot be forwarded beyond the current host.' });
+  await expect(warning).toContainText('RFC 791');
+  await page.getByRole('button', { name: 'Inspect ttl field' }).click();
+
+  await expect(
+    page.getByRole('button', { name: 'Highlight TTL in the packet views' }),
+  ).toHaveAttribute('aria-pressed', 'true');
+  const inspector = page.getByRole('region', { name: 'Selected field' });
+  await expect(inspector).toContainText('IPv4 · TTL');
+  await expect(inspector).toContainText('A TTL of 0 cannot be forwarded');
+});
+
 test('undoes a grouped field edit and redoes it', async ({ page }) => {
   await loadTcpPreset(page);
   const sourceMac = page.getByRole('textbox', { name: 'Source MAC', exact: true });

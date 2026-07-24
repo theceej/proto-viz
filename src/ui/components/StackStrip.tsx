@@ -58,7 +58,7 @@ export default function StackStrip({
   const worstByLayer = useMemo(() => {
     const map = new Map<number, 'error' | 'warning'>();
     for (const issue of validation) {
-      if (issue.layerIndex < 0 || issue.severity === 'info') continue;
+      if (issue.layerIndex < 0 || issue.severity === 'info' || issue.severity === 'advisory') continue;
       const cur = map.get(issue.layerIndex);
       if (issue.severity === 'error' || cur === undefined) map.set(issue.layerIndex, issue.severity);
     }

@@ -127,6 +127,31 @@ export interface EncapsulationClaim {
   conventional?: boolean;
 }
 
+export type SemanticRuleSeverity = 'warning' | 'advisory';
+
+interface SemanticRuleBase {
+  fieldId: string;
+  severity: SemanticRuleSeverity;
+  code: string;
+  message: string;
+  /** Human-readable source, resolved through the protocol reference modules in the UI. */
+  reference?: string;
+}
+
+/** JSON-serializable semantic checks evaluated after a packet has serialized. */
+export type SemanticLintRule =
+  | (SemanticRuleBase & {
+      kind: 'value';
+      operator: 'equals' | 'notEquals';
+      value: number;
+    })
+  | (SemanticRuleBase & { kind: 'bitsClear'; mask: number })
+  | (SemanticRuleBase & { kind: 'incompatibleBits'; leftMask: number; rightMask: number })
+  | (SemanticRuleBase & { kind: 'sourceAddress'; family: 'ipv4' | 'ipv6' })
+  | (SemanticRuleBase & { kind: 'zeroWhenCarriedBy'; protocolId: string })
+  | (SemanticRuleBase & { kind: 'payloadBindingMismatch' })
+  | (SemanticRuleBase & { kind: 'wellKnownPayload' });
+
 export type LayerHint = 'link' | 'network' | 'transport' | 'application' | 'tunnel';
 
 export interface ProtocolDefinition {
@@ -138,6 +163,8 @@ export interface ProtocolDefinition {
   fields: FieldDef[];
   providesNamespaces: BindingNamespace[];
   encapsulations: EncapsulationClaim[];
+  /** Advisory checks for encodable but suspicious field values. */
+  lintRules?: SemanticLintRule[];
   source: 'builtin' | 'custom';
   /** e.g. ['RFC 791']. */
   references?: string[];

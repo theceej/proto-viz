@@ -60,8 +60,12 @@ export default function FieldInspector({
       .filter((issue) => issue.layerUid === null || issue.layerUid === selected.layerUid)
       .map((issue) => issue.message),
     ...validation
-      .filter((issue) => issue.layerIndex === -1 || issue.layerIndex === layerIndex)
-      .map((issue) => issue.message),
+      .filter(
+        (issue) =>
+          (issue.layerIndex === -1 || issue.layerIndex === layerIndex) &&
+          (issue.fieldId === undefined || issue.fieldId === selected.fieldId),
+      )
+      .map((issue) => issue.reference ? `${issue.message} ${issue.reference}` : issue.message),
   ];
   const enumTable = field?.enumRef ? registry.getEnum(field.enumRef) : undefined;
   const value = field ? formatFieldValue(field, span!.value, enumTable) : null;

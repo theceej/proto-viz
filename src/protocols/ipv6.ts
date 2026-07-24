@@ -36,6 +36,11 @@ export const ipv6: ProtocolDefinition = {
     { id: 'src', name: 'Source Address', type: 'ipv6', bitLength: 128, default: '2001:db8::1' },
     { id: 'dst', name: 'Destination Address', type: 'ipv6', bitLength: 128, default: '2001:db8::2' },
   ],
+  lintRules: [
+    { kind: 'value', fieldId: 'version', operator: 'notEquals', value: 6, severity: 'warning', code: 'ipv6-version', message: 'IPv6 Version should be 6.', reference: 'RFC 8200 §3' },
+    { kind: 'value', fieldId: 'hopLimit', operator: 'equals', value: 0, severity: 'warning', code: 'ipv6-hop-limit-zero', message: 'A Hop Limit of 0 cannot be forwarded beyond the current node.', reference: 'RFC 8200 §3' },
+    { kind: 'sourceAddress', fieldId: 'src', family: 'ipv6', severity: 'warning', code: 'ipv6-suspicious-source', message: 'This IPv6 source address is multicast or loopback across a link.', reference: 'RFC 4291 §2.7' },
+  ],
   providesNamespaces: [
     { id: NS.ipProto, displayName: 'Next Header', selectorFieldId: 'nextHeader' },
   ],
