@@ -21,18 +21,24 @@ export default function HexView({
   validation = [],
   inspectionMode = 'explain',
   onInspectionModeChange = () => undefined,
+  onByteEdit,
 }: {
   packet: SerializedPacket;
   registry: Registry;
   validation?: ValidationIssue[];
   inspectionMode?: InspectionMode;
   onInspectionModeChange?: (mode: InspectionMode) => void;
+  /** When provided, hex bytes become keyboard-editable (builder only). */
+  onByteEdit?: (byteOffset: number, value: number) => void;
 }) {
   const { setHovered, toggleLocked } = useHighlightStore();
   const hovered = useHighlightStore((s) => s.hovered);
   const locked = useHighlightStore((s) => s.locked);
   const [focusedByte, setFocusedByte] = useState(0);
   const [activeFocus, setActiveFocus] = useState<number | null>(null);
+  // In-progress hex entry for the byte being typed over: 1 nibble pending, or
+  // null when not editing. Two nibbles commit and clear immediately.
+  const [editing, setEditing] = useState<{ byte: number; nibble: string } | null>(null);
   const [hexVisible, setHexVisible] = usePersistedFlag('pv-hex-column', true);
   const [asciiVisible, setAsciiVisible] = usePersistedFlag('pv-hex-ascii', true);
   const byteRefs = useRef<(HTMLSpanElement | null)[]>([]);
@@ -105,6 +111,41 @@ export default function HexView({
   const colorOfByte = (b: number): LayerColor =>
     layerOfByte[b]! >= 0 ? layerColor(layerOfByte[b]!) : PAYLOAD_COLOR;
 
+  const commitByte = (b: number, value: number) => {
+    setEditing(null);
+    onByteEdit?.(b, value);
+    // The byte cell keeps its DOM node across the re-serialize, so refocus it
+    // after the store round-trips to keep keyboard editing continuous.
+    requestAnimationFrame(() => byteRefs.current[b]?.focus());
+  };
+
+  /** Handle a keystroke on an editable hex byte. Returns true if consumed. */
+  const handleEditKey = (b: number, key: string): boolean => {
+    if (!onByteEdit) return false;
+    if (/^[0-9a-fA-F]$/.test(key)) {
+      const pending = editing?.byte === b ? editing.nibble : '';
+      if (pending === '') setEditing({ byte: b, nibble: key.toLowerCase() });
+      else commitByte(b, parseInt(pending + key, 16));
+      return true;
+    }
+    if (editing?.byte === b) {
+      if (key === 'Escape') {
+        setEditing(null);
+        return true;
+      }
+      if (key === 'Enter' || key === ' ') {
+        commitByte(b, parseInt(editing.nibble, 16));
+        return true;
+      }
+    }
+    // Reject length-changing edits outright.
+    if (key === 'Backspace' || key === 'Delete') {
+      if (editing?.byte === b) setEditing(null);
+      return true;
+    }
+    return false;
+  };
+
   return (
     <div>
       <div className="sticky top-0 z-10 bg-zinc-950/95 backdrop-blur">
@@ -162,6 +203,7 @@ export default function HexView({
               const active = byteActive(b);
               const c = colorOfByte(b);
               const ref = refOfByte(b);
+              const isEditing = editing?.byte === b;
               return (
                 <span
                   key={i}
@@ -171,12 +213,18 @@ export default function HexView({
                   role="button"
                   tabIndex={b === tabStopByte ? 0 : -1}
                   data-byte-offset={b}
-                  aria-label={labelOfByte(b)}
+                  aria-label={
+                    isEditing
+                      ? `Editing byte offset ${b}: type a hex digit to set the value, Escape to cancel`
+                      : onByteEdit
+                        ? `${labelOfByte(b)}. Type two hex digits to edit`
+                        : labelOfByte(b)
+                  }
                   aria-pressed={isActive(locked, ref.layerUid, ref.fieldId)}
-                  className={`cursor-pointer rounded-sm px-[3px] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cyan-400 ${i === bytesPerRow / 2 ? 'ml-2' : ''}`}
+                  className={`cursor-pointer rounded-sm px-[3px] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cyan-400 ${i === bytesPerRow / 2 ? 'ml-2' : ''} ${isEditing ? 'outline-2 outline-cyan-400' : ''}`}
                   style={{
-                    background: active ? c.fillHover : c.tint,
-                    color: active ? 'var(--hex-active-ink)' : undefined,
+                    background: isEditing ? 'var(--hex-editing, #164e63)' : active ? c.fillHover : c.tint,
+                    color: isEditing || active ? 'var(--hex-active-ink)' : undefined,
                   }}
                   onMouseEnter={() => setHovered(refOfByte(b))}
                   onMouseLeave={() => setHovered(activeFocus === null ? null : refOfByte(activeFocus))}
@@ -188,9 +236,15 @@ export default function HexView({
                   onBlur={() => {
                     setActiveFocus(null);
                     setHovered(null);
+                    if (isEditing) setEditing(null);
                   }}
                   onKeyDown={(event) => {
                     if (moveFocus(b, event.key, byteRefs)) {
+                      event.preventDefault();
+                      if (editing) setEditing(null);
+                      return;
+                    }
+                    if (handleEditKey(b, event.key)) {
                       event.preventDefault();
                       return;
                     }
@@ -201,7 +255,9 @@ export default function HexView({
                   }}
                   onClick={() => toggleLocked(ref)}
                 >
-                  {packet.bytes[b]!.toString(16).padStart(2, '0')}
+                  {isEditing
+                    ? editing.nibble.padEnd(2, ' ')
+                    : packet.bytes[b]!.toString(16).padStart(2, '0')}
                 </span>
               );
             })}

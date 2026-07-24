@@ -56,7 +56,11 @@ your browser. Nothing is uploaded anywhere.
   checksum, are pinned so the exact packet is preserved.
 - **Packet visualisation** — classic RFC-style 32-bit-per-row diagrams, a
   full-packet hex dump with layer tinting whose hex and ASCII columns toggle
-  independently, and a typed field editor. Hovering a field highlights it in
+  independently, and a typed field editor. The hex bytes are keyboard-editable
+  — type two digits over a byte and the field editor, diagram, and validation
+  update live; hand-editing a computed field (a checksum, a length) pins it to
+  the entered bytes, the same way the decoder preserves a wrong checksum.
+  Hovering a field highlights it in
   all views, and selecting one opens an inspector that explains its value and
   links its spec; an inspection-detail control (Compact / Explain / Deep)
   tunes how much interpretation the views show. Computed fields (lengths,
