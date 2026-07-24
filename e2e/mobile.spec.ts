@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-const routes = ['/builder', '/scenario', '/library', '/import', '/help', '/compare'];
+const routes = ['/builder', '/scenario', '/library', '/map', '/import', '/help', '/compare'];
 
 test.describe('narrow viewport (375px)', () => {
   test.use({ viewport: { width: 375, height: 800 } });
