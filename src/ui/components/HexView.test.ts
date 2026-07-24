@@ -213,6 +213,15 @@ describe('HexView keyboard access', () => {
           value: 0xbc,
           computed: true,
           pinned: true,
+          calculation: {
+            kind: 'expression',
+            result: 12,
+            pinnedValue: 0xbc,
+            steps: [
+              { label: 'Header length', value: '8 bytes' },
+              { label: 'Arithmetic', value: '8 + 4 = 12' },
+            ],
+          },
         },
       ],
       layers: [{ uid: 'example-1', protocolId: 'example', byteOffset: 0, headerBytes: 2 }],
@@ -246,6 +255,10 @@ describe('HexView keyboard access', () => {
     expect(inspector.textContent).toContain('pinned');
     expect(inspector.textContent).toContain('1 layer issue');
     expect(inspector.textContent).toContain('Example validation warning.');
+    expect(inspector.textContent).toContain('Calculation trace');
+    expect(inspector.textContent).toContain('Pinned wire value188 (0xbc)');
+    expect(inspector.textContent).toContain('Calculated value12 (0xc)');
+    expect(inspector.textContent).toContain('8 + 4 = 12');
     expect(inspector.textContent).toContain('Identifies the example packet kind.');
     expect(inspector.querySelector('a')?.getAttribute('href')).toContain('/rfc791');
 
