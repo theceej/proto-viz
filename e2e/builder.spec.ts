@@ -258,6 +258,26 @@ test('runs a malformed-packet experiment and undoes it', async ({ page }) => {
   await expect(page.getByText(/checksum-mismatch warning/i)).toHaveCount(0);
 });
 
+test('groups example presets with descriptions and loads a field-edited variant', async ({
+  page,
+}) => {
+  await page.goto('/#/builder');
+  await page.getByRole('button', { name: 'Presets' }).click();
+
+  const basics = page.getByRole('group', { name: 'Basics' });
+  await expect(basics.getByText('Basics', { exact: true })).toBeVisible();
+  await expect(
+    basics.getByText('An established connection: ACK and PSH set, carrying application bytes.'),
+  ).toBeVisible();
+
+  await page.getByRole('button', { name: /TCP data segment/ }).click();
+
+  // The overridden PSH flag loaded, and the 11-byte payload is present
+  // (Ethernet 14 + IPv4 20 + TCP 20 + 11 = 65 bytes, 54 header).
+  await expect(page.getByRole('checkbox', { name: 'PSH' })).toBeChecked();
+  await expect(page.getByText(/65 B · 54 B header/)).toBeVisible();
+});
+
 test('moves the byte summary into the stack strip', async ({ page }) => {
   await loadTcpPreset(page);
   // Ethernet(14) + IPv4(20) + TCP(20) = 54 bytes, 54 header bytes.
