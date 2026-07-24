@@ -14,6 +14,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useStackStore } from '../../store/stackStore';
 import { randomStack } from '../../core/random';
+import { PRESETS, PRESET_GROUPS, presetStackLayers } from '../../core/presets';
 import { applyByteEdit } from '../../core/editByte';
 import { decodeShare } from '../../core/share';
 import { decodePacketBlob } from '../../core/shareBlob';
@@ -35,32 +36,6 @@ import ExperimentsMenu from '../components/ExperimentsMenu';
 import ToolbarButton from '../components/ToolbarButton';
 import { useInspectionMode } from '../inspectionMode';
 import AddToCompareButton from '../components/AddToCompareButton';
-
-const PRESETS: { name: string; ids: string[]; payload?: string }[] = [
-  { name: 'TCP over Ethernet', ids: ['ethernet', 'ipv4', 'tcp'] },
-  { name: 'HTTP request', ids: ['ethernet', 'ipv4', 'tcp', 'http1'] },
-  { name: 'DNS query', ids: ['ethernet', 'ipv4', 'udp', 'dns'] },
-  { name: 'ICMP ping', ids: ['ethernet', 'ipv4', 'icmp'], payload: 'abcdefgh' },
-  { name: 'IPv6 ping', ids: ['ethernet', 'ipv6', 'icmpv6'], payload: 'abcdefgh' },
-  { name: 'DHCP discover', ids: ['ethernet', 'ipv4', 'udp', 'dhcp'] },
-  { name: 'VLAN-tagged TCP', ids: ['ethernet', 'vlan-8021q', 'ipv4', 'tcp'] },
-  { name: 'Q-in-Q', ids: ['ethernet', 'vlan-8021q', 'vlan-8021q', 'ipv4', 'udp'] },
-  {
-    name: 'VXLAN overlay',
-    ids: ['ethernet', 'ipv4', 'udp', 'vxlan', 'ethernet', 'ipv4', 'udp'],
-    payload: 'inner payload',
-  },
-  { name: 'GRE tunnel (IP-in-IP)', ids: ['ethernet', 'ipv4', 'gre', 'ipv4', 'icmp'] },
-  { name: 'MPLS label stack', ids: ['ethernet', 'mpls', 'ipv4', 'udp'] },
-  { name: 'HTTPS (TLS record)', ids: ['ethernet', 'ipv4', 'tcp', 'tls', 'http1'] },
-  { name: 'BGP keepalive', ids: ['ethernet', 'ipv4', 'tcp', 'bgp'] },
-  { name: 'PPPoE session', ids: ['ethernet', 'pppoe', 'ipv4', 'udp'] },
-  { name: 'Spanning tree BPDU', ids: ['ethernet-8023', 'stp'] },
-  { name: 'VoIP audio (RTP)', ids: ['ethernet', 'ipv4', 'udp', 'rtp'], payload: 'samples…' },
-  { name: 'WireGuard handshake', ids: ['ethernet', 'ipv4', 'udp', 'wireguard'] },
-  { name: 'Mobile data (GTP-U)', ids: ['ethernet', 'ipv4', 'udp', 'gtpu', 'ipv4', 'tcp'] },
-  { name: 'IPsec AH transport', ids: ['ethernet', 'ipv4', 'ipsec-ah', 'tcp'] },
-];
 
 export default function BuilderPage() {
   const { stack, registry, packet, serializeError, validation } = usePacket();
@@ -320,14 +295,14 @@ export default function BuilderPage() {
 
 function PresetsMenu() {
   const [open, setOpen] = useState(false);
-  const setStack = useStackStore((s) => s.setStack);
+  const restoreStack = useStackStore((s) => s.restoreStack);
   useEscape(open, () => setOpen(false));
   return (
     <div className="relative">
       <button
         className="flex cursor-pointer items-center gap-1 rounded-md border border-zinc-700 px-2.5 py-1 text-[12px] text-zinc-300 hover:border-zinc-500"
         aria-expanded={open}
-        aria-haspopup="menu"
+        aria-haspopup="true"
         onClick={() => setOpen((o) => !o)}
       >
         Presets
@@ -336,25 +311,36 @@ function PresetsMenu() {
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute top-full left-0 z-20 mt-1 w-64 rounded-lg border border-zinc-700 bg-zinc-900 py-1 shadow-xl shadow-black/50">
-            {PRESETS.map((p) => (
-              <button
-                key={p.name}
-                className="block w-full cursor-pointer px-3 py-1.5 text-left text-[13px] text-zinc-200 hover:bg-zinc-800"
-                onClick={() => {
-                  setStack(
-                    p.ids,
-                    p.payload ? new TextEncoder().encode(p.payload) : undefined,
-                  );
-                  setOpen(false);
-                }}
-              >
-                {p.name}
-                <span className="block font-mono text-[10px] text-zinc-500">
-                  {p.ids.join(' › ')}
-                </span>
-              </button>
-            ))}
+          <div className="absolute top-full left-0 z-20 mt-1 max-h-[min(28rem,70vh)] w-[min(20rem,calc(100vw-2rem))] overflow-y-auto rounded-lg border border-zinc-700 bg-zinc-900 py-1 shadow-xl shadow-black/50">
+            {PRESET_GROUPS.map((group) => {
+              const items = PRESETS.filter((p) => p.group === group);
+              if (items.length === 0) return null;
+              return (
+                <div key={group} role="group" aria-label={group}>
+                  <p className="px-3 pt-2 pb-1 text-[10px] font-semibold tracking-widest text-zinc-500 uppercase">
+                    {group}
+                  </p>
+                  {items.map((p) => (
+                    <button
+                      key={p.name}
+                      className="block w-full cursor-pointer px-3 py-1.5 text-left hover:bg-zinc-800"
+                      onClick={() => {
+                        restoreStack(presetStackLayers(p), p.payload);
+                        setOpen(false);
+                      }}
+                    >
+                      <span className="block text-[13px] text-zinc-200">{p.name}</span>
+                      <span className="block text-[11px] leading-snug text-zinc-500">
+                        {p.description}
+                      </span>
+                      <span className="block font-mono text-[10px] text-zinc-600">
+                        {p.layers.map((layer) => layer.protocolId).join(' › ')}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              );
+            })}
           </div>
         </>
       )}
