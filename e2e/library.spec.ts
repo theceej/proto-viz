@@ -40,3 +40,36 @@ test('shows merged protocol references in a dedicated section', async ({ page })
     'https://www.rfc-editor.org/rfc/rfc5881',
   );
 });
+
+test('searches fields and assignments and focuses field results', async ({ page }) => {
+  await page.goto('/#/library');
+  const search = page.getByRole('searchbox', { name: 'Search protocol library' });
+
+  await search.fill('header checksum');
+  const fieldResult = page
+    .getByRole('button')
+    .filter({ hasText: 'Header Checksum' })
+    .filter({ hasText: 'Field' });
+  await fieldResult.focus();
+  await page.keyboard.press('Enter');
+
+  await expect(page).toHaveURL(/\/library\/ipv4\?field=headerChecksum/);
+  const panel = page.getByRole('complementary');
+  await expect(panel.getByRole('heading', { name: 'IPv4' })).toBeVisible();
+  await expect(panel.locator('tr[data-focused="true"]')).toContainText('Header Checksum');
+  await expect(panel.locator('tr[data-focused="true"]')).toBeFocused();
+
+  await search.fill('ethertype 0x86dd');
+  const assignment = page
+    .getByRole('button')
+    .filter({ hasText: 'EtherType 34525' })
+    .filter({ hasText: 'Assignment' });
+  await expect(assignment).toContainText('IPv6 assignment · 0x86dd');
+  await assignment.click();
+  await expect(panel.getByRole('heading', { name: 'IPv6' })).toBeVisible();
+
+  await search.fill('RFC 8200');
+  await expect(
+    page.getByRole('button', { name: 'RFC 8200 Reference IPv6 reference', exact: true }),
+  ).toBeVisible();
+});

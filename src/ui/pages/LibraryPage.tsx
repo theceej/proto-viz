@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   ArrowDownToLine,
   ArrowUpFromLine,
@@ -26,6 +26,11 @@ import { layerColor } from '../colors';
 import { usePersistedFlag } from '../usePersistedFlag';
 import { bitsLabel } from '../format';
 import { referencesFor } from '../../protocols/refs';
+import {
+  createLibrarySearchIndex,
+  type LibrarySearchResult,
+  type LibrarySearchResultKind,
+} from '../../core/librarySearch';
 
 const LAYER_ORDER: LayerHint[] = ['link', 'network', 'transport', 'application', 'tunnel'];
 const LAYER_LABEL: Record<LayerHint, string> = {
@@ -46,6 +51,7 @@ export default function LibraryPage() {
   const [nameSort, setNameSort] = usePersistedFlag('pv-library-name-sort', false);
   const addLayer = useStackStore((s) => s.addLayer);
   const { protocolId } = useParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
   const jumpToGroup = (layer: LayerHint) => {
@@ -82,24 +88,29 @@ export default function LibraryPage() {
   };
 
   const selected = protocolId ? registry.get(protocolId) : undefined;
+  const focusedFieldId = searchParams.get('field') ?? undefined;
+
+  const searchIndex = useMemo(
+    () => createLibrarySearchIndex(registry.all(), referencesFor),
+    [registry],
+  );
+  const searchResults = useMemo(() => searchIndex.search(query), [searchIndex, query]);
 
   const { sorted, groups } = useMemo(() => {
-    const q = query.toLowerCase();
     const sorted = registry
       .all()
-      .filter(
-        (p) =>
-          p.name.toLowerCase().includes(q) ||
-          (p.fullName ?? '').toLowerCase().includes(q) ||
-          p.id.includes(q),
-      )
       .sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }));
     const groups = LAYER_ORDER.map((layer) => ({
       layer,
       protocols: sorted.filter((p) => p.layerHint === layer),
     })).filter((g) => g.protocols.length > 0);
     return { sorted, groups };
-  }, [registry, query]);
+  }, [registry]);
+
+  const openSearchResult = (result: LibrarySearchResult) => {
+    const field = result.fieldId ? `?field=${encodeURIComponent(result.fieldId)}` : '';
+    navigate(`/library/${result.protocolId}${field}`);
+  };
 
   return (
     <div className="flex h-full">
@@ -191,17 +202,25 @@ export default function LibraryPage() {
               <input
                 type="search"
                 className="w-full rounded-md border border-zinc-700 bg-zinc-900 py-1 pr-2 pl-7 text-[13px] text-zinc-200 outline-none placeholder:text-zinc-600 focus:border-cyan-600 sm:w-56"
-                placeholder="Search protocols…"
-                aria-label="Search protocols"
+                placeholder="Search protocols, fields, values…"
+                aria-label="Search protocol library"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
               />
             </div>
           </div>
         </header>
-        {osiOpen && !nameSort && <OsiModel registry={registry} onJump={jumpToGroup} />}
+        {osiOpen && !nameSort && !query.trim() && (
+          <OsiModel registry={registry} onJump={jumpToGroup} />
+        )}
         <div className="flex flex-col gap-6 p-6">
-          {nameSort ? (
+          {query.trim() ? (
+            <SearchResults
+              query={query}
+              results={searchResults}
+              onOpen={openSearchResult}
+            />
+          ) : nameSort ? (
             <div className="grid grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] gap-3">
               {sorted.map((p) => (
                 <ProtocolTile
@@ -233,13 +252,68 @@ export default function LibraryPage() {
               </section>
             ))
           )}
-          {sorted.length === 0 && (
-            <p className="text-sm text-zinc-500">No protocols match “{query}”.</p>
-          )}
         </div>
       </div>
-      {selected && <DetailPanel def={selected} onClose={() => navigate('/library')} />}
+      {selected && (
+        <DetailPanel
+          def={selected}
+          focusedFieldId={focusedFieldId}
+          onClose={() => navigate('/library')}
+        />
+      )}
     </div>
+  );
+}
+
+const RESULT_LABEL: Record<LibrarySearchResultKind, string> = {
+  protocol: 'Protocol',
+  field: 'Field',
+  assignment: 'Assignment',
+  reference: 'Reference',
+};
+
+function SearchResults({
+  query,
+  results,
+  onOpen,
+}: {
+  query: string;
+  results: LibrarySearchResult[];
+  onOpen: (result: LibrarySearchResult) => void;
+}) {
+  if (results.length === 0) {
+    return <p className="text-sm text-zinc-500">No library entries match “{query}”.</p>;
+  }
+  return (
+    <section aria-labelledby="library-search-results-heading">
+      <h2
+        id="library-search-results-heading"
+        className="mb-2 text-[11px] font-semibold tracking-widest text-zinc-500 uppercase"
+      >
+        Search results
+      </h2>
+      <p className="sr-only" aria-live="polite">
+        {results.length} result{results.length === 1 ? '' : 's'} for {query}
+      </p>
+      <ul className="grid grid-cols-[repeat(auto-fill,minmax(18rem,1fr))] gap-2">
+        {results.map((result) => (
+          <li key={result.key}>
+            <button
+              className="h-full w-full cursor-pointer rounded-lg border border-zinc-800 bg-zinc-900/40 p-3 text-left hover:border-zinc-600 focus-visible:border-cyan-500 focus-visible:outline-none"
+              onClick={() => onOpen(result)}
+            >
+              <div className="flex items-baseline justify-between gap-2">
+                <strong className="text-[13px] text-zinc-100">{result.title}</strong>
+                <span className="shrink-0 rounded bg-cyan-500/10 px-1.5 py-0.5 text-[10px] font-medium tracking-wide text-cyan-300 uppercase">
+                  {RESULT_LABEL[result.kind]}
+                </span>
+              </div>
+              <p className="mt-1 text-[11px] leading-snug text-zinc-500">{result.detail}</p>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
@@ -320,10 +394,25 @@ function ProtocolTile({
   );
 }
 
-function DetailPanel({ def, onClose }: { def: ProtocolDefinition; onClose: () => void }) {
+function DetailPanel({
+  def,
+  focusedFieldId,
+  onClose,
+}: {
+  def: ProtocolDefinition;
+  focusedFieldId?: string;
+  onClose: () => void;
+}) {
   const registry = useLibraryStore((s) => s.registry);
   const removeCustom = useLibraryStore((s) => s.removeCustom);
   const references = referencesFor(def.id, def.references);
+  const focusedField = useRef<HTMLTableRowElement | null>(null);
+
+  useEffect(() => {
+    if (!focusedFieldId || !focusedField.current) return;
+    focusedField.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    focusedField.current.focus({ preventScroll: true });
+  }, [def.id, focusedFieldId]);
 
   // Render the header diagram by serializing a single-layer stack with defaults.
   const preview = useMemo(() => {
@@ -433,7 +522,17 @@ function DetailPanel({ def, onClose }: { def: ProtocolDefinition; onClose: () =>
           <table className="w-full text-[12px]">
             <tbody>
               {def.fields.map((f) => (
-                <tr key={f.id} className="border-b border-zinc-800/60 last:border-0">
+                <tr
+                  key={f.id}
+                  ref={f.id === focusedFieldId ? focusedField : undefined}
+                  tabIndex={f.id === focusedFieldId ? -1 : undefined}
+                  data-focused={f.id === focusedFieldId || undefined}
+                  className={`border-b border-zinc-800/60 last:border-0 ${
+                    f.id === focusedFieldId
+                      ? 'bg-cyan-500/10 outline outline-1 -outline-offset-1 outline-cyan-600'
+                      : ''
+                  }`}
+                >
                   <td className="py-1 pr-2 whitespace-nowrap text-zinc-200">{f.name}</td>
                   <td className="py-1 pr-2 font-mono whitespace-nowrap text-zinc-500">
                     {typeof f.bitLength === 'number' ? bitsLabel(f.bitLength) : 'variable'}
