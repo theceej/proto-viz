@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import { Check, Copy } from 'lucide-react';
+import { Check, Copy, Pencil } from 'lucide-react';
 import type { SerializedPacket } from '../../core/serialize';
 import type { Registry } from '../../core/registry';
 import type { ValidationIssue } from '../../core/validate';
@@ -41,6 +41,10 @@ export default function HexView({
   const [editing, setEditing] = useState<{ byte: number; nibble: string } | null>(null);
   const [hexVisible, setHexVisible] = usePersistedFlag('pv-hex-column', true);
   const [asciiVisible, setAsciiVisible] = usePersistedFlag('pv-hex-ascii', true);
+  const [editMode, setEditMode] = usePersistedFlag('pv-hex-edit', false);
+  // Editing is opt-in: only when the host wired an editor (builder) and the
+  // user turned on Edit mode. Otherwise the hex view is inspect-only.
+  const editable = Boolean(onByteEdit) && editMode;
   const byteRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const asciiRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const tabStopByte = Math.min(focusedByte, Math.max(0, packet.bytes.length - 1));
@@ -121,7 +125,7 @@ export default function HexView({
 
   /** Handle a keystroke on an editable hex byte. Returns true if consumed. */
   const handleEditKey = (b: number, key: string): boolean => {
-    if (!onByteEdit) return false;
+    if (!editable) return false;
     if (/^[0-9a-fA-F]$/.test(key)) {
       const pending = editing?.byte === b ? editing.nibble : '';
       if (pending === '') setEditing({ byte: b, nibble: key.toLowerCase() });
@@ -173,8 +177,35 @@ export default function HexView({
               </button>
             ))}
           </div>
+          {onByteEdit && (
+            <>
+              <span className="mx-1 h-4 w-px bg-zinc-800" aria-hidden />
+              <button
+                className={`flex cursor-pointer items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] ${
+                  editMode
+                    ? 'border-cyan-700 bg-cyan-900/40 font-medium text-cyan-200'
+                    : 'border-zinc-800 text-zinc-500 hover:text-zinc-200'
+                }`}
+                aria-pressed={editMode}
+                title="Edit mode: type two hex digits over a byte to overwrite it"
+                onClick={() => {
+                  setEditMode(!editMode);
+                  setEditing(null); // drop any half-typed nibble when switching modes
+                }}
+              >
+                <Pencil className="size-3" aria-hidden />
+                Edit
+              </button>
+            </>
+          )}
           <CopyHexButton bytes={packet.bytes} />
         </div>
+        {editable && (
+          <p className="border-b border-zinc-800/50 bg-cyan-950/20 px-3 py-1 text-[10px] leading-snug text-cyan-300/90">
+            Type two hex digits over a byte to overwrite it — fields, diagram, and
+            validation update live. Hand-editing a computed field (checksum, length) pins it.
+          </p>
+        )}
         {locked && (
           <FieldInspector
             packet={packet}
@@ -216,12 +247,12 @@ export default function HexView({
                   aria-label={
                     isEditing
                       ? `Editing byte offset ${b}: type a hex digit to set the value, Escape to cancel`
-                      : onByteEdit
+                      : editable
                         ? `${labelOfByte(b)}. Type two hex digits to edit`
                         : labelOfByte(b)
                   }
                   aria-pressed={isActive(locked, ref.layerUid, ref.fieldId)}
-                  className={`cursor-pointer rounded-sm px-[3px] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cyan-400 ${i === bytesPerRow / 2 ? 'ml-2' : ''} ${isEditing ? 'outline-2 outline-cyan-400' : ''}`}
+                  className={`${editable ? 'cursor-text' : 'cursor-pointer'} rounded-sm px-[3px] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cyan-400 ${i === bytesPerRow / 2 ? 'ml-2' : ''} ${isEditing ? 'outline-2 outline-cyan-400' : ''}`}
                   style={{
                     background: isEditing ? 'var(--hex-editing, #164e63)' : active ? c.fillHover : c.tint,
                     color: isEditing || active ? 'var(--hex-active-ink)' : undefined,
@@ -250,10 +281,14 @@ export default function HexView({
                     }
                     if (event.key === 'Enter' || event.key === ' ') {
                       event.preventDefault();
-                      toggleLocked(ref);
+                      // Edit mode reserves Enter/Space for committing edits.
+                      if (!editable) toggleLocked(ref);
                     }
                   }}
-                  onClick={() => toggleLocked(ref)}
+                  onClick={() => {
+                    // In edit mode a click just places the cursor for typing.
+                    if (!editable) toggleLocked(ref);
+                  }}
                 >
                   {isEditing
                     ? editing.nibble.padEnd(2, ' ')

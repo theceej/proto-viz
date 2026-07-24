@@ -132,6 +132,11 @@ test('round-trips field edits through the exact-packet share link', async ({ pag
 
 test('edits a byte in the hex view and reflects it across views', async ({ page }) => {
   await loadTcpPreset(page);
+  // Editing is behind an explicit Edit-mode toggle in the hex view toolbar.
+  await page
+    .getByRole('region', { name: 'Hex dump' })
+    .getByRole('button', { name: 'Edit' })
+    .click();
   // Byte 22 is the IPv4 TTL (default 64). Type 0x20 (= 32) over it.
   const ttlByte = page.locator('[data-byte-offset="22"]');
   await expect(ttlByte).toHaveText('40');
