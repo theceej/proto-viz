@@ -36,18 +36,50 @@ export class HexInputError extends Error {}
 const MAX_LAYERS = 64;
 
 /**
- * Parse user-pasted hex: bare digit pairs with any mix of whitespace,
- * `0x` prefixes, colons, dashes, commas, or periods between them. This
- * accepts our own hex-copy output and Wireshark's "copy as hex stream",
- * but not full hex dumps with offset/ASCII columns.
+ * Parse user-pasted packet bytes. Beyond the bare/spaced/colon/dash/`0x` hex
+ * that our own hex-copy button and Wireshark's "copy as hex stream" produce,
+ * this also recognises the shapes people actually have on the clipboard:
+ *
+ * - Offset-column hex dumps — `xxd`, `tcpdump -X`, `hexdump -C`, `od -A x
+ *   -t x1` — with their leading offset and trailing ASCII gutter ignored.
+ * - C / C-array byte literals such as `{ 0x08, 0x00, 0x27, 0xab }`.
+ * - Base64, when the input is unambiguously base64 rather than hex.
+ *
+ * Detection is conservative: anything that reads cleanly as hex is treated as
+ * hex, and anything that can't be reduced to bytes raises `HexInputError`.
  */
 export function parseHexInput(text: string): Uint8Array {
-  const cleaned = text.replace(/0x/gi, '').replace(/[\s:,.-]+/g, '');
+  if (text.trim() === '') throw new HexInputError('no hex digits found');
+
+  // The plain-hex reading: strip `0x` prefixes and common separators. If what
+  // remains is whole, valid hex, the input is unambiguously hex — this covers
+  // bare/spaced/colon/dash/comma hex and takes precedence over base64.
+  const simpleHex = text.replace(/0x/gi, '').replace(/[\s:,.-]+/g, '');
+  const cleanSimple = simpleHex.length > 0 && simpleHex.length % 2 === 0 && /^[0-9a-f]+$/i.test(simpleHex);
+
+  // Base64 only when it can't be read as clean hex, so hex-shaped input (e.g.
+  // "deadbeef", also valid base64) resolves to hex.
+  if (!cleanSimple) {
+    const bytes = tryBase64(text);
+    if (bytes) return bytes;
+  }
+
+  const lines = text.split(/\r?\n/);
+  let hex: string;
+  if (looksLikeDump(lines)) hex = lines.map(hexFromDumpLine).join('');
+  else if (isCArray(text)) hex = extractCArrayHex(text);
+  else hex = simpleHex;
+
+  return hexStringToBytes(hex);
+}
+
+/** Validate a bare hex-digit string and pack it into bytes. */
+function hexStringToBytes(cleaned: string): Uint8Array {
   if (cleaned.length === 0) throw new HexInputError('no hex digits found');
   const bad = cleaned.match(/[^0-9a-fA-F]/);
   if (bad) {
     throw new HexInputError(
-      `"${bad[0]}" is not a hex digit — paste plain hex, optionally separated by spaces or colons`,
+      `"${bad[0]}" is not a hex digit — paste hex bytes, a hex dump (xxd, tcpdump -X, od), a C byte array, or base64`,
     );
   }
   if (cleaned.length % 2 !== 0) {
@@ -60,6 +92,82 @@ export function parseHexInput(text: string): Uint8Array {
     out[i] = parseInt(cleaned.slice(i * 2, i * 2 + 2), 16);
   }
   return out;
+}
+
+/**
+ * True when the lines look like an offset-column hex dump. A colon offset
+ * (`xxd`, `tcpdump -X`) or a `|…|` ASCII gutter (`hexdump -C`) is decisive on
+ * its own. The delimiter-less `od -A x -t x1` shape (offset column, then
+ * single-byte groups) is only accepted when every line is either an `od` data
+ * row or a bare offset marker and there are at least two, so a lone oddly
+ * spaced line of plain hex isn't mistaken for it.
+ */
+function looksLikeDump(lines: string[]): boolean {
+  const nonBlank = lines.filter((l) => l.trim() !== '');
+  if (nonBlank.length === 0) return false;
+  const colonOrGutter = nonBlank.filter(
+    (l) => /^\s*(?:0x)?[0-9a-f]+:\s/i.test(l) || /\|[^|]*\|\s*$/.test(l),
+  ).length;
+  if (colonOrGutter >= 1 && colonOrGutter >= Math.ceil(nonBlank.length / 2)) return true;
+  const odData = nonBlank.filter((l) => /^\s*[0-9a-f]{6,}(\s+[0-9a-f]{1,2})+\s*$/i.test(l)).length;
+  const bareOffset = nonBlank.filter((l) => /^\s*[0-9a-f]{6,}\s*$/i.test(l)).length;
+  return odData >= 1 && odData + bareOffset === nonBlank.length && nonBlank.length >= 2;
+}
+
+/** Extract the hex-digit content of one hex-dump line (offset and gutter dropped). */
+function hexFromDumpLine(line: string): string {
+  if (line.trim() === '') return '';
+  // A line that is nothing but a hex run is a bare offset marker (e.g. the
+  // final total `od` prints); it carries no bytes.
+  if (/^\s*(?:0x)?[0-9a-f]+\s*$/i.test(line)) return '';
+  let s = line;
+  // `hexdump -C` / BSD `|…|` ASCII gutter.
+  s = s.replace(/\|[^|]*\|?\s*$/, '');
+  // Leading offset column: a hex run ending in `:` (xxd, tcpdump -X)…
+  s = s.replace(/^\s*(?:0x)?[0-9a-f]+:\s*/i, '');
+  // …or a long hex run followed by whitespace and a hex byte (od, hexdump).
+  s = s.replace(/^\s*[0-9a-f]{6,}\s+(?=[0-9a-f]{1,2}(?:\s|$))/i, '');
+  // Delimiter-less trailing ASCII gutter (xxd, tcpdump -X): hex byte groups are
+  // single-spaced and the gutter follows a wider gap. Cut at the first 2+ space
+  // run only when the tail holds a non-hex character, so hexdump -C's two hex
+  // columns (also 2-space separated) are kept.
+  const gutter = s.match(/^(.*?)\s{2,}(\S.*)$/);
+  if (gutter && /[^0-9a-f\s]/i.test(gutter[2]!)) s = gutter[1]!;
+  return s.replace(/[^0-9a-f]/gi, '');
+}
+
+/** True when the input carries `0x` byte tokens amid C punctuation/identifiers. */
+function isCArray(text: string): boolean {
+  return /0x[0-9a-f]/i.test(text) && (/[{}[\];=]/.test(text) || /[g-wyzG-WYZ]/.test(text));
+}
+
+/** Concatenate the `0x`-prefixed single-byte tokens of a C array. */
+function extractCArrayHex(text: string): string {
+  const tokens = text.match(/0x[0-9a-f]{1,2}\b/gi) ?? [];
+  return tokens.map((t) => t.slice(2).padStart(2, '0')).join('');
+}
+
+/**
+ * Decode `text` as base64, or return null when it is not unambiguously base64.
+ * Requires the whole (whitespace-stripped) input to be a padded base64 word
+ * that contains a base64-only character — a letter beyond `a–f`, `+`, `/`,
+ * `=`, or `_` — so plain hex is never misread.
+ */
+function tryBase64(text: string): Uint8Array | null {
+  const s = text.replace(/\s+/g, '');
+  if (s.length < 4 || s.length % 4 !== 0) return null;
+  const standard = /^[A-Za-z0-9+/]+={0,2}$/.test(s);
+  const urlSafe = /^[A-Za-z0-9\-_]+={0,2}$/.test(s);
+  if (!standard && !urlSafe) return null;
+  if (!/[G-Zg-z+/=_]/.test(s)) return null;
+  try {
+    const bin = atob(s.replace(/-/g, '+').replace(/_/g, '/'));
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  } catch {
+    return null;
+  }
 }
 
 export interface DecodedLayer {

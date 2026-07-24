@@ -45,6 +45,54 @@ describe('parseHexInput', () => {
     expect(() => parseHexInput('08002')).toThrow(/odd number/);
     expect(() => parseHexInput('08 00 zz')).toThrow(/"z" is not a hex digit/);
   });
+
+  it('keeps multi-line plain hex without offsets as data', () => {
+    expect(parseHexInput('0800 27ab\n0000 0000')).toEqual(
+      new Uint8Array([0x08, 0x00, 0x27, 0xab, 0x00, 0x00, 0x00, 0x00]),
+    );
+  });
+
+  // 16-byte reference used across the hex-dump format tests. Its ASCII gutter
+  // includes non-hex characters, exercising the gutter-stripping logic.
+  const want16 = new Uint8Array([
+    0x08, 0x00, 0x27, 0xab, 0x00, 0x00, 0x00, 0x00, 0x45, 0x00, 0x00, 0x34, 0x1c, 0x46, 0x40, 0x00,
+  ]);
+
+  it('parses an xxd dump (colon offset, trailing ASCII gutter)', () => {
+    const xxd = "00000000: 0800 27ab 0000 0000 4500 0034 1c46 4000  ..'.....E..4.@.";
+    expect(parseHexInput(xxd)).toEqual(want16);
+  });
+
+  it('parses a tcpdump -X dump (0x offset, trailing gutter)', () => {
+    const tcpdump = "\t0x0000:  0800 27ab 0000 0000 4500 0034 1c46 4000  ..'.....E..4.@.";
+    expect(parseHexInput(tcpdump)).toEqual(want16);
+  });
+
+  it("parses a hexdump -C dump (two hex columns, |...| gutter)", () => {
+    const hexdump =
+      "00000000  08 00 27 ab 00 00 00 00  45 00 00 34 1c 46 40 00  |..'.....E..4.@.|";
+    expect(parseHexInput(hexdump)).toEqual(want16);
+  });
+
+  it('parses an od -A x -t x1 dump with a trailing offset line', () => {
+    const od = '0000000 08 00 27 ab 00 00 00 00 45 00 00 34 1c 46 40 00\n0000020';
+    expect(parseHexInput(od)).toEqual(want16);
+  });
+
+  it('parses C byte-array literals, ignoring braces and identifiers', () => {
+    const want = new Uint8Array([0x08, 0x00, 0x27, 0xab]);
+    expect(parseHexInput('uint8_t pkt[] = { 0x08, 0x00, 0x27, 0xab };')).toEqual(want);
+    expect(parseHexInput('{0x08,0x00,0x27,0xab}')).toEqual(want);
+    // Short 0x tokens are zero-padded to a full byte.
+    expect(parseHexInput('{ 0x8, 0x0, 0x27, 0xab }')).toEqual(want);
+  });
+
+  it('decodes unambiguous base64, but reads hex-shaped input as hex', () => {
+    const b64 = btoa(String.fromCharCode(...want16));
+    expect(parseHexInput(b64)).toEqual(want16);
+    // "deadbeef" is valid base64 and valid hex; the ambiguous case is hex.
+    expect(parseHexInput('deadbeef')).toEqual(new Uint8Array([0xde, 0xad, 0xbe, 0xef]));
+  });
 });
 
 describe('decodeStackBytes', () => {

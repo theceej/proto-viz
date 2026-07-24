@@ -94,9 +94,10 @@ export default function DecodeDialog({
             />
           </label>
           <p className="-mt-2 text-[11px] leading-relaxed text-zinc-500">
-            Plain hex digits — spaces, colons, or 0x prefixes are fine. The hex
-            view's copy button and Wireshark's “copy as hex stream” both produce
-            this format.
+            Plain hex digits — spaces, colons, or 0x prefixes are fine — plus
+            hex dumps (xxd, tcpdump -X, hexdump -C, od), C byte arrays, and
+            base64. The hex view's copy button and Wireshark's “copy as hex
+            stream” both produce plain hex.
           </p>
 
           <label className="block">
