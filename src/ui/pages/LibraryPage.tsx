@@ -31,6 +31,10 @@ import {
   type LibrarySearchResult,
   type LibrarySearchResultKind,
 } from '../../core/librarySearch';
+import {
+  PaneResizeHandle,
+  usePersistedPaneWidth,
+} from '../components/ResizablePanes';
 
 const LAYER_ORDER: LayerHint[] = ['link', 'network', 'transport', 'application', 'tunnel'];
 const LAYER_LABEL: Record<LayerHint, string> = {
@@ -49,6 +53,7 @@ export default function LibraryPage() {
   const [osiOpen, setOsiOpen] = usePersistedFlag('pv-osi-panel', false);
   // false = grouped by layer (each group A–Z); true = one flat A–Z list.
   const [nameSort, setNameSort] = usePersistedFlag('pv-library-name-sort', false);
+  const [detailWidth, setDetailWidth] = usePersistedPaneWidth('pv-library-detail-width');
   const addLayer = useStackStore((s) => s.addLayer);
   const { protocolId } = useParams();
   const [searchParams] = useSearchParams();
@@ -255,11 +260,21 @@ export default function LibraryPage() {
         </div>
       </div>
       {selected && (
-        <DetailPanel
-          def={selected}
-          focusedFieldId={focusedFieldId}
-          onClose={() => navigate('/library')}
-        />
+        <>
+          <PaneResizeHandle
+            className="hidden md:block"
+            label="Resize protocol list and protocol details"
+            reverse
+            value={detailWidth}
+            onChange={setDetailWidth}
+          />
+          <DetailPanel
+            def={selected}
+            focusedFieldId={focusedFieldId}
+            width={detailWidth}
+            onClose={() => navigate('/library')}
+          />
+        </>
       )}
     </div>
   );
@@ -397,10 +412,12 @@ function ProtocolTile({
 function DetailPanel({
   def,
   focusedFieldId,
+  width,
   onClose,
 }: {
   def: ProtocolDefinition;
   focusedFieldId?: string;
+  width: number | null;
   onClose: () => void;
 }) {
   const registry = useLibraryStore((s) => s.registry);
@@ -433,7 +450,15 @@ function DetailPanel({
   const color = layerColor(0);
 
   return (
-    <aside className="flex w-full shrink-0 flex-col overflow-auto border-l border-zinc-800 bg-zinc-900/30 md:w-[30rem]">
+    <aside
+      aria-label={`${def.name} protocol details`}
+      className="flex w-full shrink-0 flex-col overflow-auto border-l border-zinc-800 bg-zinc-900/30 md:w-[var(--library-detail-width)] md:max-w-[calc(100vw-18rem)]"
+      style={
+        {
+          '--library-detail-width': width === null ? '30rem' : `${width}px`,
+        } as React.CSSProperties
+      }
+    >
       <header className="sticky top-0 flex items-start gap-2 border-b border-zinc-800 bg-zinc-950/90 px-5 py-3 backdrop-blur">
         <div>
           <h2 className="text-[15px] font-semibold text-zinc-100">{def.name}</h2>

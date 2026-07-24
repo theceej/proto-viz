@@ -73,3 +73,28 @@ test('searches fields and assignments and focuses field results', async ({ page 
     page.getByRole('button', { name: 'RFC 8200 Reference IPv6 reference', exact: true }),
   ).toBeVisible();
 });
+
+test('resizes the protocol detail panel with the keyboard and persists it', async ({
+  page,
+}) => {
+  await page.goto('/#/library/ipv4');
+  const panel = page.getByRole('complementary', { name: 'IPv4 protocol details' });
+  const handle = page.getByRole('separator', {
+    name: 'Resize protocol list and protocol details',
+  });
+  const before = await panel.evaluate((element) => element.getBoundingClientRect().width);
+
+  await handle.focus();
+  await page.keyboard.press('ArrowLeft');
+  await expect
+    .poll(() => panel.evaluate((element) => element.getBoundingClientRect().width))
+    .toBe(Math.round(before) + 24);
+
+  await page.reload();
+  await expect(panel).toHaveCSS('width', `${Math.round(before) + 24}px`);
+
+  await handle.focus();
+  await page.keyboard.press('Home');
+  await expect(handle).toHaveAttribute('aria-valuetext', 'Responsive default');
+  await expect(panel).toHaveCSS('width', '480px');
+});

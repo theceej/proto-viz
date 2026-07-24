@@ -240,16 +240,18 @@ export function usePersistedPaneWidth(
   ];
 }
 
-function PaneResizeHandle({
+export function PaneResizeHandle({
   label,
   reverse = false,
   value,
   onChange,
+  className = '',
 }: {
   label: string;
   reverse?: boolean;
   value: number | null;
   onChange: (width: number | null) => void;
+  className?: string;
 }) {
   const drag = useRef<[number, number] | null>(null);
   const adjacentWidth = (handle: HTMLElement) => {
@@ -269,7 +271,7 @@ function PaneResizeHandle({
       aria-valuenow={value ?? 480}
       aria-valuetext={value === null ? 'Responsive default' : `${value} pixels`}
       tabIndex={0}
-      className="group relative z-10 w-2 shrink-0 cursor-col-resize touch-none bg-zinc-950 focus-visible:outline-2 focus-visible:outline-cyan-400"
+      className={`group relative z-10 w-2 shrink-0 cursor-col-resize touch-none bg-zinc-950 focus-visible:outline-2 focus-visible:outline-cyan-400 ${className}`}
       onPointerDown={(event) => {
         event.currentTarget.setPointerCapture(event.pointerId);
         drag.current = [event.clientX, adjacentWidth(event.currentTarget)];
