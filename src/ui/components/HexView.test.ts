@@ -313,3 +313,90 @@ describe('HexView keyboard access', () => {
     expect(results.violations).toEqual([]);
   });
 });
+
+describe('HexView byte editing', () => {
+  let container: HTMLDivElement;
+  let root: Root;
+  let onByteEdit: ReturnType<typeof vi.fn<(byteOffset: number, value: number) => void>>;
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.append(container);
+    root = createRoot(container);
+    onByteEdit = vi.fn<(byteOffset: number, value: number) => void>();
+    useHighlightStore.setState({ hovered: null, locked: null });
+    act(() => root.render(createElement(HexView, { packet, registry, onByteEdit })));
+  });
+
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  const byte = (offset: number) =>
+    container.querySelector<HTMLElement>(`[data-byte-offset="${offset}"]`)!;
+  const key = (element: HTMLElement, value: string) =>
+    act(() => element.dispatchEvent(new KeyboardEvent('keydown', { key: value, bubbles: true })));
+
+  it('commits a byte after two hex digits and shows the pending nibble', () => {
+    act(() => byte(3).focus());
+    key(byte(3), '4');
+    expect(onByteEdit).not.toHaveBeenCalled();
+    expect(byte(3).textContent?.trim()).toBe('4');
+    key(byte(3), 'e');
+    expect(onByteEdit).toHaveBeenCalledWith(3, 0x4e);
+  });
+
+  it('advertises editability in the accessible name', () => {
+    expect(byte(3).getAttribute('aria-label')).toContain('Type two hex digits to edit');
+    act(() => byte(3).focus());
+    key(byte(3), '4');
+    expect(byte(3).getAttribute('aria-label')).toContain('Editing byte offset 3');
+  });
+
+  it('cancels a pending edit on Escape and commits a single nibble on Enter', () => {
+    act(() => byte(5).focus());
+    key(byte(5), 'a');
+    key(byte(5), 'Escape');
+    expect(onByteEdit).not.toHaveBeenCalled();
+    expect(byte(5).textContent?.trim()).toBe('05');
+
+    key(byte(5), 'a');
+    key(byte(5), 'Enter');
+    expect(onByteEdit).toHaveBeenCalledWith(5, 0x0a);
+  });
+
+  it('rejects delete/backspace and non-hex keys without corrupting the buffer', () => {
+    act(() => byte(2).focus());
+    key(byte(2), '3');
+    key(byte(2), 'z'); // non-hex: ignored, pending nibble preserved
+    expect(byte(2).textContent?.trim()).toBe('3');
+    expect(onByteEdit).not.toHaveBeenCalled();
+    key(byte(2), 'Backspace'); // length-changing: rejected, edit cleared
+    expect(onByteEdit).not.toHaveBeenCalled();
+    expect(byte(2).textContent?.trim()).toBe('02');
+  });
+
+  it('abandons a pending edit when arrows move focus', () => {
+    act(() => byte(4).focus());
+    key(byte(4), 'c');
+    expect(byte(4).textContent?.trim()).toBe('c');
+    key(byte(4), 'ArrowRight');
+    expect(document.activeElement).toBe(byte(5));
+    expect(byte(4).textContent?.trim()).toBe('04');
+    expect(onByteEdit).not.toHaveBeenCalled();
+  });
+
+  it('still toggles the lock with Enter when not mid-edit', () => {
+    act(() => byte(3).focus());
+    key(byte(3), 'Enter');
+    expect(useHighlightStore.getState().locked).toEqual({ layerUid: 'ipv4-1', fieldId: 'header' });
+  });
+
+  it('has no automated WCAG A/AA violations while editable', async () => {
+    const results = await axe.run(container, {
+      runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'] },
+    });
+    expect(results.violations).toEqual([]);
+  });
+});

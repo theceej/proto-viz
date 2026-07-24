@@ -9,6 +9,8 @@ html {
   color-scheme: dark;
   /* ink for text sitting on highlighted (accent-filled) hex bytes */
   --hex-active-ink: #ffffff;
+  /* fill for the hex byte currently being typed over */
+  --hex-editing: #0e7490;
 
   /*
    * WCAG 1.4.3/1.4.11: brighten the dim end of the zinc ramp so secondary
@@ -28,6 +30,7 @@ html {
 html.light {
   color-scheme: light;
   --hex-active-ink: #18181b;
+  --hex-editing: #a5f3fc;
 
   --color-zinc-950: #f7f7f8;
   --color-zinc-900: #efeff1;

@@ -130,6 +130,24 @@ test('round-trips field edits through the exact-packet share link', async ({ pag
   await expect(freshPage.locator('[data-byte-offset="6"]')).toHaveText('aa');
 });
 
+test('edits a byte in the hex view and reflects it across views', async ({ page }) => {
+  await loadTcpPreset(page);
+  // Byte 22 is the IPv4 TTL (default 64). Type 0x20 (= 32) over it.
+  const ttlByte = page.locator('[data-byte-offset="22"]');
+  await expect(ttlByte).toHaveText('40');
+  await ttlByte.focus();
+  await page.keyboard.press('2');
+  await page.keyboard.press('0');
+
+  await expect(ttlByte).toHaveText('20');
+  await expect(page.getByRole('textbox', { name: 'TTL', exact: true })).toHaveValue('32');
+
+  // The change is undoable like any other edit.
+  await page.keyboard.press('Control+z');
+  await expect(ttlByte).toHaveText('40');
+  await expect(page.getByRole('textbox', { name: 'TTL', exact: true })).toHaveValue('64');
+});
+
 test('exports a PCAP with the expected file header', async ({ page }) => {
   await loadTcpPreset(page);
   await page.getByRole('button', { name: 'Export PCAP' }).click();

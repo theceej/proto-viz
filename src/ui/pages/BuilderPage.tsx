@@ -14,6 +14,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useStackStore } from '../../store/stackStore';
 import { randomStack } from '../../core/random';
+import { applyByteEdit } from '../../core/editByte';
 import { decodeShare } from '../../core/share';
 import { decodePacketBlob } from '../../core/shareBlob';
 import type { ExperimentApplication } from '../../core/experiments';
@@ -116,6 +117,12 @@ export default function BuilderPage() {
   const rollRandomStack = () => {
     const random = randomStack(registry);
     replaceLayers(random.layers, random.trailingPayload);
+  };
+
+  const editByte = (byteOffset: number, value: number) => {
+    if (!packet) return;
+    const result = applyByteEdit(stack, packet, registry, byteOffset, value);
+    if (result) replaceLayers(result.layers, result.trailingPayload);
   };
 
   return (
@@ -302,6 +309,7 @@ export default function BuilderPage() {
               validation={validation}
               inspectionMode={inspectionMode}
               onInspectionModeChange={setInspectionMode}
+              onByteEdit={editByte}
             />
           ),
         }}
