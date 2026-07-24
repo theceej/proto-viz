@@ -11,6 +11,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Sun,
+  Waypoints,
 } from 'lucide-react';
 import BuilderPage from './pages/BuilderPage';
 import { useLibraryStore } from '../store/libraryStore';
@@ -23,6 +24,7 @@ import BuilderTour from './components/BuilderTour';
 const ScenarioPage = lazy(() => import('./pages/ScenarioPage'));
 const ComparePage = lazy(() => import('./pages/ComparePage'));
 const LibraryPage = lazy(() => import('./pages/LibraryPage'));
+const EncapsulationMapPage = lazy(() => import('./pages/EncapsulationMapPage'));
 const ImportWizard = lazy(() => import('./pages/ImportWizard'));
 const HelpPage = lazy(() => import('./pages/HelpPage'));
 
@@ -35,6 +37,7 @@ const NAV = [
   { to: '/scenario', label: 'Scenario Timeline', icon: Clapperboard },
   { to: '/compare', label: 'Packet Comparison', icon: Columns2 },
   { to: '/library', label: 'Protocol Library', icon: Library },
+  { to: '/map', label: 'Encapsulation Map', icon: Waypoints },
   { to: '/import', label: 'Import Spec', icon: FileUp },
   { to: '/help', label: 'Help', icon: CircleHelp },
 ];
@@ -224,6 +227,14 @@ export default function App() {
               element={
                 <Suspense fallback={null}>
                   <LibraryPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/map"
+              element={
+                <Suspense fallback={null}>
+                  <EncapsulationMapPage />
                 </Suspense>
               }
             />
