@@ -39,6 +39,7 @@ describe('HexView keyboard access', () => {
   beforeEach(() => {
     localStorage.removeItem('pv-hex-column');
     localStorage.removeItem('pv-hex-ascii');
+    localStorage.removeItem('pv-hex-edit');
     container = document.createElement('div');
     document.body.append(container);
     root = createRoot(container);
@@ -306,6 +307,16 @@ describe('HexView keyboard access', () => {
     expect(spanByteRange({ bitOffset: 4, bitLength: 8 })).toEqual({ start: 0, end: 1 });
   });
 
+  it('shows no Edit toggle and does not edit when editing is not wired', () => {
+    expect([...container.querySelectorAll('button')].some((b) => b.textContent?.trim() === 'Edit')).toBe(
+      false,
+    );
+    act(() => byte(3).focus());
+    key(byte(3), '4');
+    expect(byte(3).textContent?.trim()).toBe('03'); // unchanged — no editor
+    expect(byte(3).className).toContain('cursor-pointer');
+  });
+
   it('has no automated WCAG A/AA violations', async () => {
     const results = await axe.run(container, {
       runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'] },
@@ -319,24 +330,51 @@ describe('HexView byte editing', () => {
   let root: Root;
   let onByteEdit: ReturnType<typeof vi.fn<(byteOffset: number, value: number) => void>>;
 
+  const editToggle = () =>
+    [...container.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Edit')!;
+
   beforeEach(() => {
+    localStorage.removeItem('pv-hex-edit');
     container = document.createElement('div');
     document.body.append(container);
     root = createRoot(container);
     onByteEdit = vi.fn<(byteOffset: number, value: number) => void>();
     useHighlightStore.setState({ hovered: null, locked: null });
     act(() => root.render(createElement(HexView, { packet, registry, onByteEdit })));
+    // These tests exercise editing, so start in Edit mode.
+    act(() => editToggle().click());
   });
 
   afterEach(() => {
     act(() => root.unmount());
     container.remove();
+    localStorage.removeItem('pv-hex-edit');
   });
 
   const byte = (offset: number) =>
     container.querySelector<HTMLElement>(`[data-byte-offset="${offset}"]`)!;
   const key = (element: HTMLElement, value: string) =>
     act(() => element.dispatchEvent(new KeyboardEvent('keydown', { key: value, bubbles: true })));
+
+  it('only edits once Edit mode is enabled, and shows an I-beam cursor', () => {
+    // Turn Edit mode back off: typing should no longer edit, and click locks.
+    act(() => editToggle().click());
+    expect(editToggle().getAttribute('aria-pressed')).toBe('false');
+    expect(byte(3).className).toContain('cursor-pointer');
+    act(() => byte(3).focus());
+    key(byte(3), '4');
+    key(byte(3), 'e');
+    expect(onByteEdit).not.toHaveBeenCalled();
+    act(() => byte(3).click());
+    expect(useHighlightStore.getState().locked?.fieldId).toBe('header');
+
+    // Re-enable: the cursor signals editability and a click no longer locks.
+    useHighlightStore.setState({ locked: null });
+    act(() => editToggle().click());
+    expect(byte(3).className).toContain('cursor-text');
+    act(() => byte(3).click());
+    expect(useHighlightStore.getState().locked).toBeNull();
+  });
 
   it('commits a byte after two hex digits and shows the pending nibble', () => {
     act(() => byte(3).focus());
@@ -387,10 +425,10 @@ describe('HexView byte editing', () => {
     expect(onByteEdit).not.toHaveBeenCalled();
   });
 
-  it('still toggles the lock with Enter when not mid-edit', () => {
+  it('reserves Enter for edits in Edit mode (no lock toggle)', () => {
     act(() => byte(3).focus());
     key(byte(3), 'Enter');
-    expect(useHighlightStore.getState().locked).toEqual({ layerUid: 'ipv4-1', fieldId: 'header' });
+    expect(useHighlightStore.getState().locked).toBeNull();
   });
 
   it('has no automated WCAG A/AA violations while editable', async () => {
