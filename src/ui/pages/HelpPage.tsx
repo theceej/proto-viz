@@ -69,6 +69,14 @@ export default function HelpPage({ onStartTour }: { onStartTour: () => void }) {
           diagnostic to look for. Each is one pinned field; <Ui>Undo</Ui> restores
           the exact previous packet.
         </p>
+        <p>
+          Semantic warnings catch values that can be encoded but are probably
+          unintended, including zero hop limits, reserved bits, contradictory TCP
+          flags, and suspicious source addresses. They never block export or sharing.
+          Choose <Ui>Inspect field</Ui> beside a warning to lock the relevant field in
+          the editor, diagram, and hex views; Explain and Deep inspection include the
+          warning and its specification citation.
+        </p>
       </Section>
 
       <Section title="Saving and sharing">

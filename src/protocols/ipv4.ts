@@ -133,6 +133,12 @@ export const ipv4: ProtocolDefinition = {
       description: 'Common options have a structured editor and are padded automatically; unknown options remain editable as raw hex.',
     },
   ],
+  lintRules: [
+    { kind: 'value', fieldId: 'version', operator: 'notEquals', value: 4, severity: 'warning', code: 'ipv4-version', message: 'IPv4 Version should be 4.', reference: 'RFC 791 §3.1' },
+    { kind: 'value', fieldId: 'ttl', operator: 'equals', value: 0, severity: 'warning', code: 'ipv4-ttl-zero', message: 'A TTL of 0 cannot be forwarded beyond the current host.', reference: 'RFC 791 §3.2.1.7' },
+    { kind: 'bitsClear', fieldId: 'flags', mask: 0b100, severity: 'warning', code: 'ipv4-reserved-flag', message: 'The IPv4 reserved flag (sometimes called the evil bit) should be zero.', reference: 'RFC 791 §3.1' },
+    { kind: 'sourceAddress', fieldId: 'src', family: 'ipv4', severity: 'warning', code: 'ipv4-suspicious-source', message: 'This IPv4 source address is multicast, broadcast, or loopback across a link.', reference: 'RFC 1122 §3.2.1.3' },
+  ],
   providesNamespaces: [
     { id: NS.ipProto, displayName: 'IP Protocol', selectorFieldId: 'protocol' },
   ],

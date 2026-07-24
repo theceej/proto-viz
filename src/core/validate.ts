@@ -6,7 +6,8 @@
 import type { ProtocolDefinition, StackInstance } from './model';
 import type { Registry } from './registry';
 import type { SerializedPacket } from './serialize';
-import { carriersOf, resolveBinding } from './bindings';
+import { carriersOf, NS, resolveBinding } from './bindings';
+import { lintPacket } from './semanticLint';
 
 const STANDARD_ETHERNET_MTU = 1500;
 const ETHERNET_PROTOCOL_IDS = new Set(['ethernet', 'ethernet-8023']);
@@ -25,7 +26,7 @@ const IPV6_EXT_HEADERS: Record<string, { rank: number; maxCount: number }> = {
   'ipv6-frag': { rank: 3, maxCount: 1 },
 };
 
-export type Severity = 'error' | 'warning' | 'info';
+export type Severity = 'error' | 'warning' | 'advisory' | 'info';
 
 export interface ValidationIssue {
   severity: Severity;
@@ -34,6 +35,10 @@ export interface ValidationIssue {
   code: string;
   message: string;
   suggestion?: string;
+  /** Field anchor used by semantic lint and other field-specific diagnostics. */
+  fieldId?: string;
+  reference?: string;
+  source?: 'semantic';
 }
 
 export interface NextProtocolOption {
@@ -142,14 +147,21 @@ export function validateStack(
       if (outerInstance.pinned.includes(selectorId)) {
         const pinnedValue = outerInstance.overrides[selectorId];
         if (typeof pinnedValue === 'number' && pinnedValue !== binding.claim.value) {
-          issues.push({
-            severity: 'warning',
-            layerIndex: i,
-            code: 'pinned-selector-mismatch',
-            message: `${outer.name} ${binding.namespace.displayName} is pinned to ${fmtValue(
-              pinnedValue,
-            )} but the next layer (${inner.name}) implies ${fmtValue(binding.claim.value)}.`,
-          });
+          // Port/application mismatches belong to the advisory semantic linter,
+          // avoiding two diagnostics for the same field.
+          if (
+            binding.namespace.id !== NS.tcpDstPort &&
+            binding.namespace.id !== NS.udpDstPort
+          ) {
+            issues.push({
+              severity: 'warning',
+              layerIndex: i,
+              code: 'pinned-selector-mismatch',
+              message: `${outer.name} ${binding.namespace.displayName} is pinned to ${fmtValue(
+                pinnedValue,
+              )} but the next layer (${inner.name}) implies ${fmtValue(binding.claim.value)}.`,
+            });
+          }
         }
       }
     }
@@ -158,7 +170,10 @@ export function validateStack(
 
   addExtensionHeaderIssues(issues, defs as ProtocolDefinition[]);
 
-  if (packet) addMtuIssues(issues, stack, defs as ProtocolDefinition[], packet);
+  if (packet) {
+    addMtuIssues(issues, stack, defs as ProtocolDefinition[], packet);
+    issues.push(...lintPacket(stack, registry, packet));
+  }
 
   return issues;
 }

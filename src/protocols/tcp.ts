@@ -119,6 +119,13 @@ export const tcp: ProtocolDefinition = {
       description: 'TCP options. Common SYN options have a structured editor and are padded automatically to a 32-bit boundary; unknown options remain editable as raw hex.',
     },
   ],
+  lintRules: [
+    { kind: 'bitsClear', fieldId: 'reserved', mask: 0xf, severity: 'warning', code: 'tcp-reserved-bits', message: 'TCP reserved bits should be zero.', reference: 'RFC 9293 §3.1' },
+    { kind: 'incompatibleBits', fieldId: 'flags', leftMask: 0x02, rightMask: 0x01, severity: 'warning', code: 'tcp-syn-fin', message: 'TCP SYN and FIN are contradictory in the same segment.', reference: 'RFC 9293 §3.10.7.4' },
+    { kind: 'incompatibleBits', fieldId: 'flags', leftMask: 0x02, rightMask: 0x04, severity: 'warning', code: 'tcp-syn-rst', message: 'TCP SYN and RST are suspicious in the same segment.', reference: 'RFC 9293 §3.10.7.4' },
+    { kind: 'payloadBindingMismatch', fieldId: 'dstPort', severity: 'advisory', code: 'tcp-port-payload-mismatch', message: 'The TCP destination port does not match the carried application protocol assignment.', reference: 'IANA Service Name and Transport Protocol Port Number Registry' },
+    { kind: 'wellKnownPayload', fieldId: 'dstPort', severity: 'advisory', code: 'tcp-well-known-payload', message: 'This well-known TCP destination port usually carries a recognized application protocol, but no application layer follows.', reference: 'IANA Service Name and Transport Protocol Port Number Registry' },
+  ],
   providesNamespaces: [
     { id: NS.tcpDstPort, displayName: 'TCP port', selectorFieldId: 'dstPort' },
   ],

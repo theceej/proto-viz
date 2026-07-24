@@ -135,6 +135,16 @@ leave the encrypted remainder an opaque bytes field — see QUIC (long header)
 and WireGuard. Protocols that are almost entirely ciphertext (SSH transport)
 or ASN.1/BER (SNMP, LDAP) generally don't model well — ask in an issue first.
 
+Definitions may also opt into the advisory semantic linter with JSON-serializable
+`lintRules`. These flag values that are legal to encode but suspicious, without
+blocking serialization or export. Rule kinds cover exact values, must-be-zero
+bits, incompatible flag masks, source-address roles, context-dependent zero
+values, and a well-known-port-without-payload advisory. Every rule names its
+field, severity (`warning` or `advisory`), stable code, explanation, and optional
+spec reference. See IPv4, IPv6, TCP, and UDP for examples. Add positive and
+negative cases to `src/core/semanticLint.test.ts`; do not duplicate binding or
+layer-order checks already handled by `validateStack`.
+
 ### 3. Add references
 
 Protocol references live beside the built-in definitions under
