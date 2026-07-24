@@ -112,6 +112,34 @@ export default function FieldInspector({
         <dd className="break-all">{hexBytes(raw) || '—'}</dd>
         {provenance && <><dt className="text-zinc-600">Source</dt><dd>{provenance}</dd></>}
       </dl>}
+      {mode === 'deep' && span?.calculation && (
+        <details
+          open
+          className="mt-2 rounded border border-zinc-800 bg-zinc-950/60 px-2 py-1.5"
+        >
+          <summary className="cursor-pointer font-medium text-zinc-300">
+            Calculation trace
+          </summary>
+          <dl className="mt-1.5 grid grid-cols-[minmax(8rem,auto)_minmax(0,1fr)] gap-x-3 gap-y-1 font-mono">
+            {span.calculation.pinnedValue !== undefined && (
+              <>
+                <dt className="text-amber-300">Pinned wire value</dt>
+                <dd>{formatTraceValue(span.calculation.pinnedValue)}</dd>
+              </>
+            )}
+            <dt className="text-zinc-500">
+              {span.calculation.pinnedValue === undefined ? 'Result' : 'Calculated value'}
+            </dt>
+            <dd>{formatTraceValue(span.calculation.result)}</dd>
+            {span.calculation.steps.map((step, index) => (
+              <div key={`${step.label}-${index}`} className="contents">
+                <dt className="text-zinc-500">{step.label}</dt>
+                <dd className="break-all">{step.value}</dd>
+              </div>
+            ))}
+          </dl>
+        </details>
+      )}
       {mode !== 'compact' && (
         <p className="mt-1 leading-relaxed">
           {payload ? 'Opaque bytes carried after the innermost protocol header.' : field?.description || 'No field description is available.'}
@@ -142,6 +170,10 @@ export default function FieldInspector({
       )}
     </section>
   );
+}
+
+function formatTraceValue(value: number): string {
+  return `${value} (0x${value.toString(16)})`;
 }
 
 function expressionLabel(expr: Expr): string {

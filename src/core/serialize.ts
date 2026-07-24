@@ -20,7 +20,7 @@ import type { Registry } from './registry';
 import { evalExpr, referencesHeaderBytes, type ExprContext, ExprError } from './expr';
 import { setBits, setBytes, getBits } from './bitio';
 import { valueToBytes, valueToNumber, zeroValue, ValueError } from './values';
-import { inet16, crc32c } from './checksums';
+import { inet16Calculation, crc32c } from './checksums';
 import { NS, resolveBinding } from './bindings';
 
 export interface FieldSpan {
@@ -33,6 +33,21 @@ export interface FieldSpan {
   value: FieldValue;
   computed: boolean;
   pinned: boolean;
+  /** Serializer-produced explanation for supported computed fields. */
+  calculation?: CalculationTrace;
+}
+
+export interface CalculationStep {
+  label: string;
+  value: string;
+}
+
+export interface CalculationTrace {
+  kind: 'expression' | 'binding' | 'internet-checksum';
+  result: number;
+  /** Present when the encoded value overrides the calculated result. */
+  pinnedValue?: number;
+  steps: CalculationStep[];
 }
 
 export interface LayerLayout {
@@ -171,9 +186,16 @@ export function serializeStack(stack: StackInstance, registry: Registry): Serial
       if (!spec || spec.kind === 'checksum') continue;
       const span = layer.spans.get(rf.def.id)!;
       let computedValue: number | undefined;
+      let calculation: CalculationTrace | undefined;
       try {
         if (spec.kind === 'expr') {
-          computedValue = evalExpr(spec.expr, exprCtx(layer));
+          const traced = traceExpr(spec.expr, exprCtx(layer));
+          computedValue = traced.value;
+          calculation = {
+            kind: 'expression',
+            result: computedValue,
+            steps: traced.steps,
+          };
         } else {
           // binding
           const binding = next ? resolveBinding(layer.def, next.def) : null;
@@ -183,6 +205,18 @@ export function serializeStack(stack: StackInstance, registry: Registry): Serial
             binding.claim.value !== undefined
           ) {
             computedValue = binding.claim.value;
+            calculation = {
+              kind: 'binding',
+              result: computedValue,
+              steps: [
+                { label: 'Following protocol', value: next!.def.name },
+                { label: 'Selector namespace', value: binding.namespace.displayName },
+                {
+                  label: 'Encapsulation assignment',
+                  value: formatTraceNumber(computedValue),
+                },
+              ],
+            };
           }
         }
       } catch (e) {
@@ -195,6 +229,10 @@ export function serializeStack(stack: StackInstance, registry: Registry): Serial
 
       if (span.pinned) {
         const pinnedNum = valueToNumber(rf.def, span.value);
+        if (calculation) {
+          calculation.pinnedValue = pinnedNum;
+          span.calculation = calculation;
+        }
         if (computedValue !== undefined && computedValue !== pinnedNum) {
           issues.push({
             severity: 'warning',
@@ -209,6 +247,7 @@ export function serializeStack(stack: StackInstance, registry: Registry): Serial
         computedValue ?? (rf.def.default !== undefined ? valueToNumber(rf.def, rf.def.default) : 0);
       setBits(buf, span.bitOffset, span.bitLength, finalValue);
       span.value = finalValue;
+      span.calculation = calculation;
     }
   }
 
@@ -231,7 +270,9 @@ export function serializeStack(stack: StackInstance, registry: Registry): Serial
           if (pseudo) chunks.push(pseudo);
         }
         chunks.push(scopeBytes);
-        let sum = spec.algorithm === 'inet16' ? inet16(...chunks) : crc32c(...chunks);
+        const inetCalculation =
+          spec.algorithm === 'inet16' ? inet16Calculation(...chunks) : undefined;
+        let sum = inetCalculation?.checksum ?? crc32c(...chunks);
         if (spec.zeroSubstitute && sum === 0) sum = 0xffff;
         if (spec.littleEndian && span.bitLength === 32) {
           const b0 = sum & 0xff;
@@ -243,6 +284,16 @@ export function serializeStack(stack: StackInstance, registry: Registry): Serial
 
         if (span.pinned) {
           const pinnedNum = valueToNumber(rf.def, span.value);
+          if (inetCalculation) {
+            span.calculation = checksumTrace(
+              start,
+              end,
+              chunks[0] === scopeBytes ? undefined : chunks[0],
+              inetCalculation,
+              sum,
+              pinnedNum,
+            );
+          }
           setBits(buf, span.bitOffset, span.bitLength, pinnedNum);
           if (pinnedNum !== sum) {
             issues.push({
@@ -254,6 +305,15 @@ export function serializeStack(stack: StackInstance, registry: Registry): Serial
         } else {
           setBits(buf, span.bitOffset, span.bitLength, sum);
           span.value = sum;
+          if (inetCalculation) {
+            span.calculation = checksumTrace(
+              start,
+              end,
+              chunks[0] === scopeBytes ? undefined : chunks[0],
+              inetCalculation,
+              sum,
+            );
+          }
         }
       } catch (e) {
         issues.push({
@@ -277,6 +337,117 @@ export function serializeStack(stack: StackInstance, registry: Registry): Serial
     payloadOffset,
     issues,
   };
+}
+
+function formatTraceNumber(value: number): string {
+  return `${value} (0x${value.toString(16)})`;
+}
+
+function traceExpr(
+  expr: Parameters<typeof evalExpr>[0],
+  ctx: ExprContext,
+): { value: number; steps: CalculationStep[] } {
+  switch (expr.kind) {
+    case 'const':
+      return { value: expr.value, steps: [{ label: 'Constant', value: String(expr.value) }] };
+    case 'field': {
+      const value = ctx.getField(expr.fieldId);
+      return { value, steps: [{ label: `Field ${expr.fieldId}`, value: String(value) }] };
+    }
+    case 'payloadBytes':
+      return {
+        value: ctx.payloadBytes,
+        steps: [{ label: 'Payload length', value: `${ctx.payloadBytes} bytes` }],
+      };
+    case 'headerBytes':
+      return {
+        value: ctx.headerBytes,
+        steps: [{ label: 'Header length', value: `${ctx.headerBytes} bytes` }],
+      };
+    case 'binop': {
+      const left = traceExpr(expr.left, ctx);
+      const right = traceExpr(expr.right, ctx);
+      const value = evalExpr(expr, ctx);
+      const symbol = expr.op === 'div' ? '÷' : expr.op;
+      return {
+        value,
+        steps: [
+          ...left.steps,
+          ...right.steps,
+          {
+            label: 'Arithmetic',
+            value: `${left.value} ${symbol} ${right.value} = ${value}`,
+          },
+        ],
+      };
+    }
+  }
+}
+
+function checksumTrace(
+  start: number,
+  end: number,
+  pseudoHeader: Uint8Array | undefined,
+  calculation: ReturnType<typeof inet16Calculation>,
+  result: number,
+  pinnedValue?: number,
+): CalculationTrace {
+  const steps: CalculationStep[] = [
+    {
+      label: 'Covered bytes',
+      value: `${start}–${end - 1} (${end - start} bytes; checksum field zeroed)`,
+    },
+  ];
+  if (pseudoHeader) {
+    steps.push({
+      label: 'Pseudo-header',
+      value: `${pseudoHeader.length} bytes: ${[...pseudoHeader]
+        .map((byte) => byte.toString(16).padStart(2, '0'))
+        .join(' ')}`,
+    });
+    const addressBytes = pseudoHeader.length === 12 ? 4 : 16;
+    const source = pseudoHeader.slice(0, addressBytes);
+    const destination = pseudoHeader.slice(addressBytes, addressBytes * 2);
+    const protocolOffset = pseudoHeader.length === 12 ? 9 : 39;
+    const lengthOffset = pseudoHeader.length === 12 ? 10 : 32;
+    const upperLayerLength =
+      pseudoHeader.length === 12
+        ? (pseudoHeader[lengthOffset]! << 8) | pseudoHeader[lengthOffset + 1]!
+        : new DataView(
+            pseudoHeader.buffer,
+            pseudoHeader.byteOffset + lengthOffset,
+            4,
+          ).getUint32(0);
+    const formatAddress = (bytes: Uint8Array) =>
+      [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join(' ');
+    steps.push(
+      { label: 'Source address input', value: formatAddress(source) },
+      { label: 'Destination address input', value: formatAddress(destination) },
+      {
+        label: pseudoHeader.length === 12 ? 'Protocol input' : 'Next Header input',
+        value: formatTraceNumber(pseudoHeader[protocolOffset]!),
+      },
+      { label: 'Upper-layer length input', value: `${upperLayerLength} bytes` },
+    );
+  }
+  steps.push(
+    {
+      label: '16-bit word sum',
+      value: `${calculation.wordCount} words → 0x${calculation.wordSum.toString(16)}`,
+    },
+    {
+      label: 'End-around carry folding',
+      value: `0x${calculation.foldedSum.toString(16).padStart(4, '0')}`,
+    },
+    {
+      label: "One's complement",
+      value: `0x${calculation.checksum.toString(16).padStart(4, '0')}`,
+    },
+  );
+  if (result !== calculation.checksum) {
+    steps.push({ label: 'Wire substitution', value: formatTraceNumber(result) });
+  }
+  return { kind: 'internet-checksum', result, pinnedValue, steps };
 }
 
 /** Resolve field presence, lengths, and pre-compute values for one layer. */

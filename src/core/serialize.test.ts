@@ -54,7 +54,8 @@ describe('serializeStack', () => {
 
   it('IPv4 header checksum verifies to 0xffff with checksum in place', () => {
     const s = stack(['ethernet', 'ipv4', 'icmp']);
-    const { bytes } = serializeStack(s, registry);
+    const result = serializeStack(s, registry);
+    const { bytes } = result;
     const ipHeader = bytes.slice(14, 34);
     expect(refOnesComplementSum(ipHeader)).toBe(0xffff);
   });
@@ -79,15 +80,59 @@ describe('serializeStack', () => {
       10,
     ]);
     expect(refOnesComplementSum(pseudo, bytes.slice(udpStart))).toBe(0xffff);
+
+    const lengthTrace = result.spans.find(
+      (span) => span.layerUid === s.layers[2]!.uid && span.fieldId === 'length',
+    )!.calculation!;
+    expect(lengthTrace.kind).toBe('expression');
+    expect(lengthTrace.result).toBe(10);
+    expect(lengthTrace.steps).toEqual(
+      expect.arrayContaining([
+        { label: 'Header length', value: '8 bytes' },
+        { label: 'Payload length', value: '2 bytes' },
+        { label: 'Arithmetic', value: '8 + 2 = 10' },
+      ]),
+    );
+
+    const checksumTrace = result.spans.find(
+      (span) => span.layerUid === s.layers[2]!.uid && span.fieldId === 'checksum',
+    )!.calculation!;
+    expect(checksumTrace.kind).toBe('internet-checksum');
+    expect(checksumTrace.result).toBe(
+      (bytes[udpStart + 6]! << 8) | bytes[udpStart + 7]!,
+    );
+    expect(checksumTrace.steps.find((step) => step.label === 'Pseudo-header')?.value).toContain(
+      '12 bytes',
+    );
+    expect(checksumTrace.steps.map((step) => step.label)).toEqual(
+      expect.arrayContaining([
+        'Covered bytes',
+        'Source address input',
+        'Destination address input',
+        'Protocol input',
+        'Upper-layer length input',
+        '16-bit word sum',
+        'End-around carry folding',
+        "One's complement",
+      ]),
+    );
   });
 
   it('chains EtherTypes through stacked VLAN tags (Q-in-Q)', () => {
     const s = stack(['ethernet', 'vlan-8021q', 'vlan-8021q', 'ipv4']);
-    const { bytes } = serializeStack(s, registry);
+    const result = serializeStack(s, registry);
+    const { bytes } = result;
     const u16 = (o: number) => (bytes[o]! << 8) | bytes[o + 1]!;
     expect(u16(12)).toBe(0x8100); // outer EtherType -> VLAN
     expect(u16(16)).toBe(0x8100); // first tag -> second VLAN
     expect(u16(20)).toBe(0x0800); // second tag -> IPv4
+    expect(result.spans.find((span) => span.fieldId === 'etherType')!.calculation).toMatchObject({
+      kind: 'binding',
+      result: 0x8100,
+      steps: expect.arrayContaining([
+        { label: 'Following protocol', value: '802.1Q VLAN' },
+      ]),
+    });
   });
 
   it('TCP checksum over pseudo-header verifies, dataOffset computed', () => {
@@ -127,6 +172,10 @@ describe('serializeStack', () => {
     const result = serializeStack(s, registry);
     expect((result.bytes[12]! << 8) | result.bytes[13]!).toBe(0x86dd);
     expect(result.issues.some((i) => i.severity === 'warning')).toBe(true);
+    expect(result.spans.find((span) => span.fieldId === 'etherType')!.calculation).toMatchObject({
+      result: 0x0800,
+      pinnedValue: 0x86dd,
+    });
   });
 
   it('exposes spans with correct absolute offsets', () => {

@@ -6,13 +6,41 @@
  * a zero low byte.
  */
 export function inet16(...chunks: Uint8Array[]): number {
+  return inet16Calculation(...chunks).checksum;
+}
+
+export interface Inet16Calculation {
+  /** Sum of all 16-bit words before end-around carry folding. */
+  wordSum: number;
+  /** 16-bit one's-complement sum after end-around carry folding. */
+  foldedSum: number;
+  /** One's complement of the folded sum. */
+  checksum: number;
+  wordCount: number;
+}
+
+/** Internet checksum plus the intermediate values used to explain it. */
+export function inet16Calculation(...chunks: Uint8Array[]): Inet16Calculation {
   let sum = 0;
+  let wordCount = 0;
   for (const data of chunks) {
-    for (let i = 0; i + 1 < data.length; i += 2) sum += (data[i]! << 8) | data[i + 1]!;
-    if (data.length % 2 === 1) sum += data[data.length - 1]! << 8;
+    for (let i = 0; i + 1 < data.length; i += 2) {
+      sum += (data[i]! << 8) | data[i + 1]!;
+      wordCount++;
+    }
+    if (data.length % 2 === 1) {
+      sum += data[data.length - 1]! << 8;
+      wordCount++;
+    }
   }
-  while (sum > 0xffff) sum = (sum & 0xffff) + (sum >>> 16);
-  return ~sum & 0xffff;
+  const wordSum = sum;
+  while (sum > 0xffff) sum = (sum & 0xffff) + Math.floor(sum / 0x10000);
+  return {
+    wordSum,
+    foldedSum: sum,
+    checksum: ~sum & 0xffff,
+    wordCount,
+  };
 }
 
 /** CRC-32C (Castagnoli), reflected, as used by SCTP (RFC 4960 appendix B). */
