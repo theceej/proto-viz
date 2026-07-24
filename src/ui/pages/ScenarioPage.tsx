@@ -148,9 +148,6 @@ export default function ScenarioPage() {
           packet={packet}
           label={`${scenario?.name ?? 'Scenario'} · #${stepIndex + 1} ${step?.label ?? 'packet'}`}
         />
-        <span className="ml-auto font-mono text-[12px] text-zinc-500">
-          {count > 0 ? `Step ${stepIndex + 1} of ${count}` : '—'}
-        </span>
       </header>
 
       <section
@@ -196,6 +193,13 @@ export default function ScenarioPage() {
               <SkipForward className="size-3.5" />
             </button>
           </div>
+          <span
+            className="font-mono text-[12px] text-zinc-500"
+            role="status"
+            aria-live="polite"
+          >
+            {count > 0 ? `Step ${stepIndex + 1} of ${count}` : '—'}
+          </span>
           {step && (
             <span className="font-mono text-[12px] text-zinc-500">
               t+{Math.round(step.atUsec / 1000)} ms
