@@ -10,6 +10,10 @@ test('steps through a scenario timeline and updates the inspection panes', async
     label: 'TCP three-way handshake',
   });
   const timeline = page.getByRole('region', { name: 'Packet timeline' });
+  const description =
+    'SYN, SYN-ACK, ACK with consistent sequence numbers and flipped directions.';
+  await expect(timeline.getByText(description)).toBeVisible();
+  await expect(page.locator('header').getByText(description)).toHaveCount(0);
   await expect(timeline.getByRole('status')).toHaveText('Step 1 of 3');
   await expect(page.locator('header').getByText('Step 1 of 3')).toHaveCount(0);
   await expect(page.getByRole('button', { name: /Step 1: SYN,/ })).toHaveAttribute(
@@ -41,6 +45,18 @@ test('steps through a scenario timeline and updates the inspection panes', async
   await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible();
   await page.getByRole('button', { name: 'Pause' }).click();
   await expect(page.getByRole('button', { name: 'Play' })).toBeVisible();
+});
+
+test('collapses the add-to-compare label in a narrow scenario header', async ({ page }) => {
+  await page.setViewportSize({ width: 600, height: 800 });
+  await page.goto('/#/scenario');
+
+  const addToCompare = page.getByRole('button', { name: 'Add to compare' });
+  await expect(addToCompare).toBeVisible();
+  await expect(addToCompare.getByText('Add to compare')).toBeHidden();
+
+  await page.setViewportSize({ width: 700, height: 800 });
+  await expect(addToCompare.getByText('Add to compare')).toBeVisible();
 });
 
 test('collapses and resizes the scenario inspection panes', async ({ page }) => {

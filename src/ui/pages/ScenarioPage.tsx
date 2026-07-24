@@ -141,12 +141,10 @@ export default function ScenarioPage() {
             ))}
           </select>
         </label>
-        {scenario && (
-          <span className="text-[12px] text-zinc-500">{scenario.description}</span>
-        )}
         <AddToCompareButton
           packet={packet}
           label={`${scenario?.name ?? 'Scenario'} · #${stepIndex + 1} ${step?.label ?? 'packet'}`}
+          labelClass="hidden sm:inline"
         />
       </header>
 
@@ -155,7 +153,12 @@ export default function ScenarioPage() {
         onKeyDown={onKeyDown}
         className="border-b border-zinc-800 bg-zinc-900/30"
       >
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 px-6 pt-3">
+        {scenario && (
+          <p className="px-6 pt-3 text-[12px] leading-relaxed text-zinc-500">
+            {scenario.description}
+          </p>
+        )}
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 px-6 pt-2">
           <div className="flex items-center gap-3" aria-label="Endpoints">
             {timeline?.endpoints.map((addr, i) => (
               <span key={addr} className="flex items-center gap-1.5">
