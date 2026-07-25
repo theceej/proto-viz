@@ -1,5 +1,5 @@
 import { Info } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 
 /**
  * Small (i) link from a protocol name to its Protocol Library entry.

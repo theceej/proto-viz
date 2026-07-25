@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { ArrowRight, List, Map, Search } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import {
   bindingLabel,
   buildEncapsulationGraph,

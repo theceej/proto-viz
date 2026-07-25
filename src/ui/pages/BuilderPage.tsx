@@ -11,7 +11,7 @@ import {
   X,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router';
 import { useStackStore } from '../../store/stackStore';
 import { randomStack } from '../../core/random';
 import { PRESETS, PRESET_GROUPS, presetStackLayers } from '../../core/presets';

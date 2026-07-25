@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { GraduationCap } from 'lucide-react';
 
 /** Built-in user guide: one scannable page, linked from the sidebar. */
