@@ -1,5 +1,5 @@
 import { Trash2, X } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { useLibraryStore } from '../../store/libraryStore';
 import { useComparisonStore } from '../../store/comparisonStore';
 import PacketComparisonView from '../components/PacketComparisonView';

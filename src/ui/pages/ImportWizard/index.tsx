@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import type { LayerHint } from '../../../core/model';
 import { extractSpecText, type ExtractedText } from '../../../import/extract/text';
 import { findDiagrams, type DiagramParse } from '../../../import/diagram';
