@@ -22,6 +22,7 @@ import BuilderTour from './components/BuilderTour';
 const ScenarioPage = lazy(() => import('./pages/ScenarioPage'));
 const ComparePage = lazy(() => import('./pages/ComparePage'));
 const LibraryPage = lazy(() => import('./pages/LibraryPage'));
+const EncapsulationMapPage = lazy(() => import('./pages/EncapsulationMapPage'));
 const ImportWizard = lazy(() => import('./pages/ImportWizard'));
 const HelpPage = lazy(() => import('./pages/HelpPage'));
 
@@ -240,6 +241,14 @@ export default function App() {
               element={
                 <Suspense fallback={null}>
                   <LibraryPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/map"
+              element={
+                <Suspense fallback={null}>
+                  <EncapsulationMapPage />
                 </Suspense>
               }
             />

@@ -5,6 +5,7 @@ import {
   FileUp,
   Layers,
   Library,
+  Waypoints,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -20,6 +21,7 @@ export const NAV: NavItem[] = [
   { to: '/scenario', label: 'Scenario Timeline', icon: Clapperboard },
   { to: '/compare', label: 'Packet Comparison', icon: Columns2 },
   { to: '/library', label: 'Protocol Library', icon: Library },
+  { to: '/map', label: 'Encapsulation Map', icon: Waypoints },
   { to: '/import', label: 'Import Spec', icon: FileUp },
   { to: '/help', label: 'Help', icon: CircleHelp },
 ];
