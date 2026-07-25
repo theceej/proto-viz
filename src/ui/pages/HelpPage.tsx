@@ -122,10 +122,16 @@ export default function HelpPage({ onStartTour }: { onStartTour: () => void }) {
 
       <Section title="Opening a capture file">
         <p>
-          <Link className={link} to="/capture">Capture Viewer</Link> reads a classic
-          pcap file — the format <Ui>Export PCAP</Ui> writes, and what tcpdump and
-          Wireshark save when you choose <em>pcap</em> rather than pcapng. Little-
-          and big-endian files with microsecond or nanosecond timestamps all work;
+          <Link className={link} to="/capture">Capture Viewer</Link> reads both
+          capture formats <Ui>Export PCAP</Ui> writes: classic pcap and pcapng,
+          the modern default that Wireshark and tcpdump save. Either byte order
+          and microsecond or nanosecond timestamps all work; a pcapng file's
+          interfaces may each declare their own link type and timestamp scale,
+          and block types the reader does not know are skipped rather than
+          treated as errors. Packet comments — the labels a pcapng export
+          carries, such as <Ui>SYN</Ui> or <Ui>DORA: Offer</Ui> — show against
+          the packets they belong to, so an exchange you exported reopens
+          explaining itself.
           Ethernet, raw IP, IPv4 and IPv6 link types decode, and anything else is
           named and refused rather than guessed at. Sort the packet list by any
           column, or click the time strip above it to jump to a packet; the
@@ -149,12 +155,22 @@ export default function HelpPage({ onStartTour }: { onStartTour: () => void }) {
 
       <Section title="Exporting PCAPs">
         <p>
-          <Ui>Export PCAP</Ui> writes a classic pcap file openable in Wireshark or
+          <Ui>Export PCAP</Ui> writes a capture file openable in Wireshark or
           tcpdump. Beyond a single packet, the same scenario generators produce
           coherent sequences — TCP three-way handshake, DNS query/response, ICMP
           ping pair, DHCP DORA — with flipped directions and fresh checksums. To
           verify checksums in Wireshark, enable{' '}
           <em>Preferences → Protocols → IPv4 / TCP / UDP → Validate checksums</em>.
+        </p>
+        <p>
+          Two formats are offered. <Ui>Classic pcap</Ui> is the default because
+          every capture tool reads it. <Ui>pcapng</Ui> is the modern format, and
+          it can carry things pcap has nowhere to put — each packet keeps its
+          step name as a comment, so a handshake exported as pcapng arrives
+          labelled <Ui>SYN</Ui>, <Ui>SYN-ACK</Ui>, <Ui>ACK</Ui> in Wireshark's
+          packet-comments column and in{' '}
+          <Link className={link} to="/capture">Capture Viewer</Link>. Switching
+          format swaps the filename extension for you.
         </p>
       </Section>
 

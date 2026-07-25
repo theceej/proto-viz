@@ -1,9 +1,9 @@
 import { useMemo, useRef, useState } from 'react';
-import { AlertTriangle, FolderOpen, Info, X } from 'lucide-react';
+import { AlertTriangle, FolderOpen, Info, MessageSquareText, X } from 'lucide-react';
 import { useLibraryStore } from '../../../store/libraryStore';
 import { useCaptureStore } from '../../../store/captureStore';
-import { buildCapture, UnsupportedLinkTypeError } from '../../../core/capture';
-import { DEFAULT_LIMITS, PcapReadError, readPcap } from '../../../core/pcapRead';
+import { openCaptureFile, UnsupportedLinkTypeError } from '../../../core/capture';
+import { CaptureReadError, DEFAULT_LIMITS } from '../../../core/captureFile';
 import { filterPackets, type CaptureFilter } from '../../../core/captureFilter';
 import { groupFlows, packetsInFlow } from '../../../core/flows';
 import { useInspectionMode } from '../../inspectionMode';
@@ -51,11 +51,11 @@ export default function CapturePage() {
     setError(null);
     try {
       const bytes = new Uint8Array(await file.arrayBuffer());
-      setCapture(buildCapture(readPcap(bytes), registry, file.name));
+      setCapture(openCaptureFile(bytes, registry, file.name));
       setTab('packets');
       setSort({ key: 'number', ascending: true });
     } catch (e) {
-      if (e instanceof PcapReadError || e instanceof UnsupportedLinkTypeError) {
+      if (e instanceof CaptureReadError || e instanceof UnsupportedLinkTypeError) {
         setError(e.message);
       } else {
         setError(`The capture could not be read: ${(e as Error).message}`);
@@ -99,9 +99,9 @@ export default function CapturePage() {
         <input
           ref={inputRef}
           type="file"
-          accept=".pcap,.cap,.dmp,application/vnd.tcpdump.pcap"
+          accept=".pcap,.pcapng,.ntar,.cap,.dmp,application/vnd.tcpdump.pcap"
           className="hidden"
-          aria-label="Open a pcap capture file"
+          aria-label="Open a capture file"
           onChange={(e) => {
             const file = e.target.files?.[0];
             // Reset so re-picking the same file fires another change event.
@@ -114,7 +114,9 @@ export default function CapturePage() {
             <span className="flex items-center gap-2 text-[12px] text-zinc-400">
               <span className="font-medium text-zinc-200">{capture.fileName}</span>
               <span className="font-mono text-zinc-500">
-                {capture.packets.length} packets · {capture.linkTypeLabel} ·{' '}
+                {capture.packets.length} packets ·{' '}
+                {capture.format === 'pcapng' ? 'pcapng' : 'classic pcap'} ·{' '}
+                {capture.linkTypeLabel} ·{' '}
                 {capture.timestampPrecision === 'nanosecond' ? 'ns' : 'µs'} ·{' '}
                 {capture.byteOrder}-endian
               </span>
@@ -214,6 +216,17 @@ export default function CapturePage() {
               />
             )}
           </div>
+
+          {current?.comment !== undefined && (
+            <p className="border-b border-zinc-800 px-6 py-1.5 text-[11px] text-zinc-300">
+              <MessageSquareText
+                className="mr-1.5 inline size-3 align-[-1px] text-zinc-500"
+                aria-hidden
+              />
+              <span className="sr-only">Packet comment: </span>
+              {current.comment}
+            </p>
+          )}
 
           {current && current.notes.length > 0 && (
             <p className="border-b border-zinc-800 px-6 py-1.5 text-[11px] text-amber-300/90">
@@ -319,7 +332,7 @@ function EmptyState({
       <div
         role="button"
         tabIndex={0}
-        aria-label="Open a pcap capture file"
+        aria-label="Open a capture file"
         className={`flex h-56 w-full max-w-xl cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed transition-colors focus-visible:border-cyan-500 focus-visible:outline-2 focus-visible:outline-cyan-400 ${
           dragging ? 'border-cyan-500 bg-cyan-500/5' : 'border-zinc-700 hover:border-zinc-500'
         }`}
@@ -343,10 +356,12 @@ function EmptyState({
         }}
       >
         <FolderOpen className="size-6 text-zinc-500" aria-hidden />
-        <p className="text-[13px] text-zinc-400">Drop a .pcap here, or click to browse</p>
+        <p className="text-[13px] text-zinc-400">
+          Drop a .pcap or .pcapng here, or click to browse
+        </p>
         <p className="max-w-sm text-center text-[11px] leading-relaxed text-zinc-600">
-          Classic pcap only (little- or big-endian, microsecond or nanosecond).
-          Ethernet, raw IP, IPv4, and IPv6 link types. Up to{' '}
+          Classic pcap and pcapng, either byte order, microsecond or nanosecond
+          timestamps. Ethernet, raw IP, IPv4, and IPv6 link types. Up to{' '}
           {DEFAULT_LIMITS.maxFileBytes / (1024 * 1024)} MB and{' '}
           {DEFAULT_LIMITS.maxPackets.toLocaleString()} packets. Parsed entirely in
           your browser — nothing is uploaded.

@@ -81,9 +81,12 @@ your browser. Nothing is uploaded anywhere.
   step between messages; each step shows its direction between the two
   endpoints and loads that packet into the diagram, hex, validation, and
   read-only field views. Respects the reduced-motion preference.
-- **Capture viewer** — open a classic pcap file and read it packet by packet.
-  Little- and big-endian files with microsecond or nanosecond timestamps are
-  parsed in the browser; Ethernet, raw IP, IPv4, and IPv6 link types decode
+- **Capture viewer** — open a pcap or pcapng file and read it packet by
+  packet. Both containers are parsed in the browser, in either byte order and
+  at microsecond or nanosecond resolution; pcapng's per-interface link types
+  and `if_tsresol` scales are honoured rather than assumed file-wide, unknown
+  block types are skipped, and per-packet comments appear against the packets
+  they annotate. Ethernet, raw IP, IPv4, and IPv6 link types decode
   through the same binding walk as the hex decoder, and anything else is
   rejected by name rather than mis-dissected. A sortable packet list (number,
   time, endpoints, protocol, length, summary) sits under a time-axis strip
@@ -96,9 +99,13 @@ your browser. Nothing is uploaded anywhere.
   byte, and duration summaries; any two can go to Packet Comparison. Files
   are size- and packet-capped so a large capture cannot hang the tab, and
   nothing is uploaded.
-- **PCAP export** — download classic pcap files: single packets or the same
-  generated sequences with coherent sequence numbers, flipped directions, and
-  fresh checksums per packet.
+- **PCAP export** — download classic pcap or pcapng: single packets or the
+  same generated sequences with coherent sequence numbers, flipped
+  directions, and fresh checksums per packet. Classic pcap is the default for
+  maximum compatibility; pcapng additionally carries each packet's scenario
+  step name ("SYN", "SYN-ACK", "DORA: Offer") as a per-packet comment, which
+  Wireshark and the capture viewer both show — so an exported exchange
+  reopens explaining itself.
 - **Spec import** — upload an RFC or protocol spec as TXT, HTML, DOCX, or
   PDF. ASCII packet diagrams (including RFC 768's 1-char-per-bit style and
   DNS's 16-bit rows) are detected and parsed with confidence scoring, then
@@ -168,27 +175,34 @@ app's existing IndexedDB storage).
 
 ## Verifying generated PCAPs
 
-Exported files are classic pcap (microsecond, little-endian). To verify:
+Exported files are classic pcap (microsecond, little-endian) or pcapng
+(little-endian, microsecond `if_tsresol`, one interface). To verify:
 
 - **Wireshark**: open the file. Enable checksum validation under
   *Preferences → Protocols → IPv4 / TCP / UDP → Validate checksums* — packets
-  should show no malformed expert-info and checksums report `correct`.
+  should show no malformed expert-info and checksums report `correct`. A
+  pcapng export's step names appear in the *Packet comments* column.
 - **tcpdump / tshark**:
 
   ```bash
   tcpdump -r export.pcap -vvv    # look for "cksum ... (correct)"
   tshark -r export.pcap -V
+  capinfos -t export.pcapng                        # confirms the container
+  tshark -r export.pcapng -T fields -e frame.comment  # the step names
   ```
 
 The unit suite includes byte-exact golden packets with hand-computed
-checksums; the full library was additionally validated against `tcpdump`.
+checksums and byte-golden SHB/IDB/EPB structure tests; the full library was
+additionally validated against `tcpdump`, and the gated `npm run test:tshark`
+job has tshark dissect a pcapng export and read back its comments.
 
-Reading runs the other way. `fixtures/capture-handshake.pcap` — the sample
-capture the viewer's tests open — is built byte by byte by
-`scripts/make-capture-fixture.mjs` without going through proto-viz's own
-serializer, so it is an independent witness rather than a file the app
-generated for itself. Regenerate it with `node scripts/make-capture-fixture.mjs`
-and cross-check with `tshark -r fixtures/capture-handshake.pcap -V`.
+Reading runs the other way. `fixtures/capture-handshake.pcap` and
+`fixtures/capture-handshake.pcapng` — the sample captures the viewer's tests
+open — are built byte by byte by `scripts/make-capture-fixture.mjs`, frames
+*and both containers*, without going through proto-viz's own writers. They
+are independent witnesses rather than files the app generated for itself.
+Regenerate them with `node scripts/make-capture-fixture.mjs` and cross-check
+with `tshark -r fixtures/capture-handshake.pcapng -V`.
 
 ## Architecture
 
@@ -207,10 +221,13 @@ vitest's node environment:
   protocols *provide* namespaces (EtherType, IP protocol, ports…) and
   *claim* membership; validation and palette filtering both derive from the
   intersection, and error messages are generated from the same data.
-- `core/pcap.ts` / `core/pcapRead.ts` / `core/scenarios.ts` — pcap writer and
-  reader plus the multi-packet scenario generators. `core/capture.ts` runs a
-  parsed capture's records through `decodeStack`, and `core/captureFilter.ts`
-  / `core/flows.ts` provide the viewer's structured filtering and its
+- `core/pcap.ts` / `core/pcapRead.ts` / `core/pcapng.ts` /
+  `core/pcapngRead.ts` — writers and readers for both container formats,
+  behind the format-independent `ReadCapture` declared in
+  `core/captureFile.ts`. `core/scenarios.ts` holds the multi-packet
+  generators; `core/capture.ts` picks a parser from the file's magic number
+  and runs the records through `decodeStack`; `core/captureFilter.ts` /
+  `core/flows.ts` provide the viewer's structured filtering and its
   direction-independent conversation keys.
 - `import/` — text extraction per format and the ASCII-diagram parser with
   confidence scoring.
@@ -253,8 +270,11 @@ leave the browser. The inputs it parses are still treated as untrusted:
 - Opened capture files are parsed with bounds checks before any allocation
   (16 MB per file, 2,000 packets, 512 KiB per record); a record header that
   claims more data than the file holds is reported as truncation, not
-  trusted. A packet that fails to decode becomes a row with its bytes rather
-  than an error that stops the file.
+  trusted. pcapng blocks are additionally checked for a plausible, aligned
+  length and for agreement between the length a block opens with and the one
+  it closes with, so a corrupt block stops the walk instead of resuming
+  mid-packet. A packet that fails to decode becomes a row with its bytes
+  rather than an error that stops the file.
 - Imported library JSON is schema-validated with sanity caps (protocol/field
   counts, name lengths, field widths), and the serializer enforces
   per-field and per-packet allocation limits, so a hostile definition file

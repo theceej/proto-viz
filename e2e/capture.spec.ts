@@ -4,6 +4,8 @@ import { fileURLToPath } from 'node:url';
 
 /** The sample capture: a TCP handshake and a DNS exchange (5 packets). */
 const FIXTURE = fileURLToPath(new URL('../fixtures/capture-handshake.pcap', import.meta.url));
+/** The same five packets as pcapng, each carrying its step name as a comment. */
+const FIXTURE_NG = fileURLToPath(new URL('../fixtures/capture-handshake.pcapng', import.meta.url));
 
 /** Open the capture viewer with the sample file already loaded. */
 async function openCapture(page: Page) {
@@ -21,7 +23,7 @@ test('opens a pcap file and inspects a packet in the synchronized panes', async 
   await openCapture(page);
 
   // File-level facts come from the header, not a guess.
-  await expect(page.getByText(/5 packets · LINKTYPE_ETHERNET \(1\)/)).toBeVisible();
+  await expect(page.getByText(/5 packets · classic pcap · LINKTYPE_ETHERNET \(1\)/)).toBeVisible();
   await expect(page.getByRole('button', { name: 'Packets (5)' })).toBeVisible();
 
   const list = page.getByRole('grid');
@@ -147,6 +149,33 @@ test('keeps a wide packet list inside its own scroller on a narrow viewport', as
   expect(overflow).toBeLessThanOrEqual(0);
 });
 
+test('round-trips a pcapng export back through the capture viewer', async ({ page }) => {
+  await page.goto('/#/builder');
+  await page.getByRole('button', { name: 'Export PCAP' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Export PCAP' });
+
+  // A multi-packet exchange is what makes the comments worth having.
+  await dialog.getByRole('radio', { name: /TCP three-way handshake/ }).check();
+  await dialog.getByRole('radio', { name: /pcapng/ }).check();
+  // Choosing a format swaps the filename extension rather than appending one.
+  await expect(dialog.getByRole('textbox', { name: 'Filename' })).toHaveValue('proto-viz.pcapng');
+
+  const downloadPromise = page.waitForEvent('download');
+  await dialog.getByRole('button', { name: 'Download' }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe('proto-viz.pcapng');
+
+  // Read our own file back: the packets and their step names both survive.
+  await page.goto('/#/capture');
+  await page.locator('input[type="file"]').setInputFiles((await download.path())!);
+
+  await expect(page.getByText(/3 packets · pcapng/)).toBeVisible();
+  const list = page.getByRole('grid');
+  await expect(list.getByText('SYN', { exact: true })).toBeVisible();
+  await expect(list.getByText('SYN-ACK', { exact: true })).toBeVisible();
+  await expect(list.getByText('ACK', { exact: true })).toBeVisible();
+});
+
 test('rejects a file that is not a classic pcap capture', async ({ page }) => {
   await page.goto('/#/capture');
   await page.locator('input[type="file"]').setInputFiles({
@@ -156,11 +185,33 @@ test('rejects a file that is not a classic pcap capture', async ({ page }) => {
   });
 
   await expect(page.getByRole('alert')).toContainText('Not a classic pcap file');
-  await expect(page.getByText('Drop a .pcap here, or click to browse')).toBeVisible();
+  await expect(page.getByText('Drop a .pcap or .pcapng here, or click to browse')).toBeVisible();
 });
 
-test('explains that pcapng needs converting first', async ({ page }) => {
+test('opens a pcapng capture and shows its packet comments', async ({ page }) => {
   await page.goto('/#/capture');
+  await page.locator('input[type="file"]').setInputFiles(FIXTURE_NG);
+
+  await expect(page.getByText(/5 packets · pcapng · LINKTYPE_ETHERNET \(1\)/)).toBeVisible();
+
+  // The file's own labels ride alongside the derived summaries.
+  const list = page.getByRole('grid');
+  await expect(list.getByText('SYN', { exact: true })).toBeVisible();
+  await expect(list.getByText('DNS response', { exact: true })).toBeVisible();
+
+  // Selecting a packet surfaces its comment above the inspection panes.
+  await list.getByRole('row').filter({ hasText: 'SYN-ACK' }).first().click();
+  await expect(page.getByText('Packet comment: SYN-ACK')).toBeVisible();
+
+  // Comments are searchable like any other decoded text.
+  await page.getByRole('searchbox').fill('DNS query');
+  await expect(matchCount(page)).toHaveText('1 of 5 packets');
+});
+
+test('rejects a corrupt pcapng by explaining what is wrong with it', async ({ page }) => {
+  await page.goto('/#/capture');
+  // A Section Header Block with no byte-order magic: its byte order, and so
+  // every field after it, is unknowable.
   const sectionHeader = Buffer.alloc(32);
   sectionHeader.writeUInt32BE(0x0a0d0d0a, 0);
   await page.locator('input[type="file"]').setInputFiles({
@@ -169,8 +220,8 @@ test('explains that pcapng needs converting first', async ({ page }) => {
     buffer: sectionHeader,
   });
 
-  await expect(page.getByRole('alert')).toContainText('pcapng');
-  await expect(page.getByRole('alert')).toContainText('editcap');
+  await expect(page.getByRole('alert')).toContainText('byte-order magic');
+  await expect(page.getByText('Drop a .pcap or .pcapng here, or click to browse')).toBeVisible();
 });
 
 for (const theme of ['dark', 'light'] as const) {

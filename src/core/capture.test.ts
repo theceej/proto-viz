@@ -2,7 +2,15 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { createBuiltinRegistry } from '../protocols';
 import { groupFlows } from './flows';
-import { buildCapture, linkTypeName, UnsupportedLinkTypeError } from './capture';
+import {
+  buildCapture,
+  linkTypeName,
+  openCaptureFile,
+  readCaptureBytes,
+  UnsupportedLinkTypeError,
+} from './capture';
+import { writePcapng } from './pcapng';
+import type { CaptureRecord, ReadCapture } from './captureFile';
 import { newLayer, type FieldValue, type StackInstance } from './model';
 import { LINKTYPE, writePcap } from './pcap';
 import { readPcap } from './pcapRead';
@@ -184,6 +192,99 @@ describe('buildCapture', () => {
   });
 });
 
+describe('reading either container format', () => {
+  const tcp = stack(
+    ['ethernet', 'ipv4', 'tcp'],
+    [{}, { src: '192.0.2.1', dst: '192.0.2.9' }, { srcPort: 49152, dstPort: 80 }],
+  );
+
+  it('routes a file to the parser its magic number names', () => {
+    const asPcap = writePcap([{ bytes: bytesOf(tcp), tsSec: 1, tsUsec: 0 }], LINKTYPE.ETHERNET);
+    const asPcapng = writePcapng(
+      [{ bytes: bytesOf(tcp), tsSec: 1, tsUsec: 0 }],
+      LINKTYPE.ETHERNET,
+    );
+
+    expect(readCaptureBytes(asPcap).format).toBe('pcap');
+    expect(readCaptureBytes(asPcapng).format).toBe('pcapng');
+  });
+
+  it('decodes the same packet identically from either container', () => {
+    const fromPcap = openCaptureFile(
+      writePcap([{ bytes: bytesOf(tcp), tsSec: 5, tsUsec: 250 }], LINKTYPE.ETHERNET),
+      registry,
+      'a.pcap',
+    );
+    const fromPcapng = openCaptureFile(
+      writePcapng([{ bytes: bytesOf(tcp), tsSec: 5, tsUsec: 250 }], LINKTYPE.ETHERNET),
+      registry,
+      'a.pcapng',
+    );
+
+    const strip = (capture: ReturnType<typeof openCaptureFile>) =>
+      capture.packets.map((p) => ({
+        status: p.status,
+        protocolIds: p.protocolIds,
+        source: p.source,
+        srcPort: p.srcPort,
+        tsUsec: p.tsUsec,
+        summary: p.summary,
+      }));
+    expect(strip(fromPcapng)).toEqual(strip(fromPcap));
+  });
+
+  it('carries a pcapng packet comment onto the row and into the search text', () => {
+    const capture = openCaptureFile(
+      writePcapng(
+        [{ bytes: bytesOf(tcp), tsSec: 1, tsUsec: 0, comment: 'DORA: Offer' }],
+        LINKTYPE.ETHERNET,
+      ),
+      registry,
+      'labelled.pcapng',
+    );
+
+    expect(capture.packets[0]!.comment).toBe('DORA: Offer');
+    expect(capture.packets[0]!.searchText).toContain('dora: offer');
+  });
+});
+
+describe('captures mixing link types', () => {
+  /** A hand-built parse result: pcapng can describe several interfaces. */
+  const mixed = (linkTypes: number[]): ReadCapture => ({
+    format: 'pcapng',
+    linkType: linkTypes[0] ?? 0,
+    byteOrder: 'little',
+    timestampPrecision: 'microsecond',
+    snapLength: 65535,
+    records: linkTypes.map(
+      (linkType, i): CaptureRecord => ({
+        number: i + 1,
+        bytes: bytesOf(stack(['ethernet', 'ipv4'])),
+        originalLength: 34,
+        tsUsec: i,
+        linkType,
+      }),
+    ),
+    notes: [],
+    truncated: false,
+    capped: false,
+  });
+
+  it('decodes the supported interfaces and explains the rest per packet', () => {
+    const result = buildCapture(mixed([LINKTYPE.ETHERNET, 113]), registry, 'mixed.pcapng');
+
+    expect(result.packets[0]!.status).toBe('exact');
+    expect(result.packets[1]!.status).toBe('failed');
+    expect(result.packets[1]!.notes.join(' ')).toMatch(/LINKTYPE_LINUX_SLL \(113\) is not supported/);
+  });
+
+  it('refuses the file only when no interface is decodable', () => {
+    expect(() => buildCapture(mixed([113, 276]), registry, 'sll.pcapng')).toThrow(
+      UnsupportedLinkTypeError,
+    );
+  });
+});
+
 describe('the sample capture fixture', () => {
   // Built byte-by-byte by scripts/make-capture-fixture.mjs, independently of
   // this codebase's serializer, and cross-checked with tshark.
@@ -221,6 +322,32 @@ describe('the sample capture fixture', () => {
     expect(flows[0]!.durationUsec).toBe(560);
     expect(flows[1]!.packetCount).toBe(2);
     expect(flows[1]!.initiator).toEqual({ address: '192.0.2.10', port: 53000 });
+  });
+
+  it('reads the pcapng edition of the same capture identically, plus comments', () => {
+    const ng = openCaptureFile(
+      new Uint8Array(readFileSync('fixtures/capture-handshake.pcapng')),
+      registry,
+      'capture-handshake.pcapng',
+    );
+
+    expect(ng.format).toBe('pcapng');
+    expect(ng.notes).toEqual([]);
+    // Same packets, same times, same decodes — only the container differs.
+    expect(ng.packets.map((p) => p.topProtocol)).toEqual(
+      result.packets.map((p) => p.topProtocol),
+    );
+    expect(ng.packets.map((p) => p.relativeUsec)).toEqual(
+      result.packets.map((p) => p.relativeUsec),
+    );
+    expect(ng.packets.map((p) => [...p.bytes])).toEqual(result.packets.map((p) => [...p.bytes]));
+    expect(ng.packets.map((p) => p.comment)).toEqual([
+      'SYN',
+      'SYN-ACK',
+      'ACK',
+      'DNS query',
+      'DNS response',
+    ]);
   });
 });
 

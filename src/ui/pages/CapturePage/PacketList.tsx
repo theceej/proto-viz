@@ -1,5 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { AlertTriangle, ArrowDown, ArrowUp, CircleAlert, Scissors } from 'lucide-react';
+import {
+  AlertTriangle,
+  ArrowDown,
+  ArrowUp,
+  CircleAlert,
+  MessageSquareText,
+  Scissors,
+} from 'lucide-react';
 import type { CapturePacket } from '../../../core/capture';
 import { formatRelativeTime } from './format';
 
@@ -208,6 +215,18 @@ export default function PacketList({
                   <span className="flex items-center gap-1.5">
                     <StatusIcon packet={packet} />
                     <span className="truncate text-zinc-400">{packet.summary}</span>
+                    {packet.comment !== undefined && (
+                      // A pcapng comment is the file's own label for this
+                      // packet — a scenario step name, usually — so it earns
+                      // more prominence than the derived summary.
+                      <span className="truncate text-zinc-200" title={packet.comment}>
+                        <MessageSquareText
+                          className="mr-1 inline size-3 align-[-1px] text-zinc-500"
+                          aria-hidden
+                        />
+                        {packet.comment}
+                      </span>
+                    )}
                   </span>
                 </td>
               </tr>
