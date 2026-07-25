@@ -147,6 +147,17 @@ export default function HelpPage({ onStartTour }: { onStartTour: () => void }) {
         </p>
       </Section>
 
+      <Section title="Exploring IP fragmentation">
+        <p>
+          <Link className={link} to="/fragmentation">Fragmentation Lab</Link> splits
+          the current Builder packet at a chosen MTU. Step through each IPv4 or IPv6
+          fragment to connect byte ranges with the identification, offset, and MF/M
+          fields, then try missing, duplicate, overlapping, and out-of-order delivery.
+          The progressive diagnosis shows why duplicates and reordering can still
+          reassemble exactly, while gaps remain incomplete and overlaps are ambiguous.
+        </p>
+      </Section>
+
       <Section title="Exporting PCAPs">
         <p>
           <Ui>Export PCAP</Ui> writes a classic pcap file openable in Wireshark or

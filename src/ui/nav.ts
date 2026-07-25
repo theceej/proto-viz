@@ -6,6 +6,7 @@ import {
   Layers,
   Library,
   Radar,
+  Scissors,
   Waypoints,
   type LucideIcon,
 } from 'lucide-react';
@@ -21,6 +22,7 @@ export const NAV: NavItem[] = [
   { to: '/builder', label: 'Stack Builder', icon: Layers },
   { to: '/scenario', label: 'Scenario Timeline', icon: Clapperboard },
   { to: '/capture', label: 'Capture Viewer', icon: Radar },
+  { to: '/fragmentation', label: 'Fragmentation Lab', icon: Scissors },
   { to: '/compare', label: 'Packet Comparison', icon: Columns2 },
   { to: '/library', label: 'Protocol Library', icon: Library },
   { to: '/map', label: 'Encapsulation Map', icon: Waypoints },
