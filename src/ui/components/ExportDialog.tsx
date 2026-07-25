@@ -8,7 +8,33 @@ import { planExport } from '../../core/exporter';
 import { applicableScenarios } from '../../core/scenarios';
 import { serializeStack } from '../../core/serialize';
 import { writePcap, type PcapPacket } from '../../core/pcap';
+import { writePcapng, type PcapngPacket } from '../../core/pcapng';
 import { useStackStore } from '../../store/stackStore';
+
+type Format = 'pcap' | 'pcapng';
+
+const FORMATS: { id: Format; name: string; extension: string; mimeType: string; note: string }[] = [
+  {
+    id: 'pcap',
+    name: 'Classic pcap',
+    extension: '.pcap',
+    mimeType: 'application/vnd.tcpdump.pcap',
+    note: 'Maximum compatibility — every capture tool reads it.',
+  },
+  {
+    id: 'pcapng',
+    name: 'pcapng',
+    extension: '.pcapng',
+    mimeType: 'application/x-pcapng',
+    note: 'The modern default. Each packet carries its step name as a comment.',
+  },
+];
+
+/** Swap the filename's extension when the format changes, leaving the stem. */
+function withExtension(filename: string, extension: string): string {
+  const stem = filename.replace(/\.(pcap|pcapng|cap|ntar)$/i, '');
+  return `${stem}${extension}`;
+}
 
 export default function ExportDialog({
   stack,
@@ -23,6 +49,9 @@ export default function ExportDialog({
 }) {
   const insertLayer = useStackStore((s) => s.insertLayer);
   const [scenarioId, setScenarioId] = useState('single');
+  // Classic pcap stays the default: it is what every tool reads, and pcapng
+  // only pays for itself when the export has step names worth carrying.
+  const [format, setFormat] = useState<Format>('pcap');
   const [filename, setFilename] = useState('proto-viz.pcap');
   const [error, setError] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -33,26 +62,34 @@ export default function ExportDialog({
   const options = useMemo(() => applicableScenarios(stack, registry), [stack, registry]);
   const hasErrors = validation.some((v) => v.severity === 'error');
 
+  const spec = FORMATS.find((f) => f.id === format)!;
+
   const download = () => {
     try {
       const scenario = options.find((s) => s.id === scenarioId) ?? options[0]!;
       const plans = scenario.generate(stack, registry);
       const baseSec = Math.floor(Date.now() / 1000);
-      const packets: PcapPacket[] = plans.map((p) => {
+      const packets: PcapngPacket[] = plans.map((p) => {
         const serialized = serializeStack(p.stack, registry);
         return {
           bytes: serialized.bytes,
           tsSec: baseSec + Math.floor(p.atUsec / 1_000_000),
           tsUsec: p.atUsec % 1_000_000,
+          // The step name ("SYN", "DORA: Offer") only survives in pcapng;
+          // the classic writer has nowhere to put it.
+          comment: p.label,
         };
       });
-      const file = writePcap(packets, plan.linkType!);
+      const file =
+        format === 'pcapng'
+          ? writePcapng(packets, plan.linkType!)
+          : writePcap(packets as PcapPacket[], plan.linkType!);
       const url = URL.createObjectURL(
-        new Blob([file.buffer as ArrayBuffer], { type: 'application/vnd.tcpdump.pcap' }),
+        new Blob([file.buffer as ArrayBuffer], { type: spec.mimeType }),
       );
       const a = document.createElement('a');
       a.href = url;
-      a.download = filename.endsWith('.pcap') ? filename : `${filename}.pcap`;
+      a.download = withExtension(filename, spec.extension);
       a.click();
       URL.revokeObjectURL(url);
       onClose();
@@ -147,6 +184,39 @@ export default function ExportDialog({
               ))}
             </div>
           </div>
+
+          <fieldset>
+            <legend className="mb-1.5 block text-[11px] font-semibold tracking-widest text-zinc-500 uppercase">
+              Format
+            </legend>
+            <div className="flex flex-col gap-1">
+              {FORMATS.map((f) => (
+                <label
+                  key={f.id}
+                  className={`flex cursor-pointer items-start gap-2 rounded-md border px-3 py-2 ${
+                    format === f.id
+                      ? 'border-cyan-700 bg-cyan-500/5'
+                      : 'border-zinc-800 hover:border-zinc-600'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="export-format"
+                    className="mt-1 accent-cyan-500"
+                    checked={format === f.id}
+                    onChange={() => {
+                      setFormat(f.id);
+                      setFilename((current) => withExtension(current, f.extension));
+                    }}
+                  />
+                  <span>
+                    <span className="block text-[13px] text-zinc-200">{f.name}</span>
+                    <span className="block text-[11px] text-zinc-500">{f.note}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
 
           <label className="block">
             <span className="mb-1.5 block text-[11px] font-semibold tracking-widest text-zinc-500 uppercase">
