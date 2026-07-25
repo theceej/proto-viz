@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 test('opens with Ctrl+K, filters, and navigates to a view', async ({ page }) => {
   await page.goto('/#/builder');
 
-  await page.keyboard.press('Control+k');
+  await page.locator('body').press('Control+k');
   const palette = page.getByRole('dialog', { name: 'Command palette' });
   await expect(palette).toBeVisible();
 
@@ -20,7 +20,7 @@ test('opens with Ctrl+K, filters, and navigates to a view', async ({ page }) => 
 test('runs a builder action from the palette', async ({ page }) => {
   await page.goto('/#/builder');
 
-  await page.keyboard.press('Control+k');
+  await page.locator('body').press('Control+k');
   const palette = page.getByRole('dialog', { name: 'Command palette' });
   await palette.getByRole('combobox', { name: 'Search commands' }).fill('decode');
   await page.keyboard.press('Enter');
@@ -31,7 +31,7 @@ test('runs a builder action from the palette', async ({ page }) => {
 
 test('closes on Escape', async ({ page }) => {
   await page.goto('/#/builder');
-  await page.keyboard.press('Control+k');
+  await page.locator('body').press('Control+k');
   const palette = page.getByRole('dialog', { name: 'Command palette' });
   await expect(palette).toBeVisible();
   await page.keyboard.press('Escape');
