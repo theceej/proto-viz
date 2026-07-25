@@ -10,9 +10,11 @@ import {
   Undo2,
   X,
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useStackStore } from '../../store/stackStore';
+import { useRegisterCommands } from '../useRegisterCommands';
+import type { Command } from '../../store/commandStore';
 import { randomStack } from '../../core/random';
 import { PRESETS, PRESET_GROUPS, presetStackLayers } from '../../core/presets';
 import { applyByteEdit } from '../../core/editByte';
@@ -89,10 +91,26 @@ export default function BuilderPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [redo, undo]);
 
-  const rollRandomStack = () => {
+  const clear = useStackStore((s) => s.clear);
+  const rollRandomStack = useCallback(() => {
     const random = randomStack(registry);
     replaceLayers(random.layers, random.trailingPayload);
-  };
+  }, [registry, replaceLayers]);
+
+  const commands = useMemo<Command[]>(
+    () => [
+      { id: 'builder.decode', title: 'Decode packet from hex…', group: 'Builder', keywords: ['paste', 'hex', 'bytes', 'pcap'], run: () => setDecoding(true) },
+      { id: 'builder.random', title: 'Generate a random stack', group: 'Builder', keywords: ['dice', 'shuffle'], run: rollRandomStack },
+      { id: 'builder.share', title: 'Share stack…', group: 'Builder', keywords: ['link', 'code', 'word'], run: () => setSharing(true) },
+      { id: 'builder.exportPcap', title: 'Export PCAP…', group: 'Builder', keywords: ['download', 'capture', 'save'], run: () => setExporting(true) },
+      { id: 'builder.exportDiagram', title: 'Export packet diagram…', group: 'Builder', keywords: ['svg', 'png', 'image', 'slides'], run: () => setExportingDiagram(true) },
+      { id: 'builder.undo', title: 'Undo', group: 'Builder', shortcut: 'Ctrl/⌘+Z', run: undo },
+      { id: 'builder.redo', title: 'Redo', group: 'Builder', shortcut: 'Ctrl/⌘+Shift+Z', run: redo },
+      { id: 'builder.clear', title: 'Clear stack', group: 'Builder', keywords: ['empty', 'reset', 'remove'], run: clear },
+    ],
+    [rollRandomStack, undo, redo, clear],
+  );
+  useRegisterCommands('builder', commands);
 
   const editByte = (byteOffset: number, value: number) => {
     if (!packet) return;

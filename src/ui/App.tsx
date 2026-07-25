@@ -1,12 +1,7 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
-import { HashRouter, NavLink, Navigate, Route, Routes } from 'react-router-dom';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { HashRouter, NavLink, Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import {
-  CircleHelp,
-  Clapperboard,
-  Columns2,
-  FileUp,
-  Layers,
-  Library,
+  Command as CommandIcon,
   Moon,
   PanelLeftClose,
   PanelLeftOpen,
@@ -16,6 +11,10 @@ import BuilderPage from './pages/BuilderPage';
 import { useLibraryStore } from '../store/libraryStore';
 import { loadCustomProtocols } from '../store/persistence';
 import { usePersistedFlag } from './usePersistedFlag';
+import { NAV } from './nav';
+import { useCommandStore, type Command } from '../store/commandStore';
+import { useRegisterCommands } from './useRegisterCommands';
+import CommandPalette from './components/CommandPalette';
 import PwaStatus from './components/PwaStatus';
 import BuilderTour from './components/BuilderTour';
 
@@ -30,16 +29,25 @@ const GITHUB_URL = 'https://github.com/theceej/proto-viz';
 const BUILD_COMMIT = import.meta.env.VITE_BUILD_COMMIT;
 const BUILD_LABEL = BUILD_COMMIT === 'development' ? BUILD_COMMIT : BUILD_COMMIT.slice(0, 7);
 
-const NAV = [
-  { to: '/builder', label: 'Stack Builder', icon: Layers },
-  { to: '/scenario', label: 'Scenario Timeline', icon: Clapperboard },
-  { to: '/compare', label: 'Packet Comparison', icon: Columns2 },
-  { to: '/library', label: 'Protocol Library', icon: Library },
-  { to: '/import', label: 'Import Spec', icon: FileUp },
-  { to: '/help', label: 'Help', icon: CircleHelp },
-];
-
 type Theme = 'dark' | 'light';
+
+/** Registers the primary views as navigation commands (needs router context). */
+function NavigationCommands() {
+  const navigate = useNavigate();
+  const commands = useMemo<Command[]>(
+    () =>
+      NAV.map((item) => ({
+        id: `nav:${item.to}`,
+        title: `Go to ${item.label}`,
+        group: 'Navigation',
+        keywords: [item.label],
+        run: () => navigate(item.to),
+      })),
+    [navigate],
+  );
+  useRegisterCommands('navigation', commands);
+  return null;
+}
 
 export default function App() {
   const setCustom = useLibraryStore((s) => s.setCustom);
@@ -157,6 +165,14 @@ export default function App() {
             >
               <button
                 className="cursor-pointer rounded-md p-2 text-zinc-500 hover:bg-zinc-800/60 hover:text-zinc-200"
+                title="Open command palette (Ctrl/⌘+K)"
+                aria-label="Open command palette"
+                onClick={() => useCommandStore.getState().setOpen(true)}
+              >
+                <CommandIcon className="size-4" />
+              </button>
+              <button
+                className="cursor-pointer rounded-md p-2 text-zinc-500 hover:bg-zinc-800/60 hover:text-zinc-200"
                 title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
                 aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
                 onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
@@ -246,6 +262,8 @@ export default function App() {
           </Routes>
         </main>
         {tourOpen && <BuilderTour onClose={() => setTourOpen(false)} />}
+        <NavigationCommands />
+        <CommandPalette />
       </div>
     </HashRouter>
   );
