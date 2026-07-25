@@ -10,6 +10,7 @@ import { scenarios } from '../core/scenarios';
 import { serializeStack } from '../core/serialize';
 import { validateStack } from '../core/validate';
 import { readSpanValue } from '../core/decode';
+import { fragmentPacket } from '../core/fragmentation';
 import { valueToNumber } from '../core/values';
 import { createBuiltinRegistry } from './index';
 
@@ -179,6 +180,103 @@ describe('every builtin protocol', () => {
 });
 
 describe.runIf(process.env.TSHARK === '1')('tshark export validation', () => {
+  it('validates generated IPv4 and IPv6 UDP fragment sequences and reassembly', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'proto-viz-tshark-fragments-'));
+    const payload = Uint8Array.from({ length: 240 }, (_, index) => (index * 37 + 11) & 0xff);
+    try {
+      const cases = [
+        { version: 4 as const, identification: 0x4a21 },
+        { version: 6 as const, identification: 0x11223344 },
+      ];
+      for (const testCase of cases) {
+        const ethernet = newLayer('ethernet');
+        ethernet.overrides.src = '02:11:22:33:44:55';
+        ethernet.overrides.dst = '02:aa:bb:cc:dd:ee';
+        const ip = newLayer(testCase.version === 4 ? 'ipv4' : 'ipv6');
+        if (testCase.version === 4) {
+          ip.overrides.src = '192.0.2.10';
+          ip.overrides.dst = '198.51.100.20';
+          ip.overrides.identification = testCase.identification;
+          ip.overrides.flags = 0;
+        } else {
+          ip.overrides.src = '2001:db8:1::10';
+          ip.overrides.dst = '2001:db8:2::20';
+        }
+        const udp = newLayer('udp');
+        udp.overrides.srcPort = 41000;
+        udp.overrides.dstPort = 41001;
+        udp.pinned.push('dstPort');
+        const stack: StackInstance = { layers: [ethernet, ip, udp], trailingPayload: payload };
+        const result = fragmentPacket({
+          stack,
+          registry,
+          layerUid: ip.uid,
+          mtu: 128,
+          ...(testCase.version === 6 ? { identification: testCase.identification } : {}),
+        });
+        expect(result.ok, result.ok ? undefined : result.issues.map((issue) => issue.message).join('\n')).toBe(true);
+        if (!result.ok) throw new Error(result.issues[0]?.message);
+
+        const { sequence } = result;
+        expect(sequence.fragments.length).toBeGreaterThan(1);
+        const path = join(directory, `udp-ipv${testCase.version}-fragments.pcap`);
+        await writeFile(path, writePcap(sequence.fragments.map((fragment, index) => ({
+          bytes: fragment.packet.bytes,
+          tsSec: 1_700_000_000,
+          tsUsec: index * 1_000,
+        })), 1));
+
+        const rows = execFileSync(
+          'tshark',
+          [
+            '-r', path,
+            '-o', 'ip.defragment:TRUE',
+            '-o', 'ipv6.defragment:TRUE',
+            '-o', 'ip.check_checksum:TRUE',
+            '-o', 'udp.check_checksum:TRUE',
+            '-T', 'fields',
+            '-e', 'ip.id',
+            '-e', 'ip.frag_offset',
+            '-e', 'ip.flags.mf',
+            '-e', 'ipv6.fraghdr.ident',
+            '-e', 'ipv6.fraghdr.offset',
+            '-e', 'ipv6.fraghdr.more',
+            '-e', 'ip.checksum.status',
+            '-e', 'udp.length',
+            '-e', 'udp.checksum.status',
+            '-e', '_ws.malformed',
+            '-E', 'separator=|',
+          ],
+          { encoding: 'utf8' },
+        ).trim().split('\n').map((row) => row.split('|'));
+
+        expect(rows).toHaveLength(sequence.fragments.length);
+        const expectedOffsets = sequence.fragments.map((fragment) => fragment.offsetBytes);
+        const offsetColumn = testCase.version === 4 ? 1 : 4;
+        const tsharkOffsets = rows.map((row) => Number(row[offsetColumn]));
+        // tshark releases have exposed fragment offsets as either bytes or encoded 8-byte units.
+        expect([expectedOffsets, expectedOffsets.map((offset) => offset / 8)]).toContainEqual(tsharkOffsets);
+        const moreFragments = rows.map((row) => {
+          const value = row[testCase.version === 4 ? 2 : 5]?.toLowerCase();
+          return value === '1' || value === 'true';
+        });
+        expect(moreFragments).toEqual(sequence.fragments.map((fragment) => fragment.moreFragments));
+        expect(rows.map((row) => Number(row[testCase.version === 4 ? 0 : 3]))).toEqual(
+          sequence.fragments.map(() => testCase.identification),
+        );
+        expect(rows.every((row) => row[9] === '')).toBe(true);
+        if (testCase.version === 4) expect(rows.map((row) => row[6])).toEqual(rows.map(() => '1'));
+
+        const reassembledUdpRows = rows.filter((row) => row[7] !== '');
+        expect(reassembledUdpRows).toHaveLength(1);
+        expect(Number(reassembledUdpRows[0]![7])).toBe(payload.length + 8);
+        expect(reassembledUdpRows[0]![8]).toBe('1');
+      }
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  }, 30_000);
+
   it('independently dissects every builtin stack without malformed packets or bad checksums', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'proto-viz-tshark-'));
     const failures: string[] = [];
