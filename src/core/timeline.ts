@@ -13,32 +13,7 @@ import type { Registry } from './registry';
 import type { PacketPlan } from './scenarios';
 import { serializeStack, type SerializedPacket } from './serialize';
 import { validateStack, type ValidationIssue } from './validate';
-
-/**
- * Address-bearing layers in the order we prefer to read a packet's identity
- * from: network layer first (the real path), then ARP's protocol addresses,
- * then the link layer as a last resort.
- */
-const ADDRESS_LAYERS: { protocolId: string; src: string; dst: string }[] = [
-  { protocolId: 'ipv4', src: 'src', dst: 'dst' },
-  { protocolId: 'ipv6', src: 'src', dst: 'dst' },
-  { protocolId: 'arp', src: 'spa', dst: 'tpa' },
-  { protocolId: 'ethernet', src: 'src', dst: 'dst' },
-  { protocolId: 'ethernet-8023', src: 'src', dst: 'dst' },
-];
-
-/** The source/destination identity of a packet, or null if none is readable. */
-function packetEndpoints(packet: SerializedPacket): { src: string; dst: string } | null {
-  for (const spec of ADDRESS_LAYERS) {
-    const layer = packet.layers.find((l) => l.protocolId === spec.protocolId);
-    if (!layer) continue;
-    const spans = packet.spans.filter((s) => s.layerUid === layer.uid);
-    const src = spans.find((s) => s.fieldId === spec.src)?.value;
-    const dst = spans.find((s) => s.fieldId === spec.dst)?.value;
-    if (typeof src === 'string' && typeof dst === 'string') return { src, dst };
-  }
-  return null;
-}
+import { packetEndpoints } from './packetIdentity';
 
 export interface TimelineStep {
   index: number;

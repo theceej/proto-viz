@@ -120,6 +120,33 @@ export default function HelpPage({ onStartTour }: { onStartTour: () => void }) {
         </p>
       </Section>
 
+      <Section title="Opening a capture file">
+        <p>
+          <Link className={link} to="/capture">Capture Viewer</Link> reads a classic
+          pcap file — the format <Ui>Export PCAP</Ui> writes, and what tcpdump and
+          Wireshark save when you choose <em>pcap</em> rather than pcapng. Little-
+          and big-endian files with microsecond or nanosecond timestamps all work;
+          Ethernet, raw IP, IPv4 and IPv6 link types decode, and anything else is
+          named and refused rather than guessed at. Sort the packet list by any
+          column, or click the time strip above it to jump to a packet; the
+          selection loads into the same field, diagram, and hex panes as everywhere
+          else. Packets a snap length cut short — or that nothing in the library
+          could read — still appear, with their bytes and the reason.
+        </p>
+        <p>
+          Filters combine: protocol, address, port, length bounds, decode status,
+          and free text that searches decoded field values, so <Ui>example.com</Ui>{' '}
+          or <Ui>SYN</Ui> finds packets by what the field editor shows. The{' '}
+          <Ui>Flows</Ui> tab groups both directions of each conversation into one
+          row with its endpoints, protocols, packet and byte counts, and duration;
+          selecting a flow narrows the list to it. <Ui>Add to compare</Ui> works
+          here too, so any two packets from a capture can go to{' '}
+          <Link className={link} to="/compare">Packet Comparison</Link>. The file is
+          read in this tab and never uploaded, and both its size and packet count
+          are capped so a large capture cannot hang the page.
+        </p>
+      </Section>
+
       <Section title="Exporting PCAPs">
         <p>
           <Ui>Export PCAP</Ui> writes a classic pcap file openable in Wireshark or

@@ -20,6 +20,7 @@ import BuilderTour from './components/BuilderTour';
 
 // Secondary feature pages are code-split so they stay out of the initial shell chunk.
 const ScenarioPage = lazy(() => import('./pages/ScenarioPage'));
+const CapturePage = lazy(() => import('./pages/CapturePage'));
 const ComparePage = lazy(() => import('./pages/ComparePage'));
 const LibraryPage = lazy(() => import('./pages/LibraryPage'));
 const EncapsulationMapPage = lazy(() => import('./pages/EncapsulationMapPage'));
@@ -217,6 +218,14 @@ export default function App() {
               element={
                 <Suspense fallback={null}>
                   <ScenarioPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/capture"
+              element={
+                <Suspense fallback={null}>
+                  <CapturePage />
                 </Suspense>
               }
             />
