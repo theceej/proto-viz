@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
-import { HashRouter, NavLink, Navigate, Route, Routes, useNavigate } from 'react-router-dom';
+import { HashRouter, NavLink, Navigate, Route, Routes, useNavigate } from 'react-router';
 import {
   Command as CommandIcon,
   Moon,
