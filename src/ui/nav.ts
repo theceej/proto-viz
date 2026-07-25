@@ -5,6 +5,7 @@ import {
   FileUp,
   Layers,
   Library,
+  Radar,
   Waypoints,
   type LucideIcon,
 } from 'lucide-react';
@@ -19,6 +20,7 @@ export interface NavItem {
 export const NAV: NavItem[] = [
   { to: '/builder', label: 'Stack Builder', icon: Layers },
   { to: '/scenario', label: 'Scenario Timeline', icon: Clapperboard },
+  { to: '/capture', label: 'Capture Viewer', icon: Radar },
   { to: '/compare', label: 'Packet Comparison', icon: Columns2 },
   { to: '/library', label: 'Protocol Library', icon: Library },
   { to: '/map', label: 'Encapsulation Map', icon: Waypoints },

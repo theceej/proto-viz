@@ -81,6 +81,21 @@ your browser. Nothing is uploaded anywhere.
   step between messages; each step shows its direction between the two
   endpoints and loads that packet into the diagram, hex, validation, and
   read-only field views. Respects the reduced-motion preference.
+- **Capture viewer** — open a classic pcap file and read it packet by packet.
+  Little- and big-endian files with microsecond or nanosecond timestamps are
+  parsed in the browser; Ethernet, raw IP, IPv4, and IPv6 link types decode
+  through the same binding walk as the hex decoder, and anything else is
+  rejected by name rather than mis-dissected. A sortable packet list (number,
+  time, endpoints, protocol, length, summary) sits under a time-axis strip
+  that shows bursts and gaps, and selecting a packet loads it into the
+  existing field, diagram, and hex panes. Packets that a snap length cut
+  short, or that no layer could be read from, still appear with their bytes
+  and an explanation. Structured filters — protocol, address, port, length,
+  decode status, and free text over decoded field values — combine, and
+  packets group into bidirectional flows with endpoint, protocol, packet,
+  byte, and duration summaries; any two can go to Packet Comparison. Files
+  are size- and packet-capped so a large capture cannot hang the tab, and
+  nothing is uploaded.
 - **PCAP export** — download classic pcap files: single packets or the same
   generated sequences with coherent sequence numbers, flipped directions, and
   fresh checksums per packet.
@@ -168,6 +183,13 @@ Exported files are classic pcap (microsecond, little-endian). To verify:
 The unit suite includes byte-exact golden packets with hand-computed
 checksums; the full library was additionally validated against `tcpdump`.
 
+Reading runs the other way. `fixtures/capture-handshake.pcap` — the sample
+capture the viewer's tests open — is built byte by byte by
+`scripts/make-capture-fixture.mjs` without going through proto-viz's own
+serializer, so it is an independent witness rather than a file the app
+generated for itself. Regenerate it with `node scripts/make-capture-fixture.mjs`
+and cross-check with `tshark -r fixtures/capture-handshake.pcap -V`.
+
 ## Architecture
 
 All protocol logic lives in pure TypeScript modules with no DOM
@@ -185,8 +207,11 @@ vitest's node environment:
   protocols *provide* namespaces (EtherType, IP protocol, ports…) and
   *claim* membership; validation and palette filtering both derive from the
   intersection, and error messages are generated from the same data.
-- `core/pcap.ts` / `core/scenarios.ts` — pcap writer and multi-packet
-  scenario generators.
+- `core/pcap.ts` / `core/pcapRead.ts` / `core/scenarios.ts` — pcap writer and
+  reader plus the multi-packet scenario generators. `core/capture.ts` runs a
+  parsed capture's records through `decodeStack`, and `core/captureFilter.ts`
+  / `core/flows.ts` provide the viewer's structured filtering and its
+  direction-independent conversation keys.
 - `import/` — text extraction per format and the ASCII-diagram parser with
   confidence scoring.
 - `ui/` — React + Tailwind interface; zustand stores; IndexedDB persistence.
@@ -225,6 +250,11 @@ leave the browser. The inputs it parses are still treated as untrusted:
   with DOMPurify, then parsed with the inert `DOMParser` (never injected
   into the page), and pdf.js (v6+, which has no eval path) parses PDFs in
   a worker. Legacy binary `.doc` is rejected outright.
+- Opened capture files are parsed with bounds checks before any allocation
+  (16 MB per file, 2,000 packets, 512 KiB per record); a record header that
+  claims more data than the file holds is reported as truncation, not
+  trusted. A packet that fails to decode becomes a row with its bytes rather
+  than an error that stops the file.
 - Imported library JSON is schema-validated with sanity caps (protocol/field
   counts, name lengths, field widths), and the serializer enforces
   per-field and per-packet allocation limits, so a hostile definition file
