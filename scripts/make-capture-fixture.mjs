@@ -1,12 +1,14 @@
 /**
- * Generates `fixtures/capture-handshake.pcap`, the sample capture used by the
- * capture-viewer tests.
+ * Generates the sample captures used by the capture-viewer tests:
  *
- * Deliberately self-contained: it builds the frames from raw bytes rather
- * than importing proto-viz's own serializer, so the fixture is an
- * *independent* witness. A bug that made the serializer and the decoder agree
- * with each other but disagree with the wire format would still be caught,
- * which would not be true of a file the app generated for itself.
+ *   fixtures/capture-handshake.pcap    classic pcap, little-endian, µs
+ *   fixtures/capture-handshake.pcapng  pcapng, with a comment per packet
+ *
+ * Deliberately self-contained: it builds the frames *and both containers*
+ * from raw bytes rather than importing proto-viz's own writers, so the
+ * fixtures are an *independent* witness. A bug that made the writer and the
+ * reader agree with each other but disagree with the format would still be
+ * caught, which would not be true of a file the app generated for itself.
  *
  *   node scripts/make-capture-fixture.mjs
  *
@@ -150,23 +152,28 @@ const ACK = 0x10;
 const packets = [
   {
     usec: 0,
+    comment: 'SYN',
     bytes: frame(MAC_B, MAC_A, IP_A, IP_B, 6, tcp(IP_A, IP_B, 49152, 80, 1000, 0, SYN, 64240), 1),
   },
   {
     usec: 420,
+    comment: 'SYN-ACK',
     bytes: frame(MAC_A, MAC_B, IP_B, IP_A, 6, tcp(IP_B, IP_A, 80, 49152, 5000, 1001, SYN_ACK, 65535), 2),
   },
   {
     usec: 560,
+    comment: 'ACK',
     bytes: frame(MAC_B, MAC_A, IP_A, IP_B, 6, tcp(IP_A, IP_B, 49152, 80, 1001, 5001, ACK, 64240), 3),
   },
   {
     usec: 2_000,
+    comment: 'DNS query',
     // 0x0100: standard query, recursion desired.
     bytes: frame(MAC_D, MAC_A, IP_A, IP_D, 17, udp(IP_A, IP_D, 53000, 53, dns(0x1234, 0x0100, null)), 4),
   },
   {
     usec: 14_000,
+    comment: 'DNS response',
     // 0x8180: response, recursion desired and available, no error.
     bytes: frame(MAC_A, MAC_D, IP_D, IP_A, 17, udp(IP_D, IP_A, 53, 53000, dns(0x1234, 0x8180, dnsAnswer)), 5),
   },
@@ -192,6 +199,69 @@ const body = packets.flatMap(({ usec, bytes }) => [
   ...bytes,
 ]);
 
-const out = resolve('fixtures/capture-handshake.pcap');
-writeFileSync(out, Buffer.from([...header, ...body]));
-console.log(`Wrote ${out}: ${packets.length} packets, ${header.length + body.length} bytes.`);
+const pcapOut = resolve('fixtures/capture-handshake.pcap');
+writeFileSync(pcapOut, Buffer.from([...header, ...body]));
+console.log(`Wrote ${pcapOut}: ${packets.length} packets, ${header.length + body.length} bytes.`);
+
+// ---------------------------------------------------------------------------
+// The same packets as pcapng, with each step name attached as an opt_comment.
+//
+// pcapng is a stream of blocks: type, total length, body, and the total length
+// again. Everything — the block itself and every variable-length field inside
+// it — pads to a 4-byte boundary, and the padding counts towards the block
+// length but never towards a value's own length field.
+// ---------------------------------------------------------------------------
+
+const pad4 = (n) => new Array((4 - (n % 4)) % 4).fill(0);
+const le16 = (n) => [n & 0xff, (n >>> 8) & 0xff];
+
+/** One option: code, value length, value, padding. */
+const ngOption = (code, value) => [...le16(code), ...le16(value.length), ...value, ...pad4(value.length)];
+const OPT_END = [...le16(0), ...le16(0)];
+const ascii = (s) => [...Buffer.from(s, 'utf8')];
+
+/** Wrap a block body with its type and the two length fields. */
+function ngBlock(type, body) {
+  const length = body.length + 12;
+  return [...le32(type), ...le32(length), ...body, ...le32(length)];
+}
+
+// Section Header: byte-order magic, version 1.0, unknown section length.
+const shb = ngBlock(0x0a0d0d0a, [
+  ...le32(0x1a2b3c4d),
+  ...le16(1),
+  ...le16(0),
+  ...new Array(8).fill(0xff), // section length: -1, unknown
+  ...ngOption(4, ascii('proto-viz fixture')), // shb_userappl
+  ...OPT_END,
+]);
+
+// Interface Description: Ethernet, snaplen 65535, microsecond timestamps.
+const idb = ngBlock(0x00000001, [
+  ...le16(1), // LINKTYPE_ETHERNET
+  ...le16(0), // reserved
+  ...le32(65535),
+  ...ngOption(9, [6]), // if_tsresol: 10^-6 seconds
+  ...OPT_END,
+]);
+
+const epbs = packets.flatMap(({ usec, bytes, comment }) => {
+  // The 64-bit timestamp is a microsecond count split into two 32-bit halves.
+  const stamp = BigInt(BASE_SEC) * 1_000_000n + BigInt(usec);
+  return ngBlock(0x00000006, [
+    ...le32(0), // interface id
+    ...le32(Number(stamp >> 32n)),
+    ...le32(Number(stamp & 0xffffffffn)),
+    ...le32(bytes.length), // captured length
+    ...le32(bytes.length), // original length
+    ...bytes,
+    ...pad4(bytes.length),
+    ...ngOption(1, ascii(comment)), // opt_comment
+    ...OPT_END,
+  ]);
+});
+
+const pcapng = [...shb, ...idb, ...epbs];
+const pcapngOut = resolve('fixtures/capture-handshake.pcapng');
+writeFileSync(pcapngOut, Buffer.from(pcapng));
+console.log(`Wrote ${pcapngOut}: ${packets.length} packets, ${pcapng.length} bytes.`);

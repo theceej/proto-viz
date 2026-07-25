@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { newLayer, type StackInstance } from '../core/model';
 import { planExport } from '../core/exporter';
 import { writePcap } from '../core/pcap';
+import { writePcapng } from '../core/pcapng';
 import { scenarios } from '../core/scenarios';
 import { serializeStack } from '../core/serialize';
 import { validateStack } from '../core/validate';
@@ -451,6 +452,56 @@ describe.runIf(process.env.TSHARK === '1')('tshark export validation', () => {
         }
       }
       expect(failures).toEqual([]);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  }, 30_000);
+
+  it('writes pcapng that tshark opens, with the step names as packet comments', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'proto-viz-tshark-pcapng-'));
+    try {
+      const base: StackInstance = { layers: ['ethernet', 'ipv4', 'tcp'].map(newLayer) };
+      const handshake = scenarios.find((s) => s.id === 'tcp-handshake')!;
+      const plans = handshake.generate(base, registry);
+      const path = join(directory, 'handshake.pcapng');
+      await writeFile(
+        path,
+        writePcapng(
+          plans.map((plan) => ({
+            bytes: serializeStack(plan.stack, registry).bytes,
+            tsSec: 1_700_000_000 + Math.floor(plan.atUsec / 1_000_000),
+            tsUsec: plan.atUsec % 1_000_000,
+            comment: plan.label,
+          })),
+          planExport(base, registry).linkType!,
+        ),
+      );
+
+      // The container is read as pcapng, not merely tolerated.
+      const fileType = execFileSync('capinfos', ['-t', path], { encoding: 'utf8' });
+      expect(fileType).toMatch(/pcapng/);
+
+      const rows = execFileSync(
+        'tshark',
+        [
+          '-r', path,
+          '-o', 'tcp.check_checksum:TRUE',
+          '-T', 'fields',
+          '-e', 'frame.comment',
+          '-e', 'tcp.checksum.status',
+          '-e', '_ws.malformed',
+          '-E', 'separator=|',
+        ],
+        { encoding: 'utf8' },
+      ).trim().split('\n');
+
+      expect(rows).toHaveLength(plans.length);
+      rows.forEach((row, i) => {
+        const [comment, checksumStatus, malformed] = row.split('|');
+        expect(comment, `packet ${i + 1} comment`).toBe(plans[i]!.label);
+        expect(checksumStatus, `packet ${i + 1} checksum`).not.toBe('0');
+        expect(malformed, `packet ${i + 1} malformed`).toBe('');
+      });
     } finally {
       await rm(directory, { recursive: true, force: true });
     }

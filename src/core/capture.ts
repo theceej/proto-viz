@@ -1,8 +1,8 @@
 /**
- * Turning a parsed pcap file into something inspectable: each record is run
- * through the same `decodeStackBytes` walk the hex-paste decoder uses, then
- * re-serialized so the capture viewer's field/diagram/hex panes see exactly
- * the packet shape the rest of the app already knows how to render.
+ * Turning a parsed capture file into something inspectable: each record is
+ * run through the same `decodeStackBytes` walk the hex-paste decoder uses,
+ * then re-serialized so the capture viewer's field/diagram/hex panes see
+ * exactly the packet shape the rest of the app already knows how to render.
  *
  * Decoding is best-effort by design. A capture is other people's traffic —
  * it will contain protocols the library does not model, packets cut short by
@@ -10,11 +10,23 @@
  * produces a row: one that decoded exactly, one that decoded as far as it
  * could, or one that did not decode at all but still shows its timestamp,
  * length, and raw bytes.
+ *
+ * The container format (classic pcap or pcapng) is resolved here and then
+ * forgotten: `openCaptureFile` sniffs the magic, routes to a parser, and
+ * everything downstream works from the format-independent `ReadCapture`.
  */
 import { decodeStackBytes, type DecodedStack } from './decodeStack';
 import { newLayer, type FieldValue, type StackInstance } from './model';
 import { packetEndpoints, packetPorts } from './packetIdentity';
-import type { CaptureRecord, ReadCapture } from './pcapRead';
+import {
+  DEFAULT_LIMITS,
+  type CaptureReadLimits,
+  type CaptureRecord,
+  type ReadCapture,
+} from './captureFile';
+import { readPcap } from './pcapRead';
+import { readPcapng } from './pcapngRead';
+import { BLOCK } from './pcapng';
 import type { Registry } from './registry';
 import { serializeStack, type SerializedPacket } from './serialize';
 import { formatHexBytes, formatIPv4, formatIPv6, formatMac } from './values';
@@ -67,17 +79,30 @@ function startProtocolId(linkType: number, bytes: Uint8Array): string | null {
   }
 }
 
-/** Throws unless the link type is one whose packets we can start decoding. */
-function assertSupportedLinkType(linkType: number): void {
-  if (linkType in LINK_TYPE_NAMES) return;
-  const known = UNSUPPORTED_LINK_TYPE_NAMES[linkType];
+const isSupportedLinkType = (linkType: number): boolean => linkType in LINK_TYPE_NAMES;
+
+/** Why one link type cannot be decoded, phrased for the person holding the file. */
+function unsupportedLinkTypeReason(linkType: number): string {
   const suffix =
     linkType === LINKTYPE.USER0
       ? ' — proto-viz writes this for non-Ethernet link layers, but the file itself does not say which one.'
       : '';
-  throw new UnsupportedLinkTypeError(
-    `${known ? `${known} (${linkType})` : `Link type ${linkType}`} is not supported${suffix} Supported: Ethernet (1), raw IP (101), IPv4 (228), IPv6 (229).`,
-  );
+  return `${linkTypeName(linkType)} is not supported${suffix} Supported: Ethernet (1), raw IP (101), IPv4 (228), IPv6 (229).`;
+}
+
+/**
+ * Reject a capture only when *nothing* in it can be decoded. pcapng files may
+ * describe several interfaces, and one unsupported interface is no reason to
+ * refuse the packets from the others — those become undecodable rows instead,
+ * each saying which link type it was.
+ */
+function assertAnySupportedLinkType(records: CaptureRecord[], fileLinkType: number): void {
+  const present = new Set(records.map((record) => record.linkType));
+  if (present.size === 0) present.add(fileLinkType);
+  if ([...present].some(isSupportedLinkType)) return;
+
+  const reasons = [...present].map(unsupportedLinkTypeReason);
+  throw new UnsupportedLinkTypeError(reasons[0]!);
 }
 
 export type DecodeStatus = 'exact' | 'partial' | 'failed';
@@ -113,6 +138,8 @@ export interface CapturePacket {
   dstPort: number | null;
   /** One-line description, in the spirit of a capture tool's info column. */
   summary: string;
+  /** The file's own note about this packet (pcapng `opt_comment`). */
+  comment?: string;
   /** Why a decode stopped early, straight from the decoder. */
   notes: string[];
   /** Lowercased haystack for free-text filtering: summary plus field values. */
@@ -121,6 +148,7 @@ export interface CapturePacket {
 
 export interface Capture {
   fileName: string;
+  format: ReadCapture['format'];
   linkType: number;
   linkTypeLabel: string;
   timestampPrecision: ReadCapture['timestampPrecision'];
@@ -133,17 +161,42 @@ export interface Capture {
   capped: boolean;
 }
 
+/**
+ * Read a capture file of either supported container format. Throws
+ * `CaptureReadError` for a file that cannot be parsed at all.
+ */
+export function readCaptureBytes(
+  data: Uint8Array,
+  limits: CaptureReadLimits = DEFAULT_LIMITS,
+): ReadCapture {
+  // pcapng announces itself with a Section Header Block; a classic pcap
+  // magic number cannot collide with it, so four bytes decide the parser.
+  const isPcapng =
+    data.length >= 4 &&
+    new DataView(data.buffer, data.byteOffset, data.byteLength).getUint32(0, false) ===
+      BLOCK.SECTION_HEADER;
+  return isPcapng ? readPcapng(data, limits) : readPcap(data, limits);
+}
+
+/** Read and decode a capture file in one step — the capture viewer's entry point. */
+export function openCaptureFile(
+  data: Uint8Array,
+  registry: Registry,
+  fileName: string,
+  limits: CaptureReadLimits = DEFAULT_LIMITS,
+): Capture {
+  return buildCapture(readCaptureBytes(data, limits), registry, fileName);
+}
+
 /** Decode every record of a parsed capture. Throws on an unsupported link type. */
 export function buildCapture(
   read: ReadCapture,
   registry: Registry,
   fileName: string,
 ): Capture {
-  assertSupportedLinkType(read.linkType);
+  assertAnySupportedLinkType(read.records, read.linkType);
   const baseUsec = read.records[0]?.tsUsec ?? 0;
-  const packets = read.records.map((record) =>
-    buildPacket(record, read.linkType, registry, baseUsec),
-  );
+  const packets = read.records.map((record) => buildPacket(record, registry, baseUsec));
 
   const notes = [...read.notes];
   const failed = packets.filter((p) => p.status === 'failed').length;
@@ -161,6 +214,7 @@ export function buildCapture(
 
   return {
     fileName,
+    format: read.format,
     linkType: read.linkType,
     linkTypeLabel: linkTypeName(read.linkType),
     timestampPrecision: read.timestampPrecision,
@@ -175,7 +229,6 @@ export function buildCapture(
 
 function buildPacket(
   record: CaptureRecord,
-  linkType: number,
   registry: Registry,
   baseUsec: number,
 ): CapturePacket {
@@ -187,9 +240,10 @@ function buildPacket(
     originalLength: record.originalLength,
     snapped: record.originalLength > record.bytes.length,
     bytes: record.bytes,
+    ...(record.comment !== undefined ? { comment: record.comment } : {}),
   };
 
-  const startId = startProtocolId(linkType, record.bytes);
+  const startId = startProtocolId(record.linkType, record.bytes);
   const undecodable = (why: string): CapturePacket => ({
     ...common,
     status: 'failed',
@@ -208,6 +262,9 @@ function buildPacket(
   });
 
   if (record.bytes.length === 0) return undecodable('the record contains no bytes');
+  if (!isSupportedLinkType(record.linkType)) {
+    return undecodable(unsupportedLinkTypeReason(record.linkType));
+  }
   if (startId === null) {
     return undecodable(
       `the link type does not identify the first protocol (first byte 0x${(record.bytes[0] ?? 0).toString(16).padStart(2, '0')})`,
@@ -261,7 +318,12 @@ function buildPacket(
     dstPort: ports?.dst ?? null,
     summary: summarize(topProtocol, ports, decoded.payload.length),
     notes,
-    searchText: searchText(packet, protocols, protocolIds, registry),
+    searchText: [
+      searchText(packet, protocols, protocolIds, registry),
+      record.comment?.toLowerCase() ?? '',
+    ]
+      .filter((part) => part !== '')
+      .join(' '),
   };
 }
 

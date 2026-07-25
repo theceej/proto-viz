@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_LIMITS, PcapReadError, readPcap } from './pcapRead';
+import { readPcap } from './pcapRead';
+import { CaptureReadError, DEFAULT_LIMITS } from './captureFile';
 import { LINKTYPE, writePcap } from './pcap';
 
 /** Build a classic pcap file in either byte order and timestamp resolution. */
@@ -101,7 +102,7 @@ describe('readPcap', () => {
   it('rejects pcapng by name rather than as a bad magic number', () => {
     const buf = new Uint8Array(24);
     new DataView(buf.buffer).setUint32(0, 0x0a0d0d0a, false);
-    expect(() => readPcap(buf)).toThrow(PcapReadError);
+    expect(() => readPcap(buf)).toThrow(CaptureReadError);
     expect(() => readPcap(buf)).toThrow(/pcapng/);
   });
 
