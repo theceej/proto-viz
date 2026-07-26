@@ -155,7 +155,7 @@ function tokenize(input: string): { tokens: Token[]; error: string | null } {
 
     // Identifiers, numbers, IP addresses, MAC addresses
     let j = i;
-    while (j < input.length && /[^\s()!=><&|!]/.test(input[j]!)) {
+    while (j < input.length && /[^\s()!=><&|]/.test(input[j]!)) {
       j++;
     }
     const val = input.slice(i, j);

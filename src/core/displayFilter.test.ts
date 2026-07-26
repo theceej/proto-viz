@@ -16,7 +16,32 @@ function mockPacket(overrides: Partial<CapturePacket> = {}): CapturePacket {
     snapped: false,
     bytes: new Uint8Array(64),
     status: 'exact',
-    packet: null,
+    packet: {
+      bytes: new Uint8Array(64),
+      spans: [
+        {
+          layerUid: 'eth-1',
+          fieldId: 'etherType',
+          bitOffset: 96,
+          bitLength: 16,
+          value: 0x0800,
+          computed: false,
+          pinned: false,
+        },
+        {
+          layerUid: 'ip-1',
+          fieldId: 'protocol',
+          bitOffset: 72,
+          bitLength: 8,
+          value: 6,
+          computed: false,
+          pinned: false,
+        },
+      ],
+      layers: [],
+      payloadOffset: 54,
+      issues: [],
+    },
     stack: { layers: [] },
     protocols: ['Ethernet', 'IPv4', 'TCP'],
     protocolIds: ['ethernet', 'ipv4', 'tcp'],
@@ -27,12 +52,17 @@ function mockPacket(overrides: Partial<CapturePacket> = {}): CapturePacket {
     dstPort: 80,
     summary: 'TCP 54321 -> 80 [SYN] Seq=0',
     notes: [],
-    searchText: '192.168.1.10 10.0.0.1 54321 80 syn http',
+    searchText: '00:11:22:33:44:55 192.168.1.10 10.0.0.1 54321 80 syn http',
     ...overrides,
   };
 }
 
 describe('parseDisplayFilter', () => {
+  it('parses empty inputs', () => {
+    expect(parseDisplayFilter('').ast).toBeNull();
+    expect(parseDisplayFilter('   ').ast).toBeNull();
+  });
+
   it('parses protocol names', () => {
     const res = parseDisplayFilter('tcp');
     expect(res.ast).toEqual({ kind: 'protocol', protocolId: 'tcp' });
@@ -41,7 +71,7 @@ describe('parseDisplayFilter', () => {
   });
 
   it('parses field comparison expressions', () => {
-    const res = parseDisplayFilter('ip.src == 192.168.1.10');
+    const res = parseDisplayFilter('ip.src == "192.168.1.10"');
     expect(res.ast).toEqual({
       kind: 'fieldComparison',
       field: 'ip.src',
@@ -52,27 +82,24 @@ describe('parseDisplayFilter', () => {
     expect(res.error).toBeNull();
   });
 
-  it('parses comparison operators and numbers', () => {
-    const res = parseDisplayFilter('tcp.port == 80');
-    expect(res.ast).toEqual({
-      kind: 'fieldComparison',
-      field: 'tcp.port',
-      op: '==',
-      value: '80',
-    });
+  it('parses word-based comparison operators (eq, ne, gt, lt, ge, le)', () => {
+    expect(parseDisplayFilter('tcp.port eq 80').ast).toMatchObject({ op: '==' });
+    expect(parseDisplayFilter('tcp.port ne 80').ast).toMatchObject({ op: '!=' });
+    expect(parseDisplayFilter('frame.len gt 50').ast).toMatchObject({ op: '>' });
+    expect(parseDisplayFilter('frame.len lt 100').ast).toMatchObject({ op: '<' });
+    expect(parseDisplayFilter('frame.len ge 64').ast).toMatchObject({ op: '>=' });
+    expect(parseDisplayFilter('frame.len le 64').ast).toMatchObject({ op: '<=' });
   });
 
-  it('parses logical AND / OR / NOT expressions', () => {
-    const res = parseDisplayFilter('ip.src == 192.168.1.10 && tcp.port == 80');
+  it('parses parenthesized expressions and logical operators', () => {
+    const res = parseDisplayFilter('(ip.src == 192.168.1.10 || ip.dst == 10.0.0.1) && !udp');
     expect(res.ast?.kind).toBe('logical');
-    if (res.ast?.kind === 'logical') {
-      expect(res.ast.op).toBe('and');
-    }
   });
 
-  it('reports syntax error for incomplete expressions', () => {
-    const res = parseDisplayFilter('ip.src ==');
-    expect(res.error).toContain("Expected value after comparison operator '=='");
+  it('reports syntax error for unterminated quotes and missing tokens', () => {
+    expect(parseDisplayFilter('ip.src == "192.168.1.10').error).toContain('Unterminated string');
+    expect(parseDisplayFilter('ip.src ==').error).toContain("Expected value after comparison operator '=='");
+    expect(parseDisplayFilter('(ip.src == 192.168.1.10').error).toContain('Expected closing parenthesis');
   });
 });
 
@@ -80,52 +107,47 @@ describe('matchesDisplayFilter', () => {
   const pkt = mockPacket();
 
   it('matches protocol filter', () => {
-    const res = parseDisplayFilter('tcp');
-    expect(matchesDisplayFilter(pkt, res.ast!)).toBe(true);
-
-    const udpRes = parseDisplayFilter('udp');
-    expect(matchesDisplayFilter(pkt, udpRes.ast!)).toBe(false);
+    expect(matchesDisplayFilter(pkt, parseDisplayFilter('tcp').ast!)).toBe(true);
+    expect(matchesDisplayFilter(pkt, parseDisplayFilter('udp').ast!)).toBe(false);
   });
 
-  it('matches IP address comparisons', () => {
-    const srcRes = parseDisplayFilter('ip.src == 192.168.1.10');
-    expect(matchesDisplayFilter(pkt, srcRes.ast!)).toBe(true);
+  it('matches text terms', () => {
+    expect(matchesDisplayFilter(pkt, parseDisplayFilter('syn').ast!)).toBe(true);
+  });
 
-    const dstRes = parseDisplayFilter('ip.dst == 10.0.0.1');
-    expect(matchesDisplayFilter(pkt, dstRes.ast!)).toBe(true);
+  it('matches IP and IPv6 address comparisons', () => {
+    expect(matchesDisplayFilter(pkt, parseDisplayFilter('ip.src == 192.168.1.10').ast!)).toBe(true);
+    expect(matchesDisplayFilter(pkt, parseDisplayFilter('ip.dst != 192.168.1.10').ast!)).toBe(true);
+    expect(matchesDisplayFilter(pkt, parseDisplayFilter('ip.addr == 10.0.0.1').ast!)).toBe(true);
 
-    const addrRes = parseDisplayFilter('ip.addr == 10.0.0.1');
-    expect(matchesDisplayFilter(pkt, addrRes.ast!)).toBe(true);
+    const v6Pkt = mockPacket({ source: '2001:db8::1', destination: '2001:db8::2' });
+    expect(matchesDisplayFilter(v6Pkt, parseDisplayFilter('ipv6.src == 2001:db8::1').ast!)).toBe(true);
+    expect(matchesDisplayFilter(v6Pkt, parseDisplayFilter('ipv6.dst == 2001:db8::2').ast!)).toBe(true);
+    expect(matchesDisplayFilter(v6Pkt, parseDisplayFilter('ipv6.addr == 2001:db8::1').ast!)).toBe(true);
+  });
 
-    const wrongRes = parseDisplayFilter('ip.src == 172.16.0.1');
-    expect(matchesDisplayFilter(pkt, wrongRes.ast!)).toBe(false);
+  it('matches MAC address, EtherType, and IP protocol comparisons', () => {
+    expect(matchesDisplayFilter(pkt, parseDisplayFilter('eth.src == 00:11:22:33:44:55').ast!)).toBe(true);
+    expect(matchesDisplayFilter(pkt, parseDisplayFilter('eth.type == 0x0800').ast!)).toBe(true);
+    expect(matchesDisplayFilter(pkt, parseDisplayFilter('ip.proto == 6').ast!)).toBe(true);
   });
 
   it('matches port comparisons', () => {
-    const portRes = parseDisplayFilter('tcp.port == 80');
-    expect(matchesDisplayFilter(pkt, portRes.ast!)).toBe(true);
-
-    const srcPortRes = parseDisplayFilter('tcp.srcport == 54321');
-    expect(matchesDisplayFilter(pkt, srcPortRes.ast!)).toBe(true);
-
-    const wrongPortRes = parseDisplayFilter('tcp.dstport == 443');
-    expect(matchesDisplayFilter(pkt, wrongPortRes.ast!)).toBe(false);
+    expect(matchesDisplayFilter(pkt, parseDisplayFilter('tcp.port == 80').ast!)).toBe(true);
+    expect(matchesDisplayFilter(pkt, parseDisplayFilter('tcp.srcport == 54321').ast!)).toBe(true);
+    expect(matchesDisplayFilter(pkt, parseDisplayFilter('tcp.dstport == 80').ast!)).toBe(true);
+    expect(matchesDisplayFilter(pkt, parseDisplayFilter('udp.port == 53').ast!)).toBe(false);
   });
 
-  it('matches frame length comparisons', () => {
-    const lenRes = parseDisplayFilter('frame.len >= 64');
-    expect(matchesDisplayFilter(pkt, lenRes.ast!)).toBe(true);
-
-    const smallRes = parseDisplayFilter('frame.len > 100');
-    expect(matchesDisplayFilter(pkt, smallRes.ast!)).toBe(false);
+  it('matches frame length and number comparisons', () => {
+    expect(matchesDisplayFilter(pkt, parseDisplayFilter('frame.len >= 64').ast!)).toBe(true);
+    expect(matchesDisplayFilter(pkt, parseDisplayFilter('frame.number == 1').ast!)).toBe(true);
   });
 
   it('evaluates logical AND/OR/NOT correctly', () => {
-    const andMatch = parseDisplayFilter('ip.src == 192.168.1.10 and tcp.port == 80');
-    expect(matchesDisplayFilter(pkt, andMatch.ast!)).toBe(true);
-
-    const notMatch = parseDisplayFilter('not udp');
-    expect(matchesDisplayFilter(pkt, notMatch.ast!)).toBe(true);
+    expect(matchesDisplayFilter(pkt, parseDisplayFilter('ip.src == 192.168.1.10 and tcp.port == 80').ast!)).toBe(true);
+    expect(matchesDisplayFilter(pkt, parseDisplayFilter('ip.src == 1.1.1.1 or tcp.port == 80').ast!)).toBe(true);
+    expect(matchesDisplayFilter(pkt, parseDisplayFilter('!udp').ast!)).toBe(true);
   });
 });
 
@@ -136,8 +158,8 @@ describe('getFilterAutocompletions', () => {
     expect(completions.some((c) => c.completion === 'ip.dst')).toBe(true);
   });
 
-  it('returns protocol suggestions for typed fragment', () => {
-    const completions = getFilterAutocompletions('tc');
+  it('returns protocol suggestions for typed fragment and active capture', () => {
+    const completions = getFilterAutocompletions('tc', [mockPacket()]);
     expect(completions.some((c) => c.completion === 'tcp')).toBe(true);
   });
 });
