@@ -184,8 +184,9 @@ export function openCaptureFile(
   registry: Registry,
   fileName: string,
   limits: CaptureReadLimits = DEFAULT_LIMITS,
+  onProgress?: (processed: number, total: number) => void,
 ): Capture {
-  return buildCapture(readCaptureBytes(data, limits), registry, fileName);
+  return buildCapture(readCaptureBytes(data, limits), registry, fileName, onProgress);
 }
 
 /** Decode every record of a parsed capture. Throws on an unsupported link type. */
@@ -193,10 +194,19 @@ export function buildCapture(
   read: ReadCapture,
   registry: Registry,
   fileName: string,
+  onProgress?: (processed: number, total: number) => void,
 ): Capture {
   assertAnySupportedLinkType(read.records, read.linkType);
   const baseUsec = read.records[0]?.tsUsec ?? 0;
-  const packets = read.records.map((record) => buildPacket(record, registry, baseUsec));
+  const total = read.records.length;
+  const packets: CapturePacket[] = [];
+
+  for (let i = 0; i < total; i++) {
+    packets.push(buildPacket(read.records[i]!, registry, baseUsec));
+    if (onProgress && ((i + 1) % 50 === 0 || i === total - 1)) {
+      onProgress(i + 1, total);
+    }
+  }
 
   const notes = [...read.notes];
   const failed = packets.filter((p) => p.status === 'failed').length;
