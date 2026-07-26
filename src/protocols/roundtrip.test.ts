@@ -42,6 +42,8 @@ const TSHARK_PROTOCOL_NAMES: Record<string, string> = {
   'ipv6-frag': 'ipv6.fraghdr',
   'ipv6-dstopts': 'ipv6.dstopts',
   eap: 'eapol', // EAP is a subtree of EAPOL in tshark's frame.protocols list
+  ikev2: 'isakmp',
+  'ikev2-natt': 'isakmp',
 };
 
 /** A legal carrier stack exercising every builtin protocol. */
@@ -124,6 +126,8 @@ const STACKS: Record<string, string[]> = {
   mldv2: ['ethernet', 'ipv6', 'mldv2'],
   eapol: ['ethernet', 'eapol', 'eap'],
   eap: ['ethernet', 'eapol', 'eap'],
+  ikev2: ['ethernet', 'ipv4', 'udp', 'ikev2'],
+  'ikev2-natt': ['ethernet', 'ipv4', 'udp', 'ikev2-natt'],
 };
 
 describe('every builtin protocol', () => {

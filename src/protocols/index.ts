@@ -60,6 +60,7 @@ import { igmpv3 } from './igmpv3';
 import { mldv2 } from './mldv2';
 import { eapol } from './eapol';
 import { eap } from './eap';
+import { ikev2, ikev2Natt } from './ikev2';
 import { lacp } from './lacp';
 
 export const builtinProtocols: ProtocolDefinition[] = [
@@ -141,6 +142,8 @@ export const builtinProtocols: ProtocolDefinition[] = [
   eapol,
   eap,
   lacp,
+  ikev2,
+  ikev2Natt,
 ];
 
 export { enumTables };
