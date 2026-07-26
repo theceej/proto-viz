@@ -15,7 +15,7 @@ import { useLibraryStore } from '../../store/libraryStore';
 import { useStackStore } from '../../store/stackStore';
 import { useHighlightStore } from '../../store/highlightStore';
 import { usePrefersReducedMotion } from '../usePrefersReducedMotion';
-import QuizHexView from '../components/QuizHexView';
+import PlainHexView from '../components/PlainHexView';
 import ProtocolInfoLink from '../components/ProtocolInfoLink';
 import { referencesFor } from '../../protocols/refs';
 
@@ -312,9 +312,9 @@ export default function PracticePage() {
             <p className="mb-2 text-[11px] tracking-widest text-zinc-500 uppercase">
               Packet bytes · {round.packet.bytes.length} bytes
             </p>
-            <QuizHexView
+            <PlainHexView
               bytes={round.packet.bytes}
-              range={question.range}
+              ranges={[question.range]}
               muted={answered !== null}
             />
           </section>

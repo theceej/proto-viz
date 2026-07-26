@@ -22,6 +22,7 @@ export default function HexView({
   inspectionMode = 'explain',
   onInspectionModeChange = () => undefined,
   onByteEdit,
+  mutatedBits,
 }: {
   packet: SerializedPacket;
   registry: Registry;
@@ -30,6 +31,11 @@ export default function HexView({
   onInspectionModeChange?: (mode: InspectionMode) => void;
   /** When provided, hex bytes become keyboard-editable (builder only). */
   onByteEdit?: (byteOffset: number, value: number) => void;
+  /**
+   * Bit ranges a fuzzing run changed. Marked with a dashed outline *and*
+   * named in each byte's label, so the mark is never colour alone.
+   */
+  mutatedBits?: { bitOffset: number; bitLength: number }[];
 }) {
   const { setHovered, toggleLocked } = useHighlightStore();
   const hovered = useHighlightStore((s) => s.hovered);
@@ -55,6 +61,19 @@ export default function HexView({
     () => buildSpanIndex(packet.spans, packet.bytes.length),
     [packet],
   );
+
+  // Byte-granular view of the mutated bit ranges: a byte counts as mutated if
+  // any of its bits were. Declared with the other memos, above any early
+  // return, so the hook order never varies.
+  const mutatedBytes = useMemo(() => {
+    const set = new Set<number>();
+    for (const range of mutatedBits ?? []) {
+      const first = Math.floor(range.bitOffset / 8);
+      const last = Math.floor((range.bitOffset + Math.max(1, range.bitLength) - 1) / 8);
+      for (let b = first; b <= last; b++) set.add(b);
+    }
+    return set;
+  }, [mutatedBits]);
 
   const layerOfByte = useMemo(() => {
     const arr: number[] = new Array(packet.bytes.length).fill(-1); // -1 = payload
@@ -114,6 +133,7 @@ export default function HexView({
 
   const colorOfByte = (b: number): LayerColor =>
     layerOfByte[b]! >= 0 ? layerColor(layerOfByte[b]!) : PAYLOAD_COLOR;
+
 
   const commitByte = (b: number, value: number) => {
     setEditing(null);
@@ -247,12 +267,16 @@ export default function HexView({
                   aria-label={
                     isEditing
                       ? `Editing byte offset ${b}: type a hex digit to set the value, Escape to cancel`
-                      : editable
-                        ? `${labelOfByte(b)}. Type two hex digits to edit`
-                        : labelOfByte(b)
+                      : `${labelOfByte(b)}${mutatedBytes.has(b) ? '. Mutated' : ''}${
+                          editable ? '. Type two hex digits to edit' : ''
+                        }`
                   }
                   aria-pressed={isActive(locked, ref.layerUid, ref.fieldId)}
-                  className={`${editable ? 'cursor-text' : 'cursor-pointer'} rounded-sm px-[3px] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cyan-400 ${i === bytesPerRow / 2 ? 'ml-2' : ''} ${isEditing ? 'outline-2 outline-cyan-400' : ''}`}
+                  className={`${editable ? 'cursor-text' : 'cursor-pointer'} rounded-sm px-[3px] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cyan-400 ${i === bytesPerRow / 2 ? 'ml-2' : ''} ${isEditing ? 'outline-2 outline-cyan-400' : ''} ${
+                    mutatedBytes.has(b) && !isEditing
+                      ? 'outline-2 outline-dashed outline-offset-[-1px] outline-rose-400'
+                      : ''
+                  }`}
                   style={{
                     background: isEditing ? 'var(--hex-editing, #164e63)' : active ? c.fillHover : c.tint,
                     color: isEditing || active ? 'var(--hex-active-ink)' : undefined,

@@ -24,6 +24,7 @@ export default function BitGrid({
   spans,
   color,
   minWidthClass = 'md:min-w-[32rem]',
+  mutatedBits,
 }: {
   def: ProtocolDefinition;
   layout: LayerLayout;
@@ -35,6 +36,11 @@ export default function BitGrid({
    * grid just fits its container instead of overflowing.
    */
   minWidthClass?: string;
+  /**
+   * Bit ranges a fuzzing run changed. A field overlapping one gets a dashed
+   * accent and says so in its label, so the mark never rests on colour alone.
+   */
+  mutatedBits?: { bitOffset: number; bitLength: number }[];
 }) {
   const { setHovered, toggleLocked } = useHighlightStore();
   const hovered = useHighlightStore((s) => s.hovered);
@@ -46,6 +52,14 @@ export default function BitGrid({
   );
 
   const fieldById = useMemo(() => new Map(def.fields.map((f) => [f.id, f])), [def]);
+
+  /** Does this field's span overlap any mutated bit range? */
+  const isMutated = (span: { bitOffset: number; bitLength: number }): boolean =>
+    (mutatedBits ?? []).some(
+      (range) =>
+        span.bitOffset < range.bitOffset + Math.max(1, range.bitLength) &&
+        range.bitOffset < span.bitOffset + span.bitLength,
+    );
 
   return (
     // On desktop keep the 32-bit grid at a legible minimum width, scrolling a
@@ -77,6 +91,7 @@ export default function BitGrid({
           // One keyboard stop per field: the labeled segment acts as a
           // toggle button that locks the cross-view highlight.
           const interactive = seg.first && !seg.collapsed;
+          const mutated = isMutated(seg.span);
           return (
             <div
               key={i}
@@ -85,7 +100,7 @@ export default function BitGrid({
               aria-pressed={interactive ? isActive(locked, ref.layerUid, ref.fieldId) : undefined}
               aria-label={
                 interactive
-                  ? `${def.name} ${label}, ${bitsLabel(seg.span.bitLength)}${value ? `, value ${value}` : ''}`
+                  ? `${def.name} ${label}, ${bitsLabel(seg.span.bitLength)}${value ? `, value ${value}` : ''}${mutated ? ', mutated' : ''}`
                   : undefined
               }
               className="flex cursor-pointer flex-col items-center justify-center overflow-hidden rounded-sm px-1 text-center leading-tight transition-colors duration-75 focus-visible:outline-2 focus-visible:outline-cyan-400"
@@ -93,9 +108,11 @@ export default function BitGrid({
                 gridColumn: `${seg.col + 1} / span ${seg.width}`,
                 gridRow: seg.row + 1,
                 background: active ? color.fillHover : color.fill,
-                boxShadow: `inset 0 0 0 1px ${active ? color.accent : color.border}`,
+                boxShadow: mutated
+                  ? 'inset 0 0 0 2px var(--color-rose-400)'
+                  : `inset 0 0 0 1px ${active ? color.accent : color.border}`,
               }}
-              title={`${def.name} · ${label} — ${bitsLabel(seg.span.bitLength)}`}
+              title={`${def.name} · ${label} — ${bitsLabel(seg.span.bitLength)}${mutated ? ' (mutated)' : ''}`}
               onMouseEnter={() => setHovered(ref)}
               onMouseLeave={() => setHovered(null)}
               onFocus={interactive ? () => setHovered(ref) : undefined}

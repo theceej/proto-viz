@@ -13,9 +13,12 @@ import { bitsLabel } from '../format';
 export default function PacketDiagrams({
   packet,
   registry,
+  mutatedBits,
 }: {
   packet: SerializedPacket;
   registry: Registry;
+  /** Bit ranges a fuzzing run changed, marked in each layer's grid. */
+  mutatedBits?: { bitOffset: number; bitLength: number }[];
 }) {
   return (
     <div className="flex flex-col gap-5 p-5">
@@ -37,7 +40,13 @@ export default function PacketDiagrams({
                 {bitsLabel(layout.headerBytes * 8)} · offset {layout.byteOffset}
               </span>
             </div>
-            <BitGrid def={def} layout={layout} spans={spans} color={color} />
+            <BitGrid
+              def={def}
+              layout={layout}
+              spans={spans}
+              color={color}
+              {...(mutatedBits ? { mutatedBits } : {})}
+            />
           </div>
         );
       })}
