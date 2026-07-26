@@ -8,6 +8,7 @@ const routes = [
   '/library',
   '/map',
   '/import',
+  '/workspace',
   '/help',
   '/compare',
 ];

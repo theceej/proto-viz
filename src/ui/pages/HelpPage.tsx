@@ -223,6 +223,22 @@ export default function HelpPage({ onStartTour }: { onStartTour: () => void }) {
         </p>
       </Section>
 
+      <Section title="Moving a workspace">
+        <p>
+          <Link className={link} to="/workspace">Workspace</Link> exports custom
+          protocols, saved stacks, the current Builder stack, packet comparisons,
+          and the composed scenario to a local JSON file. Captures and interface
+          preferences are intentionally excluded. Referenced custom protocols are
+          included automatically so selected stacks remain portable.
+        </p>
+        <p>
+          Import always opens a review first. Choose merge or replace behavior and
+          how ID conflicts are handled; no browser data is written until you apply
+          the reviewed plan. Replacing saved protocols or stacks requires explicit
+          confirmation. Files are limited to 10 MiB and remain in this browser tab.
+        </p>
+      </Section>
+
       <Section title="Keyboard reference">
         <div className="overflow-x-auto">
         <table className="mt-1 w-full border-collapse text-[13px]">

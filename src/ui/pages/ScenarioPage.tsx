@@ -39,12 +39,14 @@ import {
   createComposedScenario,
   deriveComposedTimeline,
   duplicateComposedStep,
-  parseComposedScenario,
-  serializeComposedScenario,
   snapshotStack,
   type ComposedScenario,
   type ComposedScenarioStep,
 } from '../../core/scenarioComposer';
+import {
+  loadComposedScenario,
+  saveComposedScenario,
+} from '../../store/composedScenarioPersistence';
 import { planExport } from '../../core/exporter';
 import { serializeStack } from '../../core/serialize';
 import { writePcap, type PcapPacket } from '../../core/pcap';
@@ -59,7 +61,6 @@ const ENDPOINT_TINT = [
 const tint = (i: number) => ENDPOINT_TINT[i] ?? ENDPOINT_TINT[0]!;
 const letter = (i: number) => ENDPOINT_LETTERS[i] ?? '?';
 const COMPOSED_ID = '__composed__';
-const COMPOSED_STORAGE_KEY = 'pv-composed-scenario-v1';
 
 /** Prefer a real exchange (more than one packet) as the initial selection. */
 function defaultScenario(options: Scenario[]): string {
@@ -89,21 +90,13 @@ export default function ScenarioPage() {
   );
   const options = useMemo(() => applicableScenarios(base, registry), [base, registry]);
   const [composed, setComposed] = useState<ComposedScenario>(() => {
-    const saved = localStorage.getItem(COMPOSED_STORAGE_KEY);
-    if (saved) {
-      try {
-        return parseComposedScenario(saved);
-      } catch {
-        // Start clean if an old or damaged local draft cannot be read.
-      }
-    }
-    return createComposedScenario(base);
+    return loadComposedScenario() ?? createComposedScenario(base);
   });
   const [composerOpen, setComposerOpen] = useState(false);
   const [composedStep, setComposedStep] = useState(0);
 
   useEffect(() => {
-    localStorage.setItem(COMPOSED_STORAGE_KEY, serializeComposedScenario(composed));
+    saveComposedScenario(composed);
   }, [composed]);
 
   const [scenarioId, setScenarioId] = useState(() => defaultScenario(options));

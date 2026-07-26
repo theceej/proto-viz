@@ -7,6 +7,7 @@ import {
   Layers,
   Library,
   Radar,
+  Save,
   Scissors,
   Waypoints,
   type LucideIcon,
@@ -29,5 +30,6 @@ export const NAV: NavItem[] = [
   { to: '/library', label: 'Protocol Library', icon: Library },
   { to: '/map', label: 'Encapsulation Map', icon: Waypoints },
   { to: '/import', label: 'Import Spec', icon: FileUp },
+  { to: '/workspace', label: 'Workspace', icon: Save },
   { to: '/help', label: 'Help', icon: CircleHelp },
 ];
