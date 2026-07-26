@@ -15,6 +15,9 @@ import { newLayer, type FieldValue, type StackInstance } from './model';
 import { LINKTYPE, writePcap } from './pcap';
 import { readPcap } from './pcapRead';
 import { serializeStack } from './serialize';
+import { withCaptureProfile } from './captureProfile';
+import { createRegistry } from './registry';
+import type { ProtocolDefinition } from './model';
 
 const registry = createBuiltinRegistry();
 
@@ -60,6 +63,21 @@ describe('buildCapture', () => {
     expect(packet.summary).toContain('TCP');
     expect(packet.summary).toContain('49152 → 80');
     expect(packet.packet).not.toBeNull();
+  });
+
+  it('reuses reconciliation stack and packet for exact captures', () => {
+    const bytes = bytesOf(stack(['ethernet', 'ipv4', 'tcp']));
+    const { result, profile } = withCaptureProfile(() =>
+      capture([{ bytes, tsSec: 100, tsUsec: 0 }]),
+    );
+    const captured = result.packets[0]!;
+
+    expect(captured.packet!.bytes).toEqual(bytes);
+    expect(captured.stack.layers.map((layer) => layer.uid)).toEqual(
+      captured.packet!.layers.map((layer) => layer.uid),
+    );
+    expect(profile.phases.stack.invocations).toBe(1);
+    expect(profile.phases.serialize.invocations).toBe(1);
   });
 
   it('numbers packets and measures time relative to the first', () => {
@@ -189,6 +207,47 @@ describe('buildCapture', () => {
     expect(packet.searchText).toContain('198.51.100.7');
     // The IPv4 Protocol field's enum label, not just its number.
     expect(packet.searchText).toContain('udp');
+  });
+
+  it('indexes a large custom protocol in field and span order', () => {
+    const fields: ProtocolDefinition['fields'] = Array.from({ length: 96 }, (_, index) => ({
+      id: `field-${index}`,
+      name: `Custom field ${index}`,
+      type: 'uint' as const,
+      bitLength: 8,
+    }));
+    const custom: ProtocolDefinition = {
+      id: 'large-custom',
+      name: 'Large custom',
+      layerHint: 'application',
+      source: 'custom',
+      fields,
+      providesNamespaces: [],
+      encapsulations: [{ namespaceId: 'ethertype', value: 0x88b5 }],
+    };
+    const customRegistry = createRegistry([registry.get('ethernet')!, custom]);
+    const customStack: StackInstance = {
+      layers: [
+        newLayer('ethernet'),
+        {
+          ...newLayer('large-custom'),
+          overrides: Object.fromEntries(fields.map((field, index) => [field.id, index])),
+        },
+      ],
+    };
+    const bytes = serializeStack(customStack, customRegistry).bytes;
+    const packet = buildCapture(
+      readPcap(writePcap([{ bytes, tsSec: 1, tsUsec: 0 }], LINKTYPE.ETHERNET)),
+      customRegistry,
+      'custom.pcap',
+    ).packets[0]!;
+
+    expect(packet.protocolIds).toEqual(['ethernet', 'large-custom']);
+    expect(packet.searchText).toContain('custom field 0 0');
+    expect(packet.searchText).toContain('custom field 95 95');
+    expect(packet.searchText.indexOf('custom field 0')).toBeLessThan(
+      packet.searchText.indexOf('custom field 95'),
+    );
   });
 });
 

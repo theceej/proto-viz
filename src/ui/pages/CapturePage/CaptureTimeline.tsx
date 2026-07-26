@@ -17,6 +17,28 @@ import { formatDuration } from './format';
  */
 const HEIGHT = 40;
 const TICK_WIDTH = 3;
+export const MAX_TIMELINE_TICKS = 500;
+
+/** Reduce dense timelines to one representative packet per visual time bucket. */
+export function aggregateTimelinePackets(
+  packets: CapturePacket[],
+  selected: number | null,
+  maxTicks = MAX_TIMELINE_TICKS,
+): CapturePacket[] {
+  if (packets.length <= maxTicks) return packets;
+  const first = packets.reduce((min, packet) => Math.min(min, packet.relativeUsec), Infinity);
+  const last = packets.reduce((max, packet) => Math.max(max, packet.relativeUsec), -Infinity);
+  const width = Math.max(1, last - first);
+  const buckets = new Map<number, CapturePacket>();
+  for (const packet of packets) {
+    const bucket = Math.min(
+      maxTicks - 1,
+      Math.floor(((packet.relativeUsec - first) / width) * maxTicks),
+    );
+    if (!buckets.has(bucket) || packet.number === selected) buckets.set(bucket, packet);
+  }
+  return [...buckets.values()];
+}
 
 export default function CaptureTimeline({
   packets,
@@ -40,6 +62,10 @@ export default function CaptureTimeline({
       colors: new Map(order.map((name, i) => [name, layerColor(i).accent])),
     };
   }, [packets]);
+  const ticks = useMemo(
+    () => aggregateTimelinePackets(packets, selected),
+    [packets, selected],
+  );
 
   if (packets.length === 0) return null;
 
@@ -65,7 +91,7 @@ export default function CaptureTimeline({
           stroke="var(--color-zinc-700)"
           strokeWidth={1}
         />
-        {packets.map((packet) => {
+        {ticks.map((packet) => {
           const x = ((packet.relativeUsec - span.first) / span.width) * (1000 - TICK_WIDTH);
           const isSelected = packet.number === selected;
           return (
