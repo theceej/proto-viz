@@ -96,6 +96,7 @@ export const SHARE_PROTOCOL_IDS: readonly string[] = [
   'mldv2',
   'eapol',
   'eap',
+  'lacp',
   'ikev2',
   'ikev2-natt',
 ];

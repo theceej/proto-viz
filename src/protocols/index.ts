@@ -61,6 +61,7 @@ import { mldv2 } from './mldv2';
 import { eapol } from './eapol';
 import { eap } from './eap';
 import { ikev2, ikev2Natt } from './ikev2';
+import { lacp } from './lacp';
 
 export const builtinProtocols: ProtocolDefinition[] = [
   ethernet,
@@ -140,6 +141,7 @@ export const builtinProtocols: ProtocolDefinition[] = [
   mldv2,
   eapol,
   eap,
+  lacp,
   ikev2,
   ikev2Natt,
 ];
