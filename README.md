@@ -106,7 +106,12 @@ your browser. Nothing is uploaded anywhere.
   step name ("SYN", "SYN-ACK", "DORA: Offer") as a per-packet comment, which
   Wireshark and the capture viewer both show — so an exported exchange
   reopens explaining itself.
-- **Fuzzing lab** — the open-ended counterpart to the guided "break this
+- **Packet Lab** — two destructive workbenches that can hand packets to each
+  other. *Fragmentation* splits the current packet at a chosen MTU and steps
+  through each IPv4/IPv6 fragment, then disturbs delivery — missing,
+  duplicate, overlapping, out-of-order — and diagnoses why duplicates and
+  reordering still reassemble while gaps stay incomplete and overlaps are
+  ambiguous. *Fuzzing* is the open-ended counterpart to the guided "break this
   packet" experiments. Pick a scope (whole packet, chosen layers, or a byte
   range), a strategy (random bit flips, zeroed bytes, boundary values, or
   driving a length field to its maximum), and a seed; length-changing
@@ -121,7 +126,15 @@ your browser. Nothing is uploaded anywhere.
   corruption invalidated pinned, because a bit flip in transit does not repair
   a checksum. A campaign runs one strategy across many seeds and groups the
   outcomes, which is how the few mutations that break something become visible
-  among the many that do not. Nothing is transmitted anywhere.
+  among the many that do not.
+
+  The two compose, which is the reason they share a page: **Fuzz this
+  fragment** sends one fragment of a datagram to the fuzzer, and **Fragment
+  this packet** sends a corrupted packet to the fragmenter — so "does
+  reassembly survive a corrupted fragment?" is two clicks rather than
+  unanswerable. Each tab remembers its own source packet, and a banner names
+  it whenever a tab is working on something other than the Builder's stack.
+  Nothing is transmitted anywhere.
 - **Packet practice** — an "identify the packet" drill built from the same
   metadata everything else runs on. A packet is drawn (a random walk over the
   encapsulation graph, or one of the builder presets) and shown as an

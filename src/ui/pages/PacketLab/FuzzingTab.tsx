@@ -7,6 +7,7 @@ import {
   Dices,
   Download,
   PlayCircle,
+  Scissors,
   Search,
   Share2,
 } from 'lucide-react';
@@ -17,21 +18,21 @@ import {
   MUTATIONS,
   type FuzzResult,
   type MutationStrategy,
-} from '../../core/fuzz';
-import { diagnoseFuzz, type DiagnosisSeverity } from '../../core/fuzzDiagnosis';
-import { MAX_RUNS, runCampaign, type CampaignResult } from '../../core/fuzzCampaign';
-import type { StackInstance } from '../../core/model';
-import { serializeStack } from '../../core/serialize';
-import { useLibraryStore } from '../../store/libraryStore';
-import { useStackStore } from '../../store/stackStore';
-import HexView from '../components/HexView';
-import PacketDiagrams from '../components/PacketDiagrams';
-import PlainHexView from '../components/PlainHexView';
-import ResizablePanes from '../components/ResizablePanes';
-import { useInspectionMode } from '../inspectionMode';
+} from '../../../core/fuzz';
+import { diagnoseFuzz, type DiagnosisSeverity } from '../../../core/fuzzDiagnosis';
+import { MAX_RUNS, runCampaign, type CampaignResult } from '../../../core/fuzzCampaign';
+import { serializeStack } from '../../../core/serialize';
+import { useLibraryStore } from '../../../store/libraryStore';
+import { useStackStore } from '../../../store/stackStore';
+import HexView from '../../components/HexView';
+import PacketDiagrams from '../../components/PacketDiagrams';
+import PlainHexView from '../../components/PlainHexView';
+import ResizablePanes from '../../components/ResizablePanes';
+import { useInspectionMode } from '../../inspectionMode';
+import type { LabTabProps } from './source';
 
-const ExportDialog = lazy(() => import('../components/ExportDialog'));
-const ShareDialog = lazy(() => import('../components/ShareDialog'));
+const ExportDialog = lazy(() => import('../../components/ExportDialog'));
+const ShareDialog = lazy(() => import('../../components/ShareDialog'));
 
 const STRATEGY_COPY: Record<MutationStrategy, { label: string; description: string }> = {
   'bit-flip': { label: 'Random bit flips', description: 'Flip single bits, as a noisy link would.' },
@@ -69,9 +70,7 @@ type Tab = 'single' | 'campaign';
  * Nothing is transmitted. This mutates a packet the user composed, in their
  * own tab, exactly as every other view in the app does.
  */
-export default function FuzzLabPage() {
-  const layers = useStackStore((state) => state.layers);
-  const trailingPayload = useStackStore((state) => state.trailingPayload);
+export default function FuzzingTab({ source, onHandoff }: LabTabProps) {
   const restoreStack = useStackStore((state) => state.restoreStack);
   const registry = useLibraryStore((state) => state.registry);
   const navigate = useNavigate();
@@ -88,17 +87,14 @@ export default function FuzzLabPage() {
   const [exporting, setExporting] = useState(false);
   const [sharing, setSharing] = useState(false);
 
-  const baseline = useMemo<StackInstance>(
-    () => ({ layers, trailingPayload }),
-    [layers, trailingPayload],
-  );
+  const baseline = source.stack;
   const basePacket = useMemo(() => {
     try {
-      return layers.length > 0 ? serializeStack(baseline, registry) : null;
+      return baseline.layers.length > 0 ? serializeStack(baseline, registry) : null;
     } catch {
       return null;
     }
-  }, [baseline, registry, layers.length]);
+  }, [baseline, registry]);
 
   const run = useMemo(() => {
     if (!basePacket) return null;
@@ -148,22 +144,18 @@ export default function FuzzLabPage() {
 
   if (!basePacket) {
     return (
-      <PageFrame>
-        <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
-          <p className="text-sm text-zinc-400">No packet to fuzz.</p>
-          <p className="max-w-sm text-[13px] text-zinc-600">
-            Build a stack in the Stack Builder first — the lab corrupts whatever packet it
-            currently produces.
-          </p>
-        </div>
-      </PageFrame>
+      <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
+        <p className="text-sm text-zinc-400">This packet could not be serialized.</p>
+        <p className="max-w-sm text-[13px] text-zinc-600">
+          Fix the stack in the Stack Builder, or switch back to the Builder packet.
+        </p>
+      </div>
     );
   }
 
   return (
-    <div className="flex h-full flex-col">
-      <header className="flex flex-wrap items-center gap-3 border-b border-zinc-800 px-6 py-3">
-        <h1 className="text-[15px] font-semibold tracking-tight text-zinc-100">Fuzzing Lab</h1>
+    <>
+      <header className="flex flex-wrap items-center gap-3 border-b border-zinc-800 px-4 py-3 sm:px-6">
         <span className="font-mono text-[12px] text-zinc-500">
           {basePacket.bytes.length}-byte packet ·{' '}
           {basePacket.layers.map((l) => l.protocolId).join(' › ')}
@@ -283,6 +275,14 @@ export default function FuzzLabPage() {
           onExport={() => setExporting(true)}
           onShare={() => setSharing(true)}
           onInspect={loadIntoBuilder}
+          onFragment={(result) => {
+            if (!result.stack) return;
+            onHandoff({
+              label: `Fuzzed: seed ${seed}, ${STRATEGY_COPY[strategy].label.toLowerCase()}`,
+              origin: 'fuzzing',
+              stack: result.stack,
+            });
+          }}
         />
       ) : (
         <CampaignPane
@@ -326,7 +326,7 @@ export default function FuzzLabPage() {
           />
         )}
       </Suspense>
-    </div>
+    </>
   );
 }
 
@@ -348,6 +348,7 @@ function SinglePane({
   onExport,
   onShare,
   onInspect,
+  onFragment,
 }: {
   run: RunState | null;
   mutatedPacket: ReturnType<typeof serializeStack> | null;
@@ -357,6 +358,7 @@ function SinglePane({
   onExport: () => void;
   onShare: () => void;
   onInspect: (result: FuzzResult) => void;
+  onFragment: (result: FuzzResult) => void;
 }) {
   if (!run) return null;
   if (run.error !== null || !run.result || !run.diagnosis) {
@@ -401,6 +403,15 @@ function SinglePane({
           <button className={ACTION} disabled={!result.stack} onClick={onShare}>
             <Share2 className="size-3.5" aria-hidden />
             Share
+          </button>
+          <button
+            className={ACTION}
+            disabled={!result.stack}
+            title="Fragment this corrupted packet and see whether reassembly survives it"
+            onClick={() => onFragment(result)}
+          >
+            <Scissors className="size-3.5" aria-hidden />
+            Fragment this packet
           </button>
           <button className={ACTION} disabled={!result.stack} onClick={() => onInspect(result)}>
             <Search className="size-3.5" aria-hidden />
@@ -632,13 +643,3 @@ function TabButton({
   );
 }
 
-function PageFrame({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex h-full flex-col">
-      <header className="flex items-center gap-3 border-b border-zinc-800 px-6 py-3">
-        <h1 className="text-[15px] font-semibold tracking-tight text-zinc-100">Fuzzing Lab</h1>
-      </header>
-      <div className="min-h-0 flex-1">{children}</div>
-    </div>
-  );
-}

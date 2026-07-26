@@ -7,8 +7,8 @@ import { expect, test, type Page } from '@playwright/test';
  * assertions can be specific rather than "something changed".
  */
 async function openLab(page: Page, seed = 4242) {
-  await page.goto('/#/fuzz');
-  await expect(page.getByRole('heading', { name: 'Fuzzing Lab' })).toBeVisible();
+  await page.goto('/#/lab/fuzzing');
+  await expect(page.getByRole('heading', { name: 'Packet Lab' })).toBeVisible();
   await page.getByRole('spinbutton', { name: 'Seed' }).fill(String(seed));
   await expect(page.getByRole('region', { name: 'Mutation result' })).toBeVisible();
 }

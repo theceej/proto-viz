@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useReducer, useRef, useState, type KeyboardEvent } from 'react';
-import { Download, Pause, Play, SkipBack, SkipForward } from 'lucide-react';
+import { Bug, Download, Pause, Play, SkipBack, SkipForward } from 'lucide-react';
 import { Link } from 'react-router';
 import {
   FRAGMENT_MUTATIONS,
@@ -9,21 +9,23 @@ import {
   mutateFragmentSequence,
   type FragmentIssue,
   type FragmentMutation,
-} from '../../core/fragmentation';
-import { planExport } from '../../core/exporter';
-import type { StackInstance } from '../../core/model';
-import { writePcap } from '../../core/pcap';
-import { deriveTimeline, initialPlayback, reducePlayback } from '../../core/timeline';
-import { useLibraryStore } from '../../store/libraryStore';
-import { useStackStore } from '../../store/stackStore';
-import AddToCompareButton from '../components/AddToCompareButton';
-import FieldEditor from '../components/FieldEditor';
-import HexView from '../components/HexView';
-import PacketDiagrams from '../components/PacketDiagrams';
-import ResizablePanes from '../components/ResizablePanes';
-import ValidationPanel from '../components/ValidationPanel';
-import { useInspectionMode } from '../inspectionMode';
-import { usePrefersReducedMotion } from '../usePrefersReducedMotion';
+} from '../../../core/fragmentation';
+import { planExport } from '../../../core/exporter';
+
+import { writePcap } from '../../../core/pcap';
+import { deriveTimeline, initialPlayback, reducePlayback } from '../../../core/timeline';
+import { useLibraryStore } from '../../../store/libraryStore';
+import AddToCompareButton from '../../components/AddToCompareButton';
+import FieldEditor from '../../components/FieldEditor';
+import HexView from '../../components/HexView';
+import PacketDiagrams from '../../components/PacketDiagrams';
+import ResizablePanes from '../../components/ResizablePanes';
+import ValidationPanel from '../../components/ValidationPanel';
+import { useInspectionMode } from '../../inspectionMode';
+import { usePrefersReducedMotion } from '../../usePrefersReducedMotion';
+import type { LabTabProps } from './source';
+
+const EMPTY_PAYLOAD = new Uint8Array(0);
 
 const MODE_COPY: Record<FragmentMutation, { label: string; description: string }> = {
   normal: { label: 'Normal', description: 'Every fragment arrives once, in offset order.' },
@@ -33,9 +35,7 @@ const MODE_COPY: Record<FragmentMutation, { label: string; description: string }
   'out-of-order': { label: 'Out of order', description: 'The first two arrivals are swapped; offsets still permit reassembly.' },
 };
 
-export default function FragmentationLabPage() {
-  const layers = useStackStore((state) => state.layers);
-  const trailingPayload = useStackStore((state) => state.trailingPayload);
+export default function FragmentationTab({ source, onHandoff }: LabTabProps) {
   const registry = useLibraryStore((state) => state.registry);
   const [selectedUid, setSelectedUid] = useState('');
   const [mtu, setMtu] = useState(1280);
@@ -43,7 +43,8 @@ export default function FragmentationLabPage() {
   const [inspectionMode, setInspectionMode] = useInspectionMode();
   const reducedMotion = usePrefersReducedMotion();
 
-  const stack = useMemo<StackInstance>(() => ({ layers, trailingPayload }), [layers, trailingPayload]);
+  const stack = source.stack;
+  const trailingPayload = stack.trailingPayload ?? EMPTY_PAYLOAD;
   const candidates = useMemo(
     () => discoverFragmentableIpLayers(stack, registry),
     [stack, registry],
@@ -145,20 +146,13 @@ export default function FragmentationLabPage() {
     URL.revokeObjectURL(url);
   };
 
-  if (layers.length === 0) {
-    return <Unavailable title="No packet to fragment" detail="Build a packet first; the lab reads the current Builder stack without changing it." />;
-  }
   if (candidates.length === 0) {
     return <Unavailable title="This packet has no IP layer" detail="Add an IPv4 or IPv6 layer in Stack Builder, then return to explore fragmentation." />;
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <>
       <header className="flex flex-wrap items-center gap-3 border-b border-zinc-800 px-4 py-3 sm:px-6">
-        <div className="mr-auto">
-          <h1 className="text-[15px] font-semibold tracking-tight text-zinc-100">Fragmentation Lab</h1>
-          <p className="text-[11px] text-zinc-500">Split one IP datagram, disturb arrival order, and watch reassembly.</p>
-        </div>
         {candidates.length > 1 && (
           <label className="text-[11px] text-zinc-500">
             IP layer
@@ -201,6 +195,24 @@ export default function FragmentationLabPage() {
           label={`Fragmentation ${mode} · arrival ${stepIndex + 1}`}
           labelClass="hidden sm:inline"
         />
+        <button
+          disabled={!sequence?.fragments[stepIndex]}
+          title="Corrupt this fragment in the fuzzing tab, then come back and see whether reassembly survives it"
+          onClick={() => {
+            const fragment = sequence?.fragments[stepIndex];
+            if (!fragment) return;
+            onHandoff({
+              label: `Fragment ${stepIndex + 1} of ${sequence!.fragments.length}`,
+              origin: 'fragmentation',
+              stack: fragment.stack,
+            });
+          }}
+          className="flex cursor-pointer items-center gap-1 rounded-md border border-zinc-700 px-2 py-1.5 text-[12px] text-zinc-300 hover:border-cyan-600 hover:text-cyan-300 disabled:cursor-not-allowed disabled:text-zinc-600"
+        >
+          <Bug className="size-3.5" aria-hidden />
+          <span className="hidden sm:inline">Fuzz this fragment</span>
+          <span className="sm:hidden">Fuzz</span>
+        </button>
       </header>
 
       <section aria-labelledby="mutation-heading" className="border-b border-zinc-800 px-4 py-3 sm:px-6">
@@ -302,7 +314,7 @@ export default function FragmentationLabPage() {
           />
         </>
       )}
-    </div>
+    </>
   );
 }
 
@@ -324,7 +336,7 @@ function Lesson({ title, children }: { title: string; children: React.ReactNode 
 }
 
 function StatusBadge({ status }: { status: 'incomplete' | 'complete' | 'ambiguous' | 'rejected' }) {
-  const color = status === 'complete' ? 'text-emerald-400' : status === 'ambiguous' || status === 'rejected' ? 'text-rose-400' : 'text-amber-400';
+  const color = status === 'complete' ? 'text-emerald-400' : status === 'ambiguous' || status === 'rejected' ? 'text-rose-400' : 'text-amber-300';
   return <span className={color}>{status}</span>;
 }
 
@@ -336,7 +348,7 @@ function FragmentError({ issues }: { issues: FragmentIssue[] }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 py-12 text-center" role="alert">
       <h2 className="text-sm font-semibold text-zinc-200">This datagram cannot be fragmented yet</h2>
-      {issues.map((item) => <p key={item.code} className="max-w-xl text-[13px] text-amber-400">{item.message}</p>)}
+      {issues.map((item) => <p key={item.code} className="max-w-xl text-[13px] text-amber-300">{item.message}</p>)}
       <p className="max-w-xl text-[12px] text-zinc-500">Try a smaller MTU if the packet already fits, or correct the packet and its IP layout in Builder.</p>
       <Link to="/builder" className="mt-2 rounded-md border border-cyan-700 px-3 py-1.5 text-[12px] text-cyan-300 hover:bg-cyan-500/10">Open Stack Builder</Link>
     </div>
@@ -344,7 +356,7 @@ function FragmentError({ issues }: { issues: FragmentIssue[] }) {
 }
 
 function IssueList({ issues }: { issues: FragmentIssue[] }) {
-  return <div role="status" aria-live="polite" className="flex flex-col gap-1 px-4 py-2 sm:px-6">{issues.map((item) => <p key={`${item.code}-${item.message}`} className={`text-[12px] ${item.severity === 'error' ? 'text-rose-400' : item.severity === 'warning' ? 'text-amber-400' : 'text-sky-400'}`}>{item.message}</p>)}</div>;
+  return <div role="status" aria-live="polite" className="flex flex-col gap-1 px-4 py-2 sm:px-6">{issues.map((item) => <p key={`${item.code}-${item.message}`} className={`text-[12px] ${item.severity === 'error' ? 'text-rose-400' : item.severity === 'warning' ? 'text-amber-300' : 'text-sky-400'}`}>{item.message}</p>)}</div>;
 }
 
 function Unavailable({ title, detail }: { title: string; detail: string }) {

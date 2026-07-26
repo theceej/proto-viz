@@ -21,8 +21,7 @@ import BuilderTour from './components/BuilderTour';
 // Secondary feature pages are code-split so they stay out of the initial shell chunk.
 const ScenarioPage = lazy(() => import('./pages/ScenarioPage'));
 const CapturePage = lazy(() => import('./pages/CapturePage'));
-const FragmentationLabPage = lazy(() => import('./pages/FragmentationLabPage'));
-const FuzzLabPage = lazy(() => import('./pages/FuzzLabPage'));
+const PacketLabPage = lazy(() => import('./pages/PacketLab'));
 const PracticePage = lazy(() => import('./pages/PracticePage'));
 const ComparePage = lazy(() => import('./pages/ComparePage'));
 const LibraryPage = lazy(() => import('./pages/LibraryPage'));
@@ -234,21 +233,27 @@ export default function App() {
               }
             />
             <Route
-              path="/fragmentation"
+              path="/lab"
               element={
                 <Suspense fallback={null}>
-                  <FragmentationLabPage />
+                  <PacketLabPage />
                 </Suspense>
               }
             />
             <Route
-              path="/fuzz"
+              path="/lab/:tab"
               element={
                 <Suspense fallback={null}>
-                  <FuzzLabPage />
+                  <PacketLabPage />
                 </Suspense>
               }
             />
+            {/* The two labs used to be separate pages; keep their links working. */}
+            <Route
+              path="/fragmentation"
+              element={<Navigate to="/lab/fragmentation" replace />}
+            />
+            <Route path="/fuzz" element={<Navigate to="/lab/fuzzing" replace />} />
             <Route
               path="/practice"
               element={

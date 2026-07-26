@@ -6,9 +6,13 @@ const MTU = '28';
 async function openFragmentationLab(page: Page) {
   await page.goto('/#/builder');
   await expect(page.getByRole('heading', { name: 'Stack Builder' })).toBeVisible();
-  await page.getByRole('link', { name: 'Fragmentation Lab', exact: true }).click();
-  await expect(page).toHaveURL(/#\/fragmentation$/);
-  await expect(page.getByRole('heading', { name: 'Fragmentation Lab' })).toBeVisible();
+  await page.getByRole('link', { name: 'Packet Lab', exact: true }).click();
+  await expect(page).toHaveURL(/#\/lab$/);
+  await expect(page.getByRole('heading', { name: 'Packet Lab' })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Fragmentation' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
 
   await page.getByRole('spinbutton', { name: 'Maximum transmission unit in bytes' }).fill(MTU);
   await expect(page.getByRole('region', { name: 'Fragment arrival timeline' })).toBeVisible();

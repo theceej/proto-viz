@@ -122,9 +122,19 @@ export default function HelpPage({ onStartTour }: { onStartTour: () => void }) {
 
       <Section title="Breaking packets on purpose">
         <p>
+          <Link className={link} to="/lab">Packet Lab</Link> holds the two
+          destructive workbenches. The <Ui>Fragmentation</Ui> tab splits the
+          current packet at a chosen MTU; step through each IPv4 or IPv6
+          fragment to connect byte ranges with the identification, offset and
+          MF/M fields, then try missing, duplicate, overlapping and
+          out-of-order delivery. The diagnosis shows why duplicates and
+          reordering still reassemble exactly, while gaps stay incomplete and
+          overlaps are ambiguous.
+        </p>
+        <p>
           <Ui>Break this packet</Ui> in the builder offers a fixed menu of
-          instructive faults. <Link className={link} to="/fuzz">Fuzzing Lab</Link>{' '}
-          is the open-ended version: choose what to corrupt (the whole packet,
+          instructive faults. The <Ui>Fuzzing</Ui> tab is the open-ended
+          version: choose what to corrupt (the whole packet,
           particular layers, or a byte range), how (random bit flips, zeroed
           bytes, boundary values such as <code className={code}>0x00</code> and{' '}
           <code className={code}>0xFF</code>, or driving a length field to its
@@ -151,6 +161,15 @@ export default function HelpPage({ onStartTour }: { onStartTour: () => void }) {
           the results, which is how you see that most bit flips change nothing a
           dissector notices and a few stop it dead. Everything runs in this tab;
           no packet is sent anywhere.
+        </p>
+        <p>
+          The two tabs pass packets to each other, which is why they share a
+          page. <Ui>Fuzz this fragment</Ui> takes one fragment of a split
+          datagram into the fuzzer; <Ui>Fragment this packet</Ui> takes a
+          corrupted packet back the other way. That makes “does reassembly
+          survive a corrupted fragment?” a question you can actually ask. A
+          banner names the packet a tab is working on whenever it is not the
+          Builder's, and <Ui>Use the Builder packet</Ui> puts it back.
         </p>
       </Section>
 
@@ -209,17 +228,6 @@ export default function HelpPage({ onStartTour }: { onStartTour: () => void }) {
           <Link className={link} to="/compare">Packet Comparison</Link>. The file is
           read in this tab and never uploaded, and both its size and packet count
           are capped so a large capture cannot hang the page.
-        </p>
-      </Section>
-
-      <Section title="Exploring IP fragmentation">
-        <p>
-          <Link className={link} to="/fragmentation">Fragmentation Lab</Link> splits
-          the current Builder packet at a chosen MTU. Step through each IPv4 or IPv6
-          fragment to connect byte ranges with the identification, offset, and MF/M
-          fields, then try missing, duplicate, overlapping, and out-of-order delivery.
-          The progressive diagnosis shows why duplicates and reordering can still
-          reassemble exactly, while gaps remain incomplete and overlaps are ambiguous.
         </p>
       </Section>
 
