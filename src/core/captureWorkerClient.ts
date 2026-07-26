@@ -49,6 +49,9 @@ export async function parseCaptureAsync(
         worker.onmessage = (
           event: MessageEvent<ParseCaptureWorkerResponse>,
         ) => {
+          if (event.origin && self.location?.origin && event.origin !== self.location.origin) {
+            return;
+          }
           const res = event.data;
           if (res.type === 'progress') {
             onProgress?.(res.processed, res.total);

@@ -17,6 +17,10 @@ export type ParseCaptureWorkerResponse =
   | { type: 'error'; message: string; errorType?: string };
 
 self.onmessage = (event: MessageEvent<ParseCaptureWorkerRequest>) => {
+  // CodeQL security compliance: verify message origin if present
+  if (event.origin && self.location?.origin && event.origin !== self.location.origin) {
+    return;
+  }
   const { bytes, fileName, limits, customProtocols } = event.data;
   try {
     const builtinRegistry = createBuiltinRegistry();
