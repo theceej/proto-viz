@@ -108,8 +108,11 @@ async function extractPdf(bytes: Uint8Array): Promise<string> {
       await import('pdfjs-dist/build/pdf.worker.min.mjs?url')
     ).default;
   }
-
-  const doc = await pdfjs.getDocument({ data: bytes }).promise;
+  const doc = await pdfjs.getDocument({
+    data: bytes,
+    disableFontFace: true,
+    verbosity: 0,
+  }).promise;
   const pages: string[] = [];
   for (let p = 1; p <= doc.numPages; p++) {
     const page = await doc.getPage(p);
