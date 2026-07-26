@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { createContext, useRef, useState } from 'react';
 import { ChevronsLeftRight, ChevronsRightLeft } from 'lucide-react';
 import { usePersistedFlag } from '../usePersistedFlag';
 import { useMediaQuery } from '../useMediaQuery';
@@ -21,6 +21,9 @@ export interface PaneContent {
   scrollFocusable?: boolean;
   children: React.ReactNode;
 }
+
+/** The pane owns scrolling; virtualized children observe this element. */
+export const PaneScrollContext = createContext<HTMLElement | null>(null);
 
 const OUTER_PANE_CLASS = 'w-[clamp(22rem,30vw,42rem)] shrink-0';
 
@@ -46,6 +49,7 @@ export default function ResizablePanes({
 function TabbedPanes({ panes }: { panes: PaneContent[] }) {
   // Default to the diagrams (centre) tab, the most self-contained view.
   const [active, setActive] = useState(1);
+  const [scrollElement, setScrollElement] = useState<HTMLDivElement | null>(null);
   const current = panes[active] ?? panes[0]!;
   return (
     <div className="flex min-h-0 flex-1 flex-col border-t border-zinc-800">
@@ -67,12 +71,13 @@ function TabbedPanes({ panes }: { panes: PaneContent[] }) {
         ))}
       </div>
       <div
+        ref={setScrollElement}
         role="tabpanel"
         aria-label={current.title}
         className="min-h-0 flex-1 overflow-auto"
         tabIndex={0}
       >
-        {current.children}
+        <PaneScrollContext value={scrollElement}>{current.children}</PaneScrollContext>
       </div>
     </div>
   );
@@ -175,6 +180,7 @@ function Pane({
   scrollFocusable?: boolean;
   children: React.ReactNode;
 }) {
+  const [scrollElement, setScrollElement] = useState<HTMLDivElement | null>(null);
   if (collapsed) {
     return (
       <div className={`flex w-9 shrink-0 ${className}`}>
@@ -213,8 +219,12 @@ function Pane({
           <ChevronsRightLeft className="size-3.5" aria-hidden />
         </button>
       </div>
-      <div className="min-h-0 flex-1 overflow-auto" tabIndex={scrollFocusable ? 0 : undefined}>
-        {children}
+      <div
+        ref={setScrollElement}
+        className="min-h-0 flex-1 overflow-auto"
+        tabIndex={scrollFocusable ? 0 : undefined}
+      >
+        <PaneScrollContext value={scrollElement}>{children}</PaneScrollContext>
       </div>
     </div>
   );

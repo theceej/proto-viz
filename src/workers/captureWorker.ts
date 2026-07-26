@@ -1,7 +1,6 @@
 import { openCaptureFile, UnsupportedLinkTypeError } from '../core/capture';
 import { CaptureReadError, type CaptureReadLimits } from '../core/captureFile';
-import { createBuiltinRegistry } from '../protocols';
-import { createRegistry } from '../core/registry';
+import { createCaptureWorkerRegistry } from '../core/captureWorkerRegistry';
 import type { ProtocolDefinition } from '../core/model';
 
 export interface ParseCaptureWorkerRequest {
@@ -23,11 +22,7 @@ self.onmessage = (event: MessageEvent<ParseCaptureWorkerRequest>) => {
   }
   const { bytes, fileName, limits, customProtocols } = event.data;
   try {
-    const builtinRegistry = createBuiltinRegistry();
-    const registry =
-      customProtocols && customProtocols.length > 0
-        ? createRegistry([...builtinRegistry.all(), ...customProtocols])
-        : builtinRegistry;
+    const registry = createCaptureWorkerRegistry(customProtocols);
 
     const capture = openCaptureFile(
       bytes,

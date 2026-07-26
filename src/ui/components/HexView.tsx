@@ -1,9 +1,8 @@
-import { useMemo, useRef, useState } from 'react';
+import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Check, Copy, Pencil } from 'lucide-react';
-import type { SerializedPacket } from '../../core/serialize';
+import type { FieldSpan, SerializedPacket } from '../../core/serialize';
 import type { Registry } from '../../core/registry';
 import type { ValidationIssue } from '../../core/validate';
-import { buildSpanIndex } from '../../core/spanIndex';
 import { isActive, useHighlightStore, type FieldRef } from '../../store/highlightStore';
 import { layerColor, PAYLOAD_COLOR, type LayerColor } from '../colors';
 import { usePersistedFlag } from '../usePersistedFlag';
@@ -11,8 +10,47 @@ import { useMediaQuery } from '../useMediaQuery';
 import FieldInspector, { asciiByte } from './FieldInspector';
 import InspectionModeSelector from './InspectionModeSelector';
 import type { InspectionMode } from '../inspectionMode';
+import { PaneScrollContext } from './ResizablePanes';
 
 const PAYLOAD_REF: FieldRef = { layerUid: '__payload__', fieldId: 'payload' };
+const ROW_HEIGHT = 20;
+const OVERSCAN_ROWS = 6;
+const DEFAULT_VIEWPORT_HEIGHT = 400;
+
+export interface VirtualRowRange {
+  start: number;
+  end: number;
+}
+
+/** Returns an overscanned, end-exclusive row range bounded by the packet. */
+export function virtualRowRange(
+  totalRows: number,
+  scrollTop: number,
+  viewportHeight: number,
+  rowHeight = ROW_HEIGHT,
+  overscan = OVERSCAN_ROWS,
+): VirtualRowRange {
+  if (totalRows <= 0) return { start: 0, end: 0 };
+  const start = Math.min(totalRows - 1, Math.max(0, Math.floor(scrollTop / rowHeight) - overscan));
+  const visibleEnd = Math.ceil((scrollTop + Math.max(1, viewportHeight)) / rowHeight);
+  return { start, end: Math.max(start + 1, Math.min(totalRows, visibleEnd + overscan)) };
+}
+
+function offsetTopWithin(element: HTMLElement | null, ancestor: HTMLElement): number {
+  if (!element) return 0;
+  const elementRect = element.getBoundingClientRect();
+  const ancestorRect = ancestor.getBoundingClientRect();
+  if (elementRect.top !== 0 || ancestorRect.top !== 0) {
+    return elementRect.top - ancestorRect.top + ancestor.scrollTop;
+  }
+  let top = 0;
+  let current: HTMLElement | null = element;
+  while (current && current !== ancestor) {
+    top += current.offsetTop;
+    current = current.offsetParent as HTMLElement | null;
+  }
+  return top;
+}
 
 /** Full-packet hex dump with layer tints and field hover-linking. */
 export default function HexView({
@@ -51,64 +89,128 @@ export default function HexView({
   // Editing is opt-in: only when the host wired an editor (builder) and the
   // user turned on Edit mode. Otherwise the hex view is inspect-only.
   const editable = Boolean(onByteEdit) && editMode;
-  const byteRefs = useRef<(HTMLSpanElement | null)[]>([]);
-  const asciiRefs = useRef<(HTMLSpanElement | null)[]>([]);
+  const byteRefs = useRef(new Map<number, HTMLSpanElement>());
+  const asciiRefs = useRef(new Map<number, HTMLSpanElement>());
+  const paneScrollElement = useContext(PaneScrollContext);
+  const [selfScrollElement, setSelfScrollElement] = useState<HTMLDivElement | null>(null);
+  const scrollElement = paneScrollElement ?? selfScrollElement;
+  const rowsElement = useRef<HTMLDivElement>(null);
+  const toolbarElement = useRef<HTMLDivElement>(null);
+  const pendingFocus = useRef<{ byte: number; column: 'hex' | 'ascii' } | null>(null);
+  const [viewport, setViewport] = useState({ scrollTop: 0, height: DEFAULT_VIEWPORT_HEIGHT });
   const tabStopByte = Math.min(focusedByte, Math.max(0, packet.bytes.length - 1));
   // Below the mobile breakpoint the 16-byte row doesn't fit; halve it to 8.
   const bytesPerRow = useMediaQuery('(max-width: 767px)') ? 8 : 16;
 
-  const spanIndex = useMemo(
-    () => buildSpanIndex(packet.spans, packet.bytes.length),
-    [packet],
+  const totalRows = Math.ceil(packet.bytes.length / bytesPerRow);
+  const range = virtualRowRange(totalRows, viewport.scrollTop, viewport.height);
+  const retainedRow =
+    activeFocus !== null || editing !== null
+      ? Math.floor((activeFocus ?? editing?.byte ?? 0) / bytesPerRow)
+      : null;
+  const renderedRows = useMemo(() => {
+    const result = Array.from({ length: range.end - range.start }, (_, i) => range.start + i);
+    if (retainedRow !== null && (retainedRow < range.start || retainedRow >= range.end)) {
+      result.push(retainedRow);
+      result.sort((a, b) => a - b);
+    }
+    return result;
+  }, [range.start, range.end, retainedRow]);
+
+  const protocolByLayerUid = useMemo(
+    () => new Map(packet.layers.map((layer) => [layer.uid, layer.protocolId])),
+    [packet.layers],
   );
 
-  // Byte-granular view of the mutated bit ranges: a byte counts as mutated if
-  // any of its bits were. Declared with the other memos, above any early
-  // return, so the hook order never varies.
-  const mutatedBytes = useMemo(() => {
-    const set = new Set<number>();
-    for (const range of mutatedBits ?? []) {
-      const first = Math.floor(range.bitOffset / 8);
-      const last = Math.floor((range.bitOffset + Math.max(1, range.bitLength) - 1) / 8);
-      for (let b = first; b <= last; b++) set.add(b);
+  const { spansByByte, layerByByte } = useMemo(() => {
+    const spans = new Map<number, FieldSpan[]>();
+    for (const span of packet.spans) {
+      if (span.bitLength === 0) continue;
+      const first = Math.max(0, Math.floor(span.bitOffset / 8));
+      const last = Math.min(
+        packet.bytes.length - 1,
+        Math.floor((span.bitOffset + span.bitLength - 1) / 8),
+      );
+      for (const row of renderedRows) {
+        const rowFirst = row * bytesPerRow;
+        const rowLast = Math.min(packet.bytes.length - 1, rowFirst + bytesPerRow - 1);
+        for (let b = Math.max(first, rowFirst); b <= Math.min(last, rowLast); b++) {
+          const owners = spans.get(b);
+          if (owners) owners.push(span);
+          else spans.set(b, [span]);
+        }
+      }
     }
-    return set;
-  }, [mutatedBits]);
+    const layers = new Map<number, number>();
+    for (const row of renderedRows) {
+      const end = Math.min(packet.bytes.length, (row + 1) * bytesPerRow);
+      for (let b = row * bytesPerRow; b < end; b++) {
+        const layer = packet.layers.findIndex(
+          (candidate) =>
+            b >= candidate.byteOffset && b < candidate.byteOffset + candidate.headerBytes,
+        );
+        if (layer >= 0) layers.set(b, layer);
+      }
+    }
+    return { spansByByte: spans, layerByByte: layers };
+  }, [bytesPerRow, packet, renderedRows]);
 
-  const layerOfByte = useMemo(() => {
-    const arr: number[] = new Array(packet.bytes.length).fill(-1); // -1 = payload
-    packet.layers.forEach((l, i) => {
-      for (let b = l.byteOffset; b < l.byteOffset + l.headerBytes; b++) arr[b] = i;
-    });
-    return arr;
-  }, [packet]);
+  useEffect(() => {
+    if (!scrollElement) return;
+    const updateViewport = () => {
+      const contentTop = offsetTopWithin(rowsElement.current, scrollElement);
+      setViewport({
+        scrollTop: Math.max(0, scrollElement.scrollTop - contentTop),
+        height: scrollElement.clientHeight || DEFAULT_VIEWPORT_HEIGHT,
+      });
+    };
+    updateViewport();
+    scrollElement.addEventListener('scroll', updateViewport, { passive: true });
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(updateViewport);
+    observer?.observe(scrollElement);
+    if (toolbarElement.current) observer?.observe(toolbarElement.current);
+    window.addEventListener('resize', updateViewport);
+    return () => {
+      scrollElement.removeEventListener('scroll', updateViewport);
+      observer?.disconnect();
+      window.removeEventListener('resize', updateViewport);
+    };
+  }, [scrollElement, packet.bytes.length, bytesPerRow]);
 
-  const rows = [];
-  for (let off = 0; off < packet.bytes.length; off += bytesPerRow) rows.push(off);
+  useLayoutEffect(() => {
+    const pending = pendingFocus.current;
+    if (!pending) return;
+    const element = (pending.column === 'hex' ? byteRefs : asciiRefs).current.get(pending.byte);
+    if (element) {
+      pendingFocus.current = null;
+      element.focus();
+    }
+  }, [renderedRows]);
+
   if (packet.bytes.length === 0) {
     return <div className="p-4 text-xs text-zinc-600 italic">empty packet</div>;
   }
 
   const byteActive = (b: number): boolean =>
-    spanIndex[b]!.length === 0
+    (spansByByte.get(b)?.length ?? 0) === 0
       ? isActive(hovered, PAYLOAD_REF.layerUid, PAYLOAD_REF.fieldId) ||
         isActive(locked, PAYLOAD_REF.layerUid, PAYLOAD_REF.fieldId)
-      : spanIndex[b]!.some(
+      : spansByByte.get(b)!.some(
           (s) =>
             isActive(hovered, s.layerUid, s.fieldId) ||
             isActive(locked, s.layerUid, s.fieldId),
         );
 
   const refOfByte = (b: number): FieldRef => {
-    const s = spanIndex[b]![0];
+    const s = spansByByte.get(b)?.[0];
     return s ? { layerUid: s.layerUid, fieldId: s.fieldId } : PAYLOAD_REF;
   };
 
   const labelOfByte = (b: number): string => {
     const value = packet.bytes[b]!.toString(16).padStart(2, '0');
-    const owners = spanIndex[b]!
+    const owners = (spansByByte.get(b) ?? [])
       .map((span) => {
-        const protocol = packet.layers.find((layer) => layer.uid === span.layerUid)?.protocolId;
+        const protocol = protocolByLayerUid.get(span.layerUid);
         return `${protocol ?? 'payload'} ${span.fieldId}`;
       })
       .join(', ');
@@ -118,7 +220,7 @@ export default function HexView({
   const moveFocus = (
     from: number,
     key: string,
-    refs: { current: (HTMLSpanElement | null)[] },
+    column: 'hex' | 'ascii',
   ): boolean => {
     let next: number;
     if (key === 'ArrowLeft') next = Math.max(0, from - 1);
@@ -126,21 +228,53 @@ export default function HexView({
     else if (key === 'ArrowUp') next = Math.max(0, from - bytesPerRow);
     else if (key === 'ArrowDown') next = Math.min(packet.bytes.length - 1, from + bytesPerRow);
     else return false;
+    if (next === from) return true;
     setFocusedByte(next);
-    refs.current[next]?.focus();
+    pendingFocus.current = { byte: next, column };
+    const mounted = (column === 'hex' ? byteRefs : asciiRefs).current.get(next);
+    if (mounted) {
+      pendingFocus.current = null;
+      mounted.focus();
+      return true;
+    }
+    const destinationRow = Math.floor(next / bytesPerRow);
+    if (scrollElement && (destinationRow < range.start || destinationRow >= range.end)) {
+      const contentTop = offsetTopWithin(rowsElement.current, scrollElement);
+      const toolbarHeight = toolbarElement.current?.getBoundingClientRect().height ?? 0;
+      const destinationTop = contentTop + destinationRow * ROW_HEIGHT;
+      const destinationBottom = destinationTop + ROW_HEIGHT;
+      let nextScrollTop = scrollElement.scrollTop;
+      if (destinationTop < scrollElement.scrollTop + toolbarHeight)
+        nextScrollTop = destinationTop - toolbarHeight;
+      else if (destinationBottom > scrollElement.scrollTop + scrollElement.clientHeight)
+        nextScrollTop = destinationBottom - scrollElement.clientHeight;
+      scrollElement.scrollTo({ top: Math.max(0, nextScrollTop) });
+      setViewport({
+        scrollTop: Math.max(0, nextScrollTop - contentTop),
+        height: scrollElement.clientHeight || DEFAULT_VIEWPORT_HEIGHT,
+      });
+    }
     return true;
   };
 
   const colorOfByte = (b: number): LayerColor =>
-    layerOfByte[b]! >= 0 ? layerColor(layerOfByte[b]!) : PAYLOAD_COLOR;
+    layerByByte.has(b) ? layerColor(layerByByte.get(b)!) : PAYLOAD_COLOR;
 
+  const isMutated = (b: number): boolean =>
+    (mutatedBits ?? []).some((mutation) => {
+      const first = Math.floor(mutation.bitOffset / 8);
+      const last = Math.floor(
+        (mutation.bitOffset + Math.max(1, mutation.bitLength) - 1) / 8,
+      );
+      return b >= first && b <= last;
+    });
 
   const commitByte = (b: number, value: number) => {
     setEditing(null);
     onByteEdit?.(b, value);
     // The byte cell keeps its DOM node across the re-serialize, so refocus it
     // after the store round-trips to keep keyboard editing continuous.
-    requestAnimationFrame(() => byteRefs.current[b]?.focus());
+    requestAnimationFrame(() => byteRefs.current.get(b)?.focus());
   };
 
   /** Handle a keystroke on an editable hex byte. Returns true if consumed. */
@@ -171,8 +305,13 @@ export default function HexView({
   };
 
   return (
-    <div>
-      <div className="sticky top-0 z-10 bg-zinc-950/95 backdrop-blur">
+    <div
+      ref={setSelfScrollElement}
+      className={paneScrollElement ? undefined : 'h-full min-h-0 overflow-auto'}
+      role="group"
+      aria-label={`Packet hex dump, ${packet.bytes.length} total bytes`}
+    >
+      <div ref={toolbarElement} className="sticky top-0 z-10 bg-zinc-950/95 backdrop-blur">
         <div className="flex flex-wrap items-center justify-end gap-y-1 border-b border-zinc-800/50 px-2 py-1">
           <InspectionModeSelector mode={inspectionMode} onChange={onInspectionModeChange} />
           <span className="mx-1 h-4 w-px bg-zinc-800" aria-hidden />
@@ -236,9 +375,24 @@ export default function HexView({
           />
         )}
       </div>
-      <div className="px-4 pt-2 pb-4 font-mono text-[12px] leading-5 select-none">
-        {rows.map((off) => (
-        <div key={off} className="flex gap-3">
+      <p className="sr-only" aria-live="polite" data-visible-byte-range>
+        Visible window bytes {range.start * bytesPerRow} through{' '}
+        {Math.min(packet.bytes.length - 1, range.end * bytesPerRow - 1)} of{' '}
+        {packet.bytes.length} total bytes.
+      </p>
+      <div
+        ref={rowsElement}
+        className="relative mx-4 mt-2 mb-4 font-mono text-[12px] leading-5 select-none"
+        style={{ height: totalRows * ROW_HEIGHT }}
+      >
+        {renderedRows.map((row) => {
+          const off = row * bytesPerRow;
+          return (
+            <div
+              key={row}
+              className="absolute right-0 left-0 flex h-5 gap-3"
+              style={{ top: row * ROW_HEIGHT }}
+            >
           <span className="w-10 shrink-0 text-right text-zinc-600">
             {off.toString(16).padStart(4, '0')}
           </span>
@@ -259,7 +413,8 @@ export default function HexView({
                 <span
                   key={i}
                   ref={(element) => {
-                    byteRefs.current[b] = element;
+                    if (element) byteRefs.current.set(b, element);
+                    else byteRefs.current.delete(b);
                   }}
                   role="button"
                   tabIndex={b === tabStopByte ? 0 : -1}
@@ -267,13 +422,13 @@ export default function HexView({
                   aria-label={
                     isEditing
                       ? `Editing byte offset ${b}: type a hex digit to set the value, Escape to cancel`
-                      : `${labelOfByte(b)}${mutatedBytes.has(b) ? '. Mutated' : ''}${
+                      : `${labelOfByte(b)}${isMutated(b) ? '. Mutated' : ''}${
                           editable ? '. Type two hex digits to edit' : ''
                         }`
                   }
                   aria-pressed={isActive(locked, ref.layerUid, ref.fieldId)}
                   className={`${editable ? 'cursor-text' : 'cursor-pointer'} rounded-sm px-[3px] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cyan-400 ${i === bytesPerRow / 2 ? 'ml-2' : ''} ${isEditing ? 'outline-2 outline-cyan-400' : ''} ${
-                    mutatedBytes.has(b) && !isEditing
+                    isMutated(b) && !isEditing
                       ? 'outline-2 outline-dashed outline-offset-[-1px] outline-rose-400'
                       : ''
                   }`}
@@ -294,7 +449,7 @@ export default function HexView({
                     if (isEditing) setEditing(null);
                   }}
                   onKeyDown={(event) => {
-                    if (moveFocus(b, event.key, byteRefs)) {
+                    if (moveFocus(b, event.key, 'hex')) {
                       event.preventDefault();
                       if (editing) setEditing(null);
                       return;
@@ -335,7 +490,8 @@ export default function HexView({
                 <span
                   key={i}
                   ref={(element) => {
-                    asciiRefs.current[b] = element;
+                    if (element) asciiRefs.current.set(b, element);
+                    else asciiRefs.current.delete(b);
                   }}
                   role="button"
                   tabIndex={b === tabStopByte ? 0 : -1}
@@ -360,7 +516,7 @@ export default function HexView({
                     setHovered(null);
                   }}
                   onKeyDown={(event) => {
-                    if (moveFocus(b, event.key, asciiRefs)) {
+                    if (moveFocus(b, event.key, 'ascii')) {
                       event.preventDefault();
                       return;
                     }
@@ -377,8 +533,9 @@ export default function HexView({
               })}
             </span>
           )}
-        </div>
-        ))}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

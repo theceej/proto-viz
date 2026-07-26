@@ -14,6 +14,7 @@
  * searching "SYN" or "example.com" works without any field-name syntax.
  */
 import type { CapturePacket, DecodeStatus } from './capture';
+import { matchesDisplayFilter, parseDisplayFilter } from './displayFilter';
 
 export interface CaptureFilter {
   /** Free text, matched case-insensitively against summary and field values. */
@@ -53,24 +54,35 @@ export function isEmptyFilter(filter: CaptureFilter): boolean {
   );
 }
 
-import { matchesDisplayFilter, parseDisplayFilter } from './displayFilter';
+type TextMatcher = (packet: CapturePacket) => boolean;
+
+function compileTextMatcher(text: string): TextMatcher | null {
+  if (text === '') return null;
+  const parsed = parseDisplayFilter(text);
+  if (parsed.ast && parsed.isDisplayFilter) {
+    const ast = parsed.ast;
+    return (packet) => matchesDisplayFilter(packet, ast);
+  }
+  const terms = text.toLowerCase().split(/\s+/);
+  return (packet) => {
+    const haystack = `${packet.summary.toLowerCase()} ${packet.searchText}`;
+    return terms.every((term) => haystack.includes(term));
+  };
+}
 
 /** Does one packet satisfy every set criterion? */
 export function matchesFilter(packet: CapturePacket, filter: CaptureFilter): boolean {
   const text = filter.text.trim();
-  if (text !== '') {
-    const parsed = parseDisplayFilter(text);
-    if (parsed.ast && parsed.isDisplayFilter) {
-      if (!matchesDisplayFilter(packet, parsed.ast)) return false;
-    } else {
-      const lowerText = text.toLowerCase();
-      const haystack = `${packet.summary.toLowerCase()} ${packet.searchText}`;
-      // Space-separated terms all have to appear, so "tcp 443" narrows rather
-      // than looking for that exact string.
-      if (!lowerText.split(/\s+/).every((term) => haystack.includes(term))) return false;
-    }
-  }
+  return matchesPreparedFilter(packet, filter, compileTextMatcher(text));
+}
 
+/** Does one packet satisfy every set criterion after text has been prepared? */
+function matchesPreparedFilter(
+  packet: CapturePacket,
+  filter: CaptureFilter,
+  textMatcher: TextMatcher | null,
+): boolean {
+  if (textMatcher && !textMatcher(packet)) return false;
   if (filter.protocolId !== null && !packet.protocolIds.includes(filter.protocolId)) {
     return false;
   }
@@ -98,8 +110,18 @@ export function filterPackets(
   packets: CapturePacket[],
   filter: CaptureFilter,
 ): CapturePacket[] {
-  if (isEmptyFilter(filter)) return packets;
-  return packets.filter((packet) => matchesFilter(packet, filter));
+  const text = filter.text.trim();
+  if (
+    text === '' &&
+    filter.protocolId === null &&
+    filter.address.trim() === '' &&
+    filter.port === null &&
+    filter.minLength === null &&
+    filter.maxLength === null &&
+    filter.status === null
+  ) return packets;
+  const textMatcher = compileTextMatcher(text);
+  return packets.filter((packet) => matchesPreparedFilter(packet, filter, textMatcher));
 }
 
 /**

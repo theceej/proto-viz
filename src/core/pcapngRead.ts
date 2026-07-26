@@ -264,7 +264,20 @@ function readPacketBlock(
       return null;
     }
     const originalLength = view.getUint32(0, little);
-    const captured = Math.min(body.length - 4, iface.snapLength || body.length - 4);
+    const captured = iface.snapLength === 0
+      ? originalLength
+      : Math.min(originalLength, iface.snapLength);
+    if (captured > limits.maxPacketBytes) {
+      throw new CaptureReadError(
+        `Packet ${number} claims ${formatBytes(captured)} of data; the per-packet limit is ${formatBytes(limits.maxPacketBytes)}.`,
+      );
+    }
+    if (4 + captured > body.length) {
+      notes.push(
+        `Packet ${number} needs ${captured} bytes after applying its interface snap length, but its block holds only ${body.length - 4}; skipped.`,
+      );
+      return null;
+    }
     return {
       number,
       bytes: body.slice(4, 4 + captured),

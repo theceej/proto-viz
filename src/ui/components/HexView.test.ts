@@ -8,8 +8,9 @@ import { createBuiltinRegistry } from '../../protocols';
 import { createRegistry } from '../../core/registry';
 import type { ProtocolDefinition } from '../../core/model';
 import { useHighlightStore } from '../../store/highlightStore';
-import HexView from './HexView';
+import HexView, { virtualRowRange } from './HexView';
 import { asciiByte, spanByteRange } from './FieldInspector';
+import ResizablePanes from './ResizablePanes';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -31,6 +32,17 @@ const packet: SerializedPacket = {
   issues: [],
 };
 const registry = createBuiltinRegistry();
+
+describe('virtualRowRange', () => {
+  it('bounds and overscans the visible fixed-height rows', () => {
+    expect(virtualRowRange(10_000, 20_000, 200, 20, 6)).toEqual({
+      start: 994,
+      end: 1016,
+    });
+    expect(virtualRowRange(10, 10_000, 200, 20, 6)).toEqual({ start: 9, end: 10 });
+    expect(virtualRowRange(0, 0, 200)).toEqual({ start: 0, end: 0 });
+  });
+});
 
 describe('HexView keyboard access', () => {
   let container: HTMLDivElement;
@@ -138,6 +150,147 @@ describe('HexView keyboard access', () => {
       ),
     );
     expect(container.textContent).toContain('empty packet');
+  });
+
+  it('mounts a bounded window for a large packet and updates it at the middle and end', () => {
+    const largePacket = { ...packet, bytes: new Uint8Array(65_535), spans: [], layers: [] };
+    act(() => root.render(createElement(HexView, { packet: largePacket, registry })));
+    const scroller = container.querySelector<HTMLElement>('[aria-label*="total bytes"]')!;
+    Object.defineProperty(scroller, 'clientHeight', { configurable: true, value: 200 });
+    Object.defineProperty(scroller, 'scrollTo', {
+      configurable: true,
+      value: ({ top }: ScrollToOptions) => {
+        scroller.scrollTop = top ?? 0;
+      },
+    });
+
+    const mountedOffsets = () =>
+      [...container.querySelectorAll<HTMLElement>('[data-byte-offset]')].map((cell) =>
+        Number(cell.dataset.byteOffset),
+      );
+    expect(mountedOffsets().length).toBeLessThanOrEqual(512);
+    expect(scroller.getAttribute('aria-label')).toBe('Packet hex dump, 65535 total bytes');
+
+    act(() => {
+      scroller.scrollTop = 2_000 * 20;
+      scroller.dispatchEvent(new Event('scroll'));
+    });
+    const middle = mountedOffsets();
+    expect(middle.length).toBeLessThanOrEqual(512);
+    expect(middle[0]).toBeGreaterThan(30_000);
+    expect(middle.at(-1)).toBeLessThan(33_000);
+    expect(container.querySelector('[data-visible-byte-range]')?.textContent).toContain(
+      'Visible window bytes 31904 through 32255 of 65535 total bytes.',
+    );
+
+    act(() => {
+      scroller.scrollTop = Math.ceil(largePacket.bytes.length / 16) * 20 - 200;
+      scroller.dispatchEvent(new Event('scroll'));
+    });
+    const end = mountedOffsets();
+    expect(end.length).toBeLessThanOrEqual(512);
+    expect(end.at(-1)).toBe(65_534);
+  });
+
+  it('renders and focuses an arrow-key destination beyond the virtual window', () => {
+    const largePacket = { ...packet, bytes: new Uint8Array(65_535), spans: [], layers: [] };
+    act(() => root.render(createElement(HexView, { packet: largePacket, registry })));
+    const scroller = container.querySelector<HTMLElement>('[aria-label*="total bytes"]')!;
+    Object.defineProperty(scroller, 'clientHeight', { configurable: true, value: 200 });
+    Object.defineProperty(scroller, 'scrollTo', {
+      configurable: true,
+      value: ({ top }: ScrollToOptions) => {
+        scroller.scrollTop = top ?? 0;
+      },
+    });
+    act(() => scroller.dispatchEvent(new Event('scroll')));
+    const mounted = [...container.querySelectorAll<HTMLElement>('[data-byte-offset]')];
+    const boundary = mounted.at(-1)!;
+    const destination = Number(boundary.dataset.byteOffset) + 1;
+
+    act(() => boundary.focus());
+    key(boundary, 'ArrowRight');
+
+    expect(document.activeElement).toBe(byte(destination));
+    expect(container.querySelectorAll('[data-byte-offset]').length).toBeLessThanOrEqual(528);
+  });
+
+  it('keeps a focused row mounted when scrolling it outside the visible window', () => {
+    const largePacket = { ...packet, bytes: new Uint8Array(65_535), spans: [], layers: [] };
+    act(() => root.render(createElement(HexView, { packet: largePacket, registry })));
+    const scroller = container.querySelector<HTMLElement>('[aria-label*="total bytes"]')!;
+    Object.defineProperty(scroller, 'clientHeight', { configurable: true, value: 200 });
+    act(() => byte(2).focus());
+    act(() => {
+      scroller.scrollTop = 2_000 * 20;
+      scroller.dispatchEvent(new Event('scroll'));
+    });
+
+    expect(byte(2)).toBe(document.activeElement);
+    expect(container.querySelectorAll('[data-byte-offset]').length).toBeLessThanOrEqual(528);
+  });
+
+  it('uses the desktop pane as its only scroll owner', () => {
+    act(() =>
+      root.render(
+        createElement(ResizablePanes, {
+          storagePrefix: 'hex-virtualization-test',
+          left: { title: 'Left', children: 'left' },
+          center: { title: 'Center', children: 'center' },
+          right: {
+            title: 'Hex dump',
+            scrollFocusable: true,
+            children: createElement(HexView, { packet, registry }),
+          },
+        }),
+      ),
+    );
+    const hex = container.querySelector<HTMLElement>('[aria-label*="total bytes"]')!;
+    expect(hex.className).not.toContain('overflow-auto');
+    expect(hex.parentElement?.className).toContain('overflow-auto');
+  });
+
+  it('uses eight bytes per row on mobile', () => {
+    const originalMatchMedia = window.matchMedia;
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      value: () => ({
+        matches: true,
+        media: '(max-width: 767px)',
+        onchange: null,
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+        addListener: () => undefined,
+        removeListener: () => undefined,
+        dispatchEvent: () => true,
+      }),
+    });
+    try {
+      act(() =>
+        root.render(
+          createElement(ResizablePanes, {
+            storagePrefix: 'hex-mobile-virtualization-test',
+            left: { title: 'Left', children: 'left' },
+            center: {
+              title: 'Hex dump',
+              children: createElement(HexView, { key: 'mobile', packet, registry }),
+            },
+            right: { title: 'Right', children: 'right' },
+          }),
+        ),
+      );
+      const hex = container.querySelector<HTMLElement>('[aria-label*="total bytes"]')!;
+      expect(hex.className).not.toContain('overflow-auto');
+      expect(hex.parentElement?.getAttribute('role')).toBe('tabpanel');
+      expect(hex.parentElement?.className).toContain('overflow-auto');
+      expect(container.querySelector('[aria-label="Hex bytes 0 through 7"]')).not.toBeNull();
+      expect(container.querySelector('[aria-label="Hex bytes 8 through 15"]')).not.toBeNull();
+    } finally {
+      Object.defineProperty(window, 'matchMedia', {
+        configurable: true,
+        value: originalMatchMedia,
+      });
+    }
   });
 
   it('makes the ASCII column keyboard-operable and optional', () => {

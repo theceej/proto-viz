@@ -60,6 +60,7 @@ describe('matchesFilter', () => {
     expect(matchesFilter(packet(), filter({ text: 'TCP 49152' }))).toBe(true);
     expect(matchesFilter(packet(), filter({ text: 'tcp udp' }))).toBe(false);
     expect(matchesFilter(packet(), filter({ text: 'nothing-here' }))).toBe(false);
+    expect(matchesFilter(packet({ searchText: 'tcp.port ==' }), filter({ text: 'tcp.port ==' }))).toBe(true);
   });
 
   it('matches a protocol at any depth of the stack', () => {
@@ -116,6 +117,20 @@ describe('filterPackets', () => {
     expect(filterPackets(packets, filter({ protocolId: 'tcp' })).map((p) => p.number)).toEqual([
       1, 2,
     ]);
+  });
+
+  it('prepares display-filter text once for the whole invocation', () => {
+    let reads = 0;
+    const stableFilter = {
+      ...EMPTY_FILTER,
+      get text() {
+        reads += 1;
+        return reads === 1 ? 'tcp.port == 80' : 'tcp.port == 443';
+      },
+    };
+
+    expect(filterPackets(packets, stableFilter).map((p) => p.number)).toEqual([1, 3]);
+    expect(reads).toBe(1);
   });
 });
 
