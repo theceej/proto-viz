@@ -188,6 +188,17 @@ Uploaded documents, custom protocol data, and generated packet files are not
 stored in the service-worker cache (custom protocols continue to use the
 app's existing IndexedDB storage).
 
+`npm run check:bundle-size` budgets the build by what a visitor actually
+downloads rather than by what is deployed. The **initial download** — the
+entry chunk plus the static imports `dist/index.html` lists as
+`modulepreload` — is the headline number and the one that catches a lazy
+route being pulled into the eager graph. Route chunks are budgeted
+individually (the largest one), and pdf.js, its worker, and mammoth are
+reported separately because they load only for a PDF or DOCX spec import;
+counting them in a single total made them dominate a figure most visitors
+never pay. Every run prints exact gzip byte counts, so re-baselining after a
+deliberate change is copying one line.
+
 ## Verifying generated PCAPs
 
 Exported files are classic pcap (microsecond, little-endian) or pcapng

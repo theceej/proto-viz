@@ -1,12 +1,15 @@
+import { useEffect, useState } from 'react';
 import type { Registry } from '../../core/registry';
 import type { FieldSpan, SerializedPacket } from '../../core/serialize';
 import type { ValidationIssue } from '../../core/validate';
 import type { FieldRef } from '../../store/highlightStore';
 import { bitsLabel, formatFieldValue } from '../format';
 import type { InspectionMode } from '../inspectionMode';
-import type { ComputedSpec, Expr } from '../../core/model';
+import type { ComputedSpec, Expr, ProtocolDefinition } from '../../core/model';
 import { resolveBinding } from '../../core/bindings';
-import { referencesFor } from '../../protocols/refs';
+// Type-only: importing the reference tables for real would pull ~80 modules
+// into the eager graph. See `useProtocolReference` below.
+import type { ProtocolReference } from '../../protocols/refs/types';
 
 export function asciiByte(byte: number): string {
   return byte >= 0x20 && byte < 0x7f ? String.fromCharCode(byte) : '.';
@@ -24,6 +27,38 @@ export function spanByteRange(span: Pick<FieldSpan, 'bitOffset' | 'bitLength'>):
 
 const hexBytes = (bytes: Uint8Array) =>
   [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join(' ');
+
+/**
+ * The protocol's first specification reference, fetched on demand.
+ *
+ * `referencesFor` reads a glob of ~80 reference modules. Importing it here
+ * statically put every one of them in the initial download — the inspector is
+ * part of the builder's eager graph — to render a single citation that only
+ * appears once a field has been selected. Loading it when a field is actually
+ * inspected keeps it out of the bytes every visitor pays for.
+ *
+ * State is keyed by protocol id rather than cleared on change, so switching
+ * fields never renders the previous protocol's citation and the effect never
+ * has to call setState synchronously.
+ */
+function useProtocolReference(def: ProtocolDefinition | undefined): ProtocolReference | undefined {
+  const [loaded, setLoaded] = useState<{ id: string; reference?: ProtocolReference }>();
+
+  useEffect(() => {
+    if (!def) return;
+    let cancelled = false;
+    void import('../../protocols/refs').then(({ referencesFor }) => {
+      if (!cancelled) {
+        setLoaded({ id: def.id, reference: referencesFor(def.id, def.references)[0] });
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [def]);
+
+  return def && loaded?.id === def.id ? loaded.reference : undefined;
+}
 
 /** Compact details for the click-locked field in the synchronized packet views. */
 export default function FieldInspector({
@@ -47,13 +82,14 @@ export default function FieldInspector({
     (candidate) =>
       candidate.layerUid === selected.layerUid && candidate.fieldId === selected.fieldId,
   );
+  // Called before the early return so the hook order stays unconditional.
+  const reference = useProtocolReference(def);
   if (!payload && (!layout || !def || !field || !span)) return null;
 
   const range = payload
     ? { start: packet.payloadOffset, end: packet.bytes.length - 1 }
     : spanByteRange(span!);
   const raw = packet.bytes.slice(range.start, range.end + 1);
-  const reference = def ? referencesFor(def.id, def.references)[0] : undefined;
   const layerIndex = layout ? packet.layers.indexOf(layout) : -1;
   const issueMessages = [
     ...packet.issues

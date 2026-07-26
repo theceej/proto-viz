@@ -184,7 +184,12 @@ describe('HexView keyboard access', () => {
     expect(localStorage.getItem('pv-hex-column')).toBe('false');
   });
 
-  it('shows details, raw bytes, state, and a specification link for a locked field', () => {
+  it('shows details, raw bytes, state, and a specification link for a locked field', async () => {
+    // The inspector fetches the reference tables on demand (they are kept out
+    // of the eager graph). Warming the module cache first means the import
+    // inside the component resolves in a single microtask, which one async
+    // act() then flushes deterministically.
+    await import('../../protocols/refs');
     const def: ProtocolDefinition = {
       id: 'example',
       name: 'Example',
@@ -246,7 +251,11 @@ describe('HexView keyboard access', () => {
         }),
       ),
     );
-    act(() => container.querySelector<HTMLElement>('[data-byte-offset="0"]')!.click());
+    // Async act so the inspector's on-demand reference fetch settles inside
+    // the act scope rather than warning about an update outside it.
+    await act(async () => {
+      container.querySelector<HTMLElement>('[data-byte-offset="0"]')!.click();
+    });
 
     const inspector = container.querySelector<HTMLElement>('[aria-label="Selected field"]')!;
     expect(inspector.textContent).toContain('Example · Kind');
@@ -261,6 +270,7 @@ describe('HexView keyboard access', () => {
     expect(inspector.textContent).toContain('Calculated value12 (0xc)');
     expect(inspector.textContent).toContain('8 + 4 = 12');
     expect(inspector.textContent).toContain('Identifies the example packet kind.');
+
     expect(inspector.querySelector('a')?.getAttribute('href')).toContain('/rfc791');
 
     act(() =>
