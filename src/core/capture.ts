@@ -16,7 +16,7 @@
  * everything downstream works from the format-independent `ReadCapture`.
  */
 import { decodeStackBytes, type DecodedStack } from './decodeStack';
-import { newLayer, type FieldValue, type StackInstance } from './model';
+import type { FieldDef, FieldValue, ProtocolDefinition, StackInstance } from './model';
 import { packetEndpoints, packetPorts } from './packetIdentity';
 import {
   DEFAULT_LIMITS,
@@ -28,9 +28,10 @@ import { readPcap } from './pcapRead';
 import { readPcapng } from './pcapngRead';
 import { BLOCK } from './pcapng';
 import type { Registry } from './registry';
-import { serializeStack, type SerializedPacket } from './serialize';
+import type { SerializedPacket } from './serialize';
 import { formatHexBytes, formatIPv4, formatIPv6, formatMac } from './values';
 import { LINKTYPE } from './pcap';
+import { isCaptureProfileActive, measureCapturePhase } from './captureProfile';
 
 /** Link types this reader can hand to the decoder, and where decoding starts. */
 const LINK_TYPE_NAMES: Record<number, string> = {
@@ -80,6 +81,16 @@ function startProtocolId(linkType: number, bytes: Uint8Array): string | null {
 }
 
 const isSupportedLinkType = (linkType: number): boolean => linkType in LINK_TYPE_NAMES;
+
+const fieldIndexes = new WeakMap<ProtocolDefinition, Map<string, FieldDef>>();
+
+function fieldIndex(definition: ProtocolDefinition): Map<string, FieldDef> {
+  const cached = fieldIndexes.get(definition);
+  if (cached) return cached;
+  const index = new Map(definition.fields.map((field) => [field.id, field]));
+  fieldIndexes.set(definition, index);
+  return index;
+}
 
 /** Why one link type cannot be decoded, phrased for the person holding the file. */
 function unsupportedLinkTypeReason(linkType: number): string {
@@ -168,6 +179,14 @@ export interface Capture {
 export function readCaptureBytes(
   data: Uint8Array,
   limits: CaptureReadLimits = DEFAULT_LIMITS,
+): ReadCapture {
+  if (!isCaptureProfileActive()) return readCaptureBytesProfiled(data, limits);
+  return measureCapturePhase('container', () => readCaptureBytesProfiled(data, limits));
+}
+
+function readCaptureBytesProfiled(
+  data: Uint8Array,
+  limits: CaptureReadLimits,
 ): ReadCapture {
   // pcapng announces itself with a Section Header Block; a classic pcap
   // magic number cannot collide with it, so four bytes decide the parser.
@@ -291,27 +310,22 @@ function buildPacket(
     return undecodable(decoded.notes[0] ?? 'no layer could be read');
   }
 
-  const stack: StackInstance = {
-    layers: decoded.layers.map((layer) => ({
-      ...newLayer(layer.protocolId),
-      overrides: layer.overrides,
-      pinned: layer.pinned,
-    })),
-    trailingPayload: decoded.payload,
-  };
-
-  let packet: SerializedPacket | null = null;
+  const profiling = isCaptureProfileActive();
+  const stack = decoded.stack;
+  const packet = decoded.packet;
   const notes = [...decoded.notes];
-  try {
-    packet = serializeStack(stack, registry);
-  } catch (e) {
-    notes.push(`re-serializing the decoded stack failed: ${(e as Error).message}`);
-  }
 
   const protocolIds = decoded.layers.map((l) => l.protocolId);
   const protocols = protocolIds.map((id) => registry.get(id)?.name ?? id);
-  const ends = packet ? packetEndpoints(packet) : null;
-  const ports = packet ? packetPorts(packet) : null;
+  const { ends, ports } = profiling
+    ? measureCapturePhase('identity', () => ({
+        ends: packet ? packetEndpoints(packet) : null,
+        ports: packet ? packetPorts(packet) : null,
+      }))
+    : {
+        ends: packet ? packetEndpoints(packet) : null,
+        ports: packet ? packetPorts(packet) : null,
+      };
   const topProtocol = protocols[protocols.length - 1] ?? '—';
 
   return {
@@ -328,10 +342,11 @@ function buildPacket(
     dstPort: ports?.dst ?? null,
     summary: summarize(topProtocol, ports, decoded.payload.length),
     notes,
-    searchText: [
-      searchText(packet, protocols, protocolIds, registry),
-      record.comment?.toLowerCase() ?? '',
-    ]
+    searchText: profiling ? measureCapturePhase('search', () =>
+      [searchText(packet, protocols, protocolIds, registry), record.comment?.toLowerCase() ?? '']
+        .filter((part) => part !== '')
+        .join(' '),
+    ) : [searchText(packet, protocols, protocolIds, registry), record.comment?.toLowerCase() ?? '']
       .filter((part) => part !== '')
       .join(' '),
   };
@@ -367,7 +382,7 @@ function searchText(
     );
     for (const span of packet.spans) {
       const def = defByUid.get(span.layerUid);
-      const field = def?.fields.find((f) => f.id === span.fieldId);
+      const field = def ? fieldIndex(def).get(span.fieldId) : undefined;
       if (!field) continue;
       parts.push(field.name);
       parts.push(renderValue(span.value, field.type));

@@ -22,6 +22,7 @@ import { setBits, setBytes, getBits } from './bitio';
 import { valueToBytes, valueToNumber, zeroValue, ValueError } from './values';
 import { inet16Calculation, crc32c } from './checksums';
 import { NS, resolveBinding } from './bindings';
+import { isCaptureProfileActive, measureCapturePhase } from './captureProfile';
 
 export interface FieldSpan {
   layerUid: string;
@@ -102,6 +103,11 @@ const MAX_FIELD_BITS = 1 << 20; // 128 KiB per field
 const MAX_PACKET_BYTES = 1 << 18; // 256 KiB per packet
 
 export function serializeStack(stack: StackInstance, registry: Registry): SerializedPacket {
+  if (!isCaptureProfileActive()) return serializeStackProfiled(stack, registry);
+  return measureCapturePhase('serialize', () => serializeStackProfiled(stack, registry));
+}
+
+function serializeStackProfiled(stack: StackInstance, registry: Registry): SerializedPacket {
   const issues: SerializeIssue[] = [];
   const trailing = stack.trailingPayload ?? new Uint8Array(0);
 
@@ -252,6 +258,7 @@ export function serializeStack(stack: StackInstance, registry: Registry): Serial
   }
 
   // ---- Pass 3: checksums, innermost → outermost ----------------------------
+  measureCapturePhase('checksums', () => {
   for (let i = work.length - 1; i >= 0; i--) {
     const layer = work[i]!;
     for (const rf of layer.fields) {
@@ -324,6 +331,7 @@ export function serializeStack(stack: StackInstance, registry: Registry): Serial
       }
     }
   }
+  });
 
   return {
     bytes: buf,

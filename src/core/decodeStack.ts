@@ -25,10 +25,11 @@ import type { Expr, FieldValue, ProtocolDefinition, StackInstance } from './mode
 import type { Registry } from './registry';
 import { evalExpr, type ExprContext } from './expr';
 import { readSpanValue } from './decode';
-import { serializeStack, type FieldSpan } from './serialize';
+import { serializeStack, type FieldSpan, type SerializedPacket } from './serialize';
 import { getBits } from './bitio';
 import { valueToNumber } from './values';
 import { newLayer } from './model';
+import { isCaptureProfileActive, measureCapturePhase } from './captureProfile';
 
 export class HexInputError extends Error {}
 
@@ -182,6 +183,10 @@ export interface DecodedStack {
   notes: string[];
   /** True when re-serializing the result reproduces the input byte-for-byte. */
   exact: boolean;
+  /** Stable reconstructed stack used by reconciliation. */
+  stack: StackInstance;
+  /** Reconciliation's final serialized packet, or null when no layer decoded. */
+  packet: SerializedPacket | null;
 }
 
 interface LayerReadResult {
@@ -193,6 +198,45 @@ interface LayerReadResult {
 
 class LayerDecodeError extends Error {}
 
+interface EncapsulationIndex {
+  byNamespace: Map<string, ProtocolDefinition[]>;
+  bySelector: Map<string, Map<number, ProtocolDefinition[]>>;
+}
+
+const encapsulationIndexes = new WeakMap<Registry, EncapsulationIndex>();
+
+function encapsulationIndex(registry: Registry): EncapsulationIndex {
+  const cached = encapsulationIndexes.get(registry);
+  if (cached) return cached;
+
+  const index: EncapsulationIndex = { byNamespace: new Map(), bySelector: new Map() };
+  for (const protocol of registry.all()) {
+    const namespaces = new Set<string>();
+    const selectors = new Set<string>();
+    for (const claim of protocol.encapsulations) {
+      if (!namespaces.has(claim.namespaceId)) {
+        namespaces.add(claim.namespaceId);
+        const protocols = index.byNamespace.get(claim.namespaceId) ?? [];
+        protocols.push(protocol);
+        index.byNamespace.set(claim.namespaceId, protocols);
+      }
+      // Strict equality never matches NaN, so do not make it matchable via Map's
+      // SameValueZero semantics either.
+      if (claim.value === undefined || Number.isNaN(claim.value)) continue;
+      const key = `${claim.namespaceId}\0${claim.value}`;
+      if (selectors.has(key)) continue;
+      selectors.add(key);
+      const byValue = index.bySelector.get(claim.namespaceId) ?? new Map();
+      const protocols = byValue.get(claim.value) ?? [];
+      protocols.push(protocol);
+      byValue.set(claim.value, protocols);
+      index.bySelector.set(claim.namespaceId, byValue);
+    }
+  }
+  encapsulationIndexes.set(registry, index);
+  return index;
+}
+
 /**
  * Decode `bytes` into a stack, treating the outermost layer as
  * `startProtocolId`. Never throws for undecodable content — decoding stops
@@ -200,6 +244,15 @@ class LayerDecodeError extends Error {}
  * payload, with notes explaining why.
  */
 export function decodeStackBytes(
+  bytes: Uint8Array,
+  registry: Registry,
+  startProtocolId: string,
+): DecodedStack {
+  if (!isCaptureProfileActive()) return decodeStackBytesProfiled(bytes, registry, startProtocolId);
+  return measureCapturePhase('decode', () => decodeStackBytesProfiled(bytes, registry, startProtocolId));
+}
+
+function decodeStackBytesProfiled(
   bytes: Uint8Array,
   registry: Registry,
   startProtocolId: string,
@@ -234,10 +287,26 @@ export function decodeStackBytes(
   }
 
   const payload = bytes.slice(offset);
-  if (layers.length === 0) return { layers, payload, notes, exact: false };
+  const stack = isCaptureProfileActive()
+    ? measureCapturePhase('stack', () => reconstructStack(layers, payload))
+    : reconstructStack(layers, payload);
+  if (layers.length === 0) {
+    return { layers, payload, notes, exact: false, stack, packet: null };
+  }
 
-  const exact = reconcile(bytes, layers, payload, registry, notes);
-  return { layers, payload, notes, exact };
+  const reconciled = reconcile(bytes, layers, stack, registry, notes);
+  return { layers, payload, notes, stack, ...reconciled };
+}
+
+function reconstructStack(layers: DecodedLayer[], payload: Uint8Array): StackInstance {
+  return {
+    layers: layers.map((layer) => ({
+      ...newLayer(layer.protocolId),
+      overrides: layer.overrides,
+      pinned: layer.pinned,
+    })),
+    trailingPayload: payload,
+  };
 }
 
 /** Read one layer's header at byte `offset`, mirroring the layout pass. */
@@ -386,15 +455,12 @@ function nextProtocol(
   registry: Registry,
   notes: string[],
 ): ProtocolDefinition | undefined {
-  const all = registry.all();
+  const claims = encapsulationIndex(registry);
   for (const ns of def.providesNamespaces) {
     if (ns.selectorFieldId !== null) {
       const selField = def.fields.find((f) => f.id === ns.selectorFieldId);
       if (!selField || !values.has(selField.id)) continue;
-      const claimants = (v: number) =>
-        all.filter((p) =>
-          p.encapsulations.some((c) => c.namespaceId === ns.id && c.value === v),
-        );
+      const claimants = (v: number) => claims.bySelector.get(ns.id)?.get(v) ?? [];
       const selValue = valueToNumber(selField, values.get(selField.id)!);
       let matches = claimants(selValue);
       // Port namespaces select by destination, which identifies requests
@@ -418,9 +484,7 @@ function nextProtocol(
       return undefined;
     }
     // Opaque namespace: follow only a structurally certain carriage.
-    const claimants = all.filter((p) =>
-      p.encapsulations.some((c) => c.namespaceId === ns.id),
-    );
+    const claimants = claims.byNamespace.get(ns.id) ?? [];
     if (claimants.length === 1) return claimants[0];
     if (claimants.length > 1) {
       notes.push(
@@ -440,26 +504,17 @@ function nextProtocol(
 function reconcile(
   input: Uint8Array,
   layers: DecodedLayer[],
-  payload: Uint8Array,
+  stack: StackInstance,
   registry: Registry,
   notes: string[],
-): boolean {
-  const build = (): StackInstance => ({
-    layers: layers.map((l) => ({
-      ...newLayer(l.protocolId),
-      overrides: l.overrides,
-      pinned: l.pinned,
-    })),
-    trailingPayload: payload,
-  });
-
-  let packet = serializeStack(build(), registry);
-  if (bytesEqual(packet.bytes, input)) return true;
+): { exact: boolean; packet: SerializedPacket } {
+  let packet = serializeStack(stack, registry);
+  if (bytesEqual(packet.bytes, input)) return { exact: true, packet };
   if (packet.bytes.length !== input.length) {
     notes.push(
       `re-serializing produces ${packet.bytes.length} bytes, input is ${input.length} — the decode is not exact`,
     );
-    return false;
+    return { exact: false, packet };
   }
 
   // Layer order and uids match `layers` by construction.
@@ -476,10 +531,10 @@ function reconcile(
     if (!layer.pinned.includes(span.fieldId)) layer.pinned.push(span.fieldId);
   }
 
-  packet = serializeStack(build(), registry);
+  packet = serializeStack(stack, registry);
   const exact = bytesEqual(packet.bytes, input);
   if (!exact) notes.push('some bytes could not be reproduced — the decode is not exact');
-  return exact;
+  return { exact, packet };
 }
 
 function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {

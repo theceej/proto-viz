@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, FolderOpen, Info, MessageSquareText, X } from 'lucide-react';
 import { useLibraryStore } from '../../../store/libraryStore';
 import { useCaptureStore } from '../../../store/captureStore';
@@ -45,8 +45,35 @@ export default function CapturePage() {
   const [sort, setSort] = useState<Sort>({ key: 'number', ascending: true });
   const [inspectionMode, setInspectionMode] = useInspectionMode();
   const inputRef = useRef<HTMLInputElement>(null);
+  const profileRequested = useRef(new URLSearchParams(location.search).has('captureProfile'));
+
+  useEffect(() => {
+    if (!capture || !profileRequested.current) return;
+    let secondFrame = 0;
+    const firstFrame = requestAnimationFrame(() => {
+      secondFrame = requestAnimationFrame(() => {
+        performance.mark('capture-profile:first-useful-render');
+        window.dispatchEvent(new CustomEvent('capture-profile:render', {
+          detail: Object.fromEntries(
+            performance
+              .getEntriesByType('mark')
+              .filter((entry) => entry.name.startsWith('capture-profile:'))
+              .map((entry) => [entry.name, entry.startTime]),
+          ),
+        }));
+      });
+    });
+    return () => {
+      cancelAnimationFrame(firstFrame);
+      cancelAnimationFrame(secondFrame);
+    };
+  }, [capture]);
 
   const openFile = async (file: File) => {
+    if (profileRequested.current) {
+      performance.clearMarks();
+      performance.mark('capture-profile:start');
+    }
     setError(null);
     setLoading(true);
     setProgress(null);
@@ -57,8 +84,17 @@ export default function CapturePage() {
         registry,
         fileName: file.name,
         onProgress: (processed, total) => setProgress({ processed, total }),
+        ...(profileRequested.current
+          ? {
+              onProfile: (profile: import('../../../core/captureWorkerClient').CaptureAsyncProfile) => {
+                performance.mark('capture-profile:response-received');
+                window.dispatchEvent(new CustomEvent('capture-profile:worker', { detail: profile }));
+              },
+            }
+          : {}),
       });
       setCapture(parsedCapture);
+      if (profileRequested.current) performance.mark('capture-profile:state-updated');
       setTab('packets');
       setSort({ key: 'number', ascending: true });
     } catch (e) {

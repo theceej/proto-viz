@@ -3,6 +3,8 @@ import { createBuiltinRegistry } from '../protocols/index';
 import { newLayer, type StackInstance } from './model';
 import { serializeStack } from './serialize';
 import { decodeStackBytes, parseHexInput, HexInputError } from './decodeStack';
+import { createRegistry } from './registry';
+import type { ProtocolDefinition } from './model';
 
 const registry = createBuiltinRegistry();
 
@@ -96,6 +98,83 @@ describe('parseHexInput', () => {
 });
 
 describe('decodeStackBytes', () => {
+  const protocol = (
+    id: string,
+    encapsulations: ProtocolDefinition['encapsulations'] = [],
+  ): ProtocolDefinition => ({
+    id,
+    name: id,
+    layerHint: 'application',
+    source: 'custom',
+    fields: [{ id: 'value', name: 'Value', type: 'uint', bitLength: 8 }],
+    providesNamespaces: [],
+    encapsulations,
+  });
+
+  it('preserves claimant insertion order and duplicate-claim diagnostics', () => {
+    const source: ProtocolDefinition = {
+      ...protocol('source'),
+      fields: [{ id: 'selector', name: 'Selector', type: 'uint', bitLength: 8 }],
+      providesNamespaces: [{ id: 'ordered', displayName: 'Ordered', selectorFieldId: 'selector' }],
+    };
+    const first = protocol('first', [
+      { namespaceId: 'ordered', value: 7 },
+      { namespaceId: 'ordered', value: 7 },
+    ]);
+    const second = protocol('second', [{ namespaceId: 'ordered', value: 7 }]);
+    const custom = createRegistry([source, first, second]);
+    const decoded = decodeStackBytes(new Uint8Array([7, 42]), custom, 'source');
+
+    expect(ids(decoded)).toEqual(['source', 'first']);
+    expect(decoded.notes).toContain('Ordered 7 is claimed by first, second; assuming first');
+  });
+
+  it('preserves destination selection and source-port fallback', () => {
+    const transport: ProtocolDefinition = {
+      ...protocol('transport'),
+      fields: [
+        { id: 'srcPort', name: 'Source port', type: 'uint', bitLength: 8 },
+        { id: 'dstPort', name: 'Destination port', type: 'uint', bitLength: 8 },
+      ],
+      providesNamespaces: [
+        { id: 'custom-dstport', displayName: 'Custom port', selectorFieldId: 'dstPort' },
+      ],
+    };
+    const service = protocol('service', [{ namespaceId: 'custom-dstport', value: 53 }]);
+    const custom = createRegistry([transport, service]);
+
+    const destination = decodeStackBytes(new Uint8Array([10, 53, 1]), custom, 'transport');
+    expect(ids(destination)).toEqual(['transport', 'service']);
+    expect(destination.notes).not.toContain('service identified by source port 10');
+
+    const source = decodeStackBytes(new Uint8Array([53, 10, 1]), custom, 'transport');
+    expect(ids(source)).toEqual(['transport', 'service']);
+    expect(source.notes).toContain('service identified by source port 53');
+  });
+
+  it('follows one opaque claimant and reports ambiguity in registry order', () => {
+    const carrier: ProtocolDefinition = {
+      ...protocol('carrier'),
+      providesNamespaces: [{ id: 'opaque', displayName: 'Opaque payload', selectorFieldId: null }],
+    };
+    const first = protocol('opaque-first', [{ namespaceId: 'opaque' }]);
+    const second = protocol('opaque-second', [{ namespaceId: 'opaque' }]);
+
+    expect(
+      ids(decodeStackBytes(new Uint8Array([1, 2]), createRegistry([carrier, first]), 'carrier')),
+    ).toEqual(['carrier', 'opaque-first']);
+
+    const ambiguous = decodeStackBytes(
+      new Uint8Array([1, 2]),
+      createRegistry([carrier, first, second]),
+      'carrier',
+    );
+    expect(ids(ambiguous)).toEqual(['carrier']);
+    expect(ambiguous.notes).toContain(
+      'carrier carries its payload opaquely (Opaque payload); content kept as raw payload',
+    );
+  });
+
   it('round-trips Ethernet › IPv4 › TCP with payload, exactly', () => {
     const payload = new TextEncoder().encode('hello world');
     const input = bytesOf(['ethernet', 'ipv4', 'tcp'], payload, {
@@ -109,6 +188,11 @@ describe('decodeStackBytes', () => {
     expect(d.layers[1]!.overrides['src']).toBe('192.0.2.99');
     expect(d.layers[1]!.overrides['ttl']).toBe(42);
     expect(d.layers[2]!.overrides['srcPort']).toBe(45000);
+    expect(d.packet).not.toBeNull();
+    expect(d.stack.layers.map((layer) => layer.uid)).toEqual(
+      d.packet!.layers.map((layer) => layer.uid),
+    );
+    expect(d.packet!.bytes).toEqual(input);
     // No pins needed: computed fields reproduce from the wire values.
     expect(d.layers.flatMap((l) => l.pinned)).toEqual([]);
   });
@@ -184,6 +268,11 @@ describe('decodeStackBytes', () => {
     expect(ids(d)).toEqual(['ethernet', 'ipv4', 'udp']);
     expect(d.layers[1]!.pinned).toContain('headerChecksum');
     expect(d.exact).toBe(true);
+    expect(d.stack.layers[1]!.pinned).toContain('headerChecksum');
+    expect(d.packet!.bytes).toEqual(corrupt);
+    expect(d.stack.layers.map((layer) => layer.uid)).toEqual(
+      d.packet!.layers.map((layer) => layer.uid),
+    );
   });
 
   it('pins an EtherType nothing in the library claims', () => {
