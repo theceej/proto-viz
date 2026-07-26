@@ -40,6 +40,7 @@ const DEPLOYED_GZIP_LIMIT = 964_000;
 
 /** Chunks fetched only when a PDF or DOCX spec is imported. */
 const OPTIONAL_CHUNK = /^(?:pdf|mammoth)/;
+
 const DIST = resolve('dist');
 
 const files = (await readdir(resolve(DIST, 'assets')))
