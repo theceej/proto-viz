@@ -53,6 +53,57 @@ const registry = createBuiltinRegistry([custom]);
 const packet = serializeStack(stack, registry);
 const comparison: ComparisonPacket = { id: 7, label: 'snapshot', packet };
 
+const richProtocol: ProtocolDefinition = {
+  id: 'workspace-rich',
+  name: 'Rich protocol',
+  fullName: 'Workspace coverage protocol',
+  description: 'Exercises every protocol schema variant.',
+  notes: 'Only used by workspace tests.',
+  layerHint: 'application',
+  source: 'custom',
+  references: ['RFC 0000'],
+  fields: [
+    { id: 'selector', name: 'Selector', type: 'uint', bitLength: 8, default: 1, enumRef: 'selectors', description: 'A selector.' },
+    { id: 'flags', name: 'Flags', type: 'flags', bitLength: 8, default: 0, flags: [{ bit: 0, name: 'First', description: 'First bit.' }, { bit: 1, name: 'Second' }] },
+    {
+      id: 'payload',
+      name: 'Payload',
+      type: 'bytes',
+      bitLength: 'auto',
+      decodeBitLength: { expr: { kind: 'binop', op: '*', left: { kind: 'field', fieldId: 'selector' }, right: { kind: 'const', value: 2 } }, unit: 'bytes' },
+      presentIf: { kind: 'binop', op: '-', left: { kind: 'payloadBytes' }, right: { kind: 'const', value: 0 } },
+    },
+    {
+      id: 'length',
+      name: 'Length',
+      type: 'uint',
+      bitLength: { expr: { kind: 'binop', op: 'div', left: { kind: 'headerBytes' }, right: { kind: 'const', value: 1 } }, unit: 'bits' },
+      computed: { kind: 'expr', expr: { kind: 'binop', op: '+', left: { kind: 'headerBytes' }, right: { kind: 'payloadBytes' } } },
+    },
+    { id: 'binding', name: 'Binding', type: 'uint', bitLength: 8, computed: { kind: 'binding' } },
+    { id: 'checksum', name: 'Checksum', type: 'uint', bitLength: 16, computed: { kind: 'checksum', algorithm: 'inet16', scope: 'header', pseudoHeader: 'auto', zeroSubstitute: true, littleEndian: false } },
+    { id: 'crc', name: 'CRC', type: 'uint', bitLength: 32, computed: { kind: 'checksum', algorithm: 'crc32c', scope: 'headerAndPayload' } },
+    { id: 'label', name: 'Label', type: 'string', bitLength: 'auto', default: 'rich' },
+  ],
+  providesNamespaces: [
+    { id: 'selected', displayName: 'Selected payload', selectorFieldId: 'selector' },
+    { id: 'opaque', displayName: 'Opaque payload', selectorFieldId: null },
+  ],
+  encapsulations: [
+    { namespaceId: 'selected', value: 7, conventional: true },
+    { namespaceId: 'opaque' },
+  ],
+  lintRules: [
+    { kind: 'value', fieldId: 'selector', severity: 'warning', code: 'value', message: 'Value rule.', operator: 'equals', value: 1, reference: 'Section 1' },
+    { kind: 'bitsClear', fieldId: 'flags', severity: 'advisory', code: 'clear', message: 'Bits clear.', mask: 1 },
+    { kind: 'incompatibleBits', fieldId: 'flags', severity: 'warning', code: 'incompatible', message: 'Bits conflict.', leftMask: 1, rightMask: 2 },
+    { kind: 'sourceAddress', fieldId: 'selector', severity: 'advisory', code: 'source', message: 'Source address.', family: 'ipv4' },
+    { kind: 'zeroWhenCarriedBy', fieldId: 'selector', severity: 'warning', code: 'zero', message: 'Must be zero.', protocolId: 'ipv4' },
+    { kind: 'payloadBindingMismatch', fieldId: 'selector', severity: 'advisory', code: 'binding', message: 'Binding mismatch.' },
+    { kind: 'wellKnownPayload', fieldId: 'selector', severity: 'warning', code: 'payload', message: 'Known payload.' },
+  ],
+};
+
 const data: WorkspaceExportData = {
   customProtocols: [custom],
   savedStacks: [saved],
@@ -76,6 +127,12 @@ function fullJson(): string {
     currentStack: true,
     comparisons: true,
     composedScenario: true,
+  }, '2026-07-26T00:00:00.000Z');
+}
+
+function richJson(): string {
+  return exportWorkspaceJson({ ...data, customProtocols: [richProtocol] }, {
+    customProtocols: true,
   }, '2026-07-26T00:00:00.000Z');
 }
 
@@ -115,6 +172,27 @@ describe('workspace JSON', () => {
     expect(restored?.issues).toEqual(packet.issues);
   });
 
+  it('round-trips optional protocol schema variants and comparison issues', () => {
+    const parsed = parseWorkspaceJson(richJson());
+    const protocol = parsed.customProtocols?.[0];
+    expect(protocol).toMatchObject({
+      fullName: richProtocol.fullName,
+      references: richProtocol.references,
+      providesNamespaces: richProtocol.providesNamespaces,
+      encapsulations: richProtocol.encapsulations,
+    });
+    expect(protocol?.fields.find((field) => field.id === 'payload')).not.toHaveProperty('default');
+    expect(protocol?.fields.find((field) => field.id === 'checksum')?.computed).toEqual(richProtocol.fields[5]?.computed);
+    expect(protocol?.lintRules?.map((rule) => rule.kind)).toEqual(richProtocol.lintRules?.map((rule) => rule.kind));
+
+    const raw = JSON.parse(fullJson());
+    raw.comparisons[0].packet.issues = [
+      { severity: 'warning', layerUid: null, message: 'Packet warning.' },
+      { severity: 'error', layerUid: raw.comparisons[0].packet.layers[0].uid, message: 'Layer error.' },
+    ];
+    expect(parseWorkspaceJson(JSON.stringify(raw)).comparisons?.[0]?.packet.issues).toEqual(raw.comparisons[0].packet.issues);
+  });
+
   it('builds merge plans with keep, overwrite, and copy conflicts without mutation', () => {
     const incoming = parseWorkspaceJson(fullJson());
     const existing = local();
@@ -139,6 +217,39 @@ describe('workspace JSON', () => {
     expect(overwrite.prospective.savedStacks).toHaveLength(2);
     expect(overwrite.prospective.savedStacks[1]?.id).toMatch(/^saved-1-copy/);
     expect(existing).toEqual(before);
+  });
+
+  it('supports overwrite, replace, and retained singleton import choices', () => {
+    const incoming = parseWorkspaceJson(fullJson());
+    const existing = local();
+    existing.customProtocols = [{ ...custom, name: 'Local protocol' }];
+    existing.savedStacks = [{ ...saved, name: 'Local stack' }];
+    existing.composedScenario = { ...scenario, name: 'Local scenario' };
+    existing.comparisons = [{ ...comparison, label: 'Local comparison' }];
+
+    const plan = planWorkspaceImport(incoming, existing, {
+      customProtocols: { mode: 'merge', conflict: 'overwrite' },
+      savedStacks: { mode: 'merge', conflict: 'overwrite' },
+      currentStack: 'keep',
+      composedScenario: 'keep',
+      comparisons: { mode: 'replace' },
+    });
+
+    expect(plan.ok).toBe(true);
+    expect(plan.prospective.savedStacks[0]?.name).toBe(saved.name);
+    expect(plan.prospective.currentStack).toEqual(existing.currentStack);
+    expect(plan.prospective.composedScenario?.name).toBe('Local scenario');
+    expect(plan.prospective.comparisons[0]?.label).toBe(comparison.label);
+    expect(plan.conflicts.map((item) => item.code)).toEqual(expect.arrayContaining(['CURRENT_STACK_KEPT', 'COMPOSED_SCENARIO_KEPT']));
+  });
+
+  it('rejects invalid pinned fields during import planning', () => {
+    const raw = JSON.parse(fullJson());
+    raw.currentStack.layers[0].pinned = ['wide'];
+    const plan = planWorkspaceImport(parseWorkspaceJson(JSON.stringify(raw)), local(), {
+      customProtocols: { mode: 'replace' },
+    });
+    expect(plan.errors).toContainEqual(expect.objectContaining({ code: 'INVALID_PINNED_FIELD' }));
   });
 
   it('supports replace, explicit empty clears, and absent-section preservation', () => {
@@ -236,6 +347,55 @@ describe('workspace JSON', () => {
     expect(parseWorkspaceJson(JSON.stringify({ ...base, version: 1, futureSection: {} })).warnings[0]?.code).toBe('UNKNOWN_SECTION');
     expect(() => parseWorkspaceJson(JSON.stringify({ ...base, version: 2 }))).toThrow('newer than supported version 1');
     expect(errorCode(() => parseWorkspaceJson(JSON.stringify({ ...base, version: 2 })))).toBe('FUTURE_VERSION');
+  });
+
+  it('rejects malformed workspace envelope values', () => {
+    const base = { app: 'proto-viz', kind: 'workspace', exportedAt: '2026-07-26T00:00:00.000Z' };
+    expect(errorCode(() => parseWorkspaceJson('{'))).toBe('INVALID_JSON');
+    expect(errorCode(() => parseWorkspaceJson(JSON.stringify({ ...base, kind: 'protocols', version: 1 })))).toBe('INVALID_KIND');
+    expect(errorCode(() => parseWorkspaceJson(JSON.stringify({ ...base, version: 0 })))).toBe('UNSUPPORTED_VERSION');
+    expect(errorCode(() => parseWorkspaceJson(JSON.stringify({ ...base, version: 1, exportedAt: 'not-a-date' })))).toBe('INVALID_DATE');
+  });
+
+  it('rejects malformed optional protocol schema variants', () => {
+    const expectMutation = (mutate: (raw: ReturnType<typeof JSON.parse>) => void, code = 'INVALID_SCHEMA') => {
+      const raw = JSON.parse(richJson());
+      mutate(raw);
+      expect(errorCode(() => parseWorkspaceJson(JSON.stringify(raw)))).toBe(code);
+    };
+
+    expectMutation((raw) => { raw.customProtocols[0].fields[1].flags[0].bit = 8; });
+    expectMutation((raw) => { raw.customProtocols[0].fields[2].decodeBitLength.unit = 'octets'; });
+    expectMutation((raw) => { raw.customProtocols[0].fields[2].presentIf.op = '%'; });
+    expectMutation((raw) => { raw.customProtocols[0].fields[2].presentIf = { kind: 'unknown' }; });
+    expectMutation((raw) => { raw.customProtocols[0].fields[7].default = 1; }, 'INVALID_FIELD_VALUE');
+    expectMutation((raw) => { raw.customProtocols[0].fields[5].computed.algorithm = 'md5'; });
+    expectMutation((raw) => { raw.customProtocols[0].fields[5].computed.scope = 'packet'; });
+    expectMutation((raw) => { raw.customProtocols[0].fields[5].computed.pseudoHeader = 'ethernet'; });
+    expectMutation((raw) => { raw.customProtocols[0].fields[5].computed = { kind: 'unknown' }; });
+    expectMutation((raw) => { raw.customProtocols[0].lintRules[0].fieldId = 'missing'; });
+    expectMutation((raw) => { raw.customProtocols[0].lintRules[0].severity = 'error'; });
+    expectMutation((raw) => { raw.customProtocols[0].lintRules[0].operator = 'greaterThan'; });
+    expectMutation((raw) => { raw.customProtocols[0].lintRules[3].family = 'ip'; });
+    expectMutation((raw) => { raw.customProtocols[0].lintRules[0].kind = 'unknown'; });
+    expectMutation((raw) => { raw.customProtocols[0].providesNamespaces[0].selectorFieldId = 'missing'; });
+    expectMutation((raw) => { raw.customProtocols[0].fields[3].computed.expr.left = { kind: 'field', fieldId: 'missing' }; });
+  });
+
+  it('rejects malformed tags, scenarios, spans, and comparison issues', () => {
+    const expectMutation = (mutate: (raw: ReturnType<typeof JSON.parse>) => void, code: string) => {
+      const raw = JSON.parse(fullJson());
+      mutate(raw);
+      expect(errorCode(() => parseWorkspaceJson(JSON.stringify(raw)))).toBe(code);
+    };
+
+    expectMutation((raw) => { raw.currentStack.layers[0].overrides.wide = { $bigint: '01' }; }, 'MALFORMED_TAG');
+    expectMutation((raw) => { raw.composedScenario.version = 2; }, 'INVALID_SCHEMA');
+    expectMutation((raw) => { raw.composedScenario.endpoints = ['A']; }, 'INVALID_SCHEMA');
+    expectMutation((raw) => { raw.comparisons[0].packet.spans[0].layerUid = 'missing'; }, 'INVALID_SPAN_LAYER');
+    expectMutation((raw) => {
+      raw.comparisons[0].packet.issues = [{ severity: 'advisory', layerUid: null, message: 'Invalid.' }];
+    }, 'INVALID_SCHEMA');
   });
 
   it('rejects malformed tags, base64, schemas, duplicate IDs, and built-in collisions', () => {

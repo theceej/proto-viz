@@ -213,7 +213,7 @@ export function parseWorkspaceJson(text: string): ParsedWorkspace {
     };
   }
   if (object.kind !== WORKSPACE_KIND) fail('INVALID_KIND', 'Not a proto-viz workspace file.', '$.kind');
-  const version = integer(object.version, '$.version', 1);
+  const version = integer(object.version, '$.version', 0);
   if (version > WORKSPACE_VERSION) {
     fail('FUTURE_VERSION', `Workspace version ${version} is newer than supported version ${WORKSPACE_VERSION}.`, '$.version');
   }
