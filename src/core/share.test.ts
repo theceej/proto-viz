@@ -22,6 +22,9 @@ describe('share codes', () => {
     expect(SHARE_PROTOCOL_IDS[3]).toBe('ipv4');
     expect(SHARE_PROTOCOL_IDS[8]).toBe('tcp');
     expect(SHARE_PROTOCOL_IDS[22]).toBe('l2tp');
+    expect(SHARE_PROTOCOL_IDS[76]).toBe('eap');
+    expect(SHARE_PROTOCOL_IDS[77]).toBe('ikev2');
+    expect(SHARE_PROTOCOL_IDS[78]).toBe('ikev2-natt');
   });
 
   it('round-trips representative stacks', () => {
