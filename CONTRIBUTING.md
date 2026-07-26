@@ -158,13 +158,29 @@ import { rfc } from './sources';
 export default [rfc(3550)];
 ```
 
-References appear as a bulleted list in the library detail panel. More than
-one file may contribute to a protocol: `<id>.1.ts`, `<id>.2.ts`, and so on are
-discovered automatically and merged in filename order. This lets downstream
-deployments add local documentation without modifying an upstream file:
+References appear as a bulleted list in the library detail panel. More than one
+file may contribute to a protocol. Every file matching
+`<id>.<qualifier?>.<n>.ts` is discovered automatically and merged:
+
+| file | meaning |
+| --- | --- |
+| `rtcp.1.ts`, `rtcp.2.ts` | the protocol's own references |
+| `rtcp.100.ts` | `n` may be any number of digits |
+| `rtcp.acme.1.ts`, `rtcp.acme.200.ts` | contributed by `acme` |
+
+The optional qualifier names where a set of references comes from — an
+organisation, a deployment, a downstream fork — so several contributors can add
+references to the same protocol without having to agree on a number between
+them. A protocol's own references come first, then each qualifier's in
+alphabetical order, with `n` compared numerically (so `.10.ts` follows `.2.ts`).
+Ids use hyphens and never dots, which is what keeps `ikev2-natt.acme.1.ts`
+unambiguous.
+
+This lets downstream deployments add local documentation without modifying an
+upstream file:
 
 ```ts
-// src/protocols/refs/rtcp.2.ts
+// src/protocols/refs/rtcp.acme.1.ts
 export default [
   { name: 'Our RTCP deployment guide', url: 'https://docs.example/rtcp' },
 ];
