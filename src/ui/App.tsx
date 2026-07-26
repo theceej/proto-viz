@@ -27,6 +27,7 @@ const ComparePage = lazy(() => import('./pages/ComparePage'));
 const LibraryPage = lazy(() => import('./pages/LibraryPage'));
 const EncapsulationMapPage = lazy(() => import('./pages/EncapsulationMapPage'));
 const ImportWizard = lazy(() => import('./pages/ImportWizard'));
+const WorkspacePage = lazy(() => import('./pages/WorkspacePage'));
 const HelpPage = lazy(() => import('./pages/HelpPage'));
 
 const GITHUB_URL = 'https://github.com/theceej/proto-viz';
@@ -284,6 +285,14 @@ export default function App() {
               element={
                 <Suspense fallback={null}>
                   <ImportWizard />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/workspace"
+              element={
+                <Suspense fallback={null}>
+                  <WorkspacePage />
                 </Suspense>
               }
             />

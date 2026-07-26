@@ -10,6 +10,7 @@ const routes = [
   '/library',
   '/map',
   '/import',
+  '/workspace',
   '/help',
 ];
 const themes = ['dark', 'light'] as const;

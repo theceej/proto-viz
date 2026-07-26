@@ -128,6 +128,12 @@ your browser. Nothing is uploaded anywhere.
   the library. Custom protocols persist in IndexedDB and can be exported /
   imported as JSON. Legacy binary `.doc` is detected and rejected with
   guidance (it cannot be parsed in-browser).
+- **Workspace transfer** — export custom protocols, saved stacks, the current
+  Builder stack, packet comparisons, and the composed scenario as a portable
+  `.proto-viz-workspace.json` file. Import is locally parsed and fully reviewed
+  before writes, with per-category merge/replace and conflict controls. Referenced
+  custom protocols are included automatically; captures and preferences are not.
+  See [the workspace format](docs/workspace-format.md) for the schema and limits.
 
 ## Running
 
