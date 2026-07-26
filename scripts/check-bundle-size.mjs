@@ -38,8 +38,8 @@ const INITIAL_GZIP_LIMIT = 173_000;
 const LARGEST_ROUTE_GZIP_LIMIT = 24_000;
 const DEPLOYED_GZIP_LIMIT = 964_000;
 
-/** Chunks fetched only when a PDF or DOCX spec is imported. */
-const OPTIONAL_CHUNK = /^(?:pdf|mammoth)/;
+/** Chunks fetched only on-demand for background tasks or PDF/DOCX spec imports. */
+const OPTIONAL_CHUNK = /^(?:pdf|mammoth|captureWorker)/;
 
 const DIST = resolve('dist');
 
