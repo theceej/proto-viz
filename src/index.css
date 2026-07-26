@@ -44,15 +44,37 @@ html.light {
   --color-zinc-100: #18181b;
   --color-zinc-50: #09090b;
 
+  /*
+   * Accent text. Every one of these is used as *text* somewhere, so each is
+   * dark enough for 4.5:1 against all three light surfaces the app paints on
+   * — zinc-950 #f7f7f8, zinc-900 #efeff1, and zinc-800 #e0e0e4 — not merely
+   * against the lightest. The earlier values cleared the body background and
+   * failed on panels and chips, which is a failure axe only finds if a test
+   * happens to visit the state that renders that text on that surface.
+   *
+   * cyan-200 needs an entry even though the dark theme uses it for light text
+   * on a filled cyan control: in light mode that control is a pale wash, so
+   * the text on it has to be dark. Without an override it stayed #a5f3fc,
+   * 1.17:1 — invisible rather than merely low-contrast.
+   */
+  --color-cyan-200: #0e5268; /* 8.09 / 7.54 / 6.58 */
   --color-cyan-300: #0e5268;
-  --color-cyan-400: #0891b2;
-  --color-sky-400: #0284c7;
-  --color-amber-300: #b45309;
-  --color-amber-400: #d97706;
+  /*
+   * Only used as `bg-cyan-900/40`, the hex view's active Edit-mode toggle.
+   * A 40% wash of a dark cyan lands on a mid-tone in light mode, where
+   * neither light nor dark text reaches 4.5:1. Paling it makes that toggle a
+   * light tint like every other active chip here, and the dark cyan-200 text
+   * on it then reads at 7.6:1.
+   */
+  --color-cyan-900: #a5f3fc;
+  --color-cyan-400: #155e75; /* 6.79 / 6.33 / 5.52 */
+  --color-sky-400: #075985; /* 7.06 / 6.59 / 5.75 */
+  --color-amber-300: #92400e; /* 6.62 / 6.17 / 5.39 */
+  --color-amber-400: #92400e;
   --color-rose-300: #be123c;
-  --color-rose-400: #e11d48;
-  --color-emerald-300: #047857;
-  --color-emerald-400: #047857;
+  --color-rose-400: #be123c; /* 5.87 / 5.47 / 4.77 */
+  --color-emerald-300: #065f46; /* 7.18 / 6.69 / 5.84 */
+  --color-emerald-400: #065f46;
   --color-violet-300: #6d28d9;
   --color-fuchsia-300: #a21caf;
 }

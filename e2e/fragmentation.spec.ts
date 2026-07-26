@@ -99,15 +99,24 @@ test('fragments the current Builder packet and explains every reassembly outcome
   expect(download.suggestedFilename()).toBe('fragmentation-normal-ipv4.pcap');
 });
 
-test('Fragmentation Lab has no automated WCAG A/AA violations', async ({ page }) => {
-  await openFragmentationLab(page);
-  const results = await new AxeBuilder({ page })
-    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22a', 'wcag22aa'])
-    .disableRules(['target-size'])
-    .analyze();
+// Both themes: the accent colours this page uses for fragment status differ
+// per theme, and only the light ramp has ever been close to the AA floor.
+for (const theme of ['dark', 'light'] as const) {
+  test(`Fragmentation Lab has no automated WCAG A/AA violations in ${theme} mode`, async ({
+    page,
+  }) => {
+    await page.addInitScript((selected) => {
+      localStorage.setItem('pv-theme', selected);
+    }, theme);
+    await openFragmentationLab(page);
+    const results = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22a', 'wcag22aa'])
+      .disableRules(['target-size'])
+      .analyze();
 
-  expect(results.violations).toEqual([]);
-});
+    expect(results.violations).toEqual([]);
+  });
+}
 
 test.describe('mobile Fragmentation Lab', () => {
   test.use({ viewport: { width: 375, height: 800 } });

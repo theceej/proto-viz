@@ -82,4 +82,22 @@ for (const theme of themes) {
       await expect(dialog).toBeHidden();
     }
   });
+
+  // Active toggles are their own state: the hex view's Edit mode is the only
+  // place the app paints text on a 40%-alpha cyan wash, and a wash tuned for
+  // the dark theme lands somewhere quite different on the light one.
+  test(`the hex view's Edit mode has no WCAG A/AA violations in ${theme} mode`, async ({
+    page,
+  }) => {
+    await page.addInitScript((selectedTheme) => {
+      localStorage.setItem('pv-theme', selectedTheme);
+    }, theme);
+    await page.goto('/#/builder');
+
+    const editToggle = page.getByRole('button', { name: 'Edit', exact: true });
+    await editToggle.click();
+    await expect(editToggle).toHaveAttribute('aria-pressed', 'true');
+
+    await expectNoWcagViolations(page);
+  });
 }

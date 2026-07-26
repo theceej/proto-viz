@@ -1,3 +1,4 @@
+import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 
 /**
@@ -96,3 +97,28 @@ test('offers one Packet Lab entry in the sidebar', async ({ page }) => {
   await expect(page.getByRole('link', { name: 'Fragmentation Lab' })).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Fuzzing Lab' })).toHaveCount(0);
 });
+
+/**
+ * The hand-off banner only exists after a hand-off, so the shared route sweep
+ * — which visits every page in its default state — can never see it. That is
+ * the same blind spot that hid a contrast failure on this page until CI found
+ * it, so the states a sweep cannot reach get their own checks.
+ */
+for (const theme of ['dark', 'light'] as const) {
+  test(`the hand-off banner has no WCAG A/AA violations in ${theme} mode`, async ({ page }) => {
+    await page.addInitScript((selected) => {
+      localStorage.setItem('pv-theme', selected);
+    }, theme);
+    await openLab(page);
+    await page.getByRole('spinbutton', { name: 'Maximum transmission unit in bytes' }).fill('28');
+    await page.getByRole('button', { name: 'Fuzz this fragment' }).click();
+    await expect(sourceChip(page)).toBeVisible();
+
+    const results = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22a', 'wcag22aa'])
+      .disableRules(['target-size'])
+      .analyze();
+
+    expect(results.violations).toEqual([]);
+  });
+}
