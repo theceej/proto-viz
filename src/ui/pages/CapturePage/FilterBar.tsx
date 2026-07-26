@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { FilterX } from 'lucide-react';
 import type { CapturePacket, DecodeStatus } from '../../../core/capture';
 import {
@@ -6,6 +7,7 @@ import {
   protocolOptions,
   type CaptureFilter,
 } from '../../../core/captureFilter';
+import { getFilterAutocompletions, parseDisplayFilter } from '../../../core/displayFilter';
 
 const STATUS_LABELS: { value: DecodeStatus; label: string }[] = [
   { value: 'exact', label: 'Decoded exactly' },
@@ -34,25 +36,79 @@ export default function FilterBar({
   onChange: (filter: CaptureFilter) => void;
   matched: number;
 }) {
+  const [showCompletions, setShowCompletions] = useState(false);
   const protocols = protocolOptions(packets);
   const set = <K extends keyof CaptureFilter>(key: K, value: CaptureFilter[K]) =>
     onChange({ ...filter, [key]: value });
+
+  const filterResult = parseDisplayFilter(filter.text);
+  const completions = getFilterAutocompletions(filter.text, packets);
+
+  const applyCompletion = (completionItem: string) => {
+    const match = filter.text.match(/([a-zA-Z0-9._-]+)$/);
+    if (match) {
+      const idx = filter.text.lastIndexOf(match[1]!);
+      const nextText = filter.text.slice(0, idx) + completionItem + ' ';
+      set('text', nextText);
+    } else {
+      set('text', filter.text + completionItem + ' ');
+    }
+    setShowCompletions(false);
+  };
 
   return (
     <section
       aria-label="Capture filters"
       className="flex flex-wrap items-center gap-2 border-b border-zinc-800 bg-zinc-900/30 px-6 py-2"
     >
-      <label className="flex items-center gap-1.5">
-        <span className="sr-only">Search packets</span>
-        <input
-          type="search"
-          className={`${FIELD_CLASS} w-52`}
-          placeholder="Search summaries and fields"
-          value={filter.text}
-          onChange={(e) => set('text', e.target.value)}
-        />
-      </label>
+      <div className="relative flex items-center gap-1.5">
+        <label className="flex items-center gap-1.5">
+          <span className="sr-only">Search packets or Wireshark filter</span>
+          <input
+            type="search"
+            className={`${FIELD_CLASS} w-64 font-mono text-[12px] ${
+              filterResult.error ? 'border-amber-600/80 focus:border-amber-500' : ''
+            }`}
+            placeholder="Search or filter: ip.src == 192.168.1.1..."
+            value={filter.text}
+            onFocus={() => setShowCompletions(true)}
+            onBlur={() => setTimeout(() => setShowCompletions(false), 200)}
+            onChange={(e) => {
+              set('text', e.target.value);
+              setShowCompletions(true);
+            }}
+          />
+        </label>
+        {filterResult.error && filter.text.trim().length > 0 && (
+          <span
+            className="truncate text-[11px] font-mono text-amber-400"
+            title={filterResult.error}
+          >
+            ⚠️ {filterResult.error}
+          </span>
+        )}
+        {showCompletions && completions.length > 0 && (
+          <div className="absolute top-full left-0 z-30 mt-1 max-h-48 w-64 overflow-y-auto rounded-md border border-zinc-700 bg-zinc-900 shadow-xl font-mono text-[11px]">
+            <div className="bg-zinc-950 px-2 py-1 text-[10px] tracking-wider text-zinc-500 uppercase">
+              Wireshark Filter Suggestions
+            </div>
+            {completions.map((item) => (
+              <button
+                key={item.completion}
+                type="button"
+                className="flex w-full cursor-pointer items-center justify-between px-2.5 py-1.5 text-left text-zinc-200 hover:bg-cyan-950/60 hover:text-cyan-300"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  applyCompletion(item.completion);
+                }}
+              >
+                <span className="font-medium text-cyan-400">{item.label}</span>
+                <span className="text-[10px] text-zinc-500">{item.detail}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
       <label className="flex items-center gap-1.5 text-[12px] text-zinc-500">
         Protocol

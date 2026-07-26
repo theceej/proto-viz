@@ -53,14 +53,22 @@ export function isEmptyFilter(filter: CaptureFilter): boolean {
   );
 }
 
+import { matchesDisplayFilter, parseDisplayFilter } from './displayFilter';
+
 /** Does one packet satisfy every set criterion? */
 export function matchesFilter(packet: CapturePacket, filter: CaptureFilter): boolean {
-  const text = filter.text.trim().toLowerCase();
+  const text = filter.text.trim();
   if (text !== '') {
-    const haystack = `${packet.summary.toLowerCase()} ${packet.searchText}`;
-    // Space-separated terms all have to appear, so "tcp 443" narrows rather
-    // than looking for that exact string.
-    if (!text.split(/\s+/).every((term) => haystack.includes(term))) return false;
+    const parsed = parseDisplayFilter(text);
+    if (parsed.ast && parsed.isDisplayFilter) {
+      if (!matchesDisplayFilter(packet, parsed.ast)) return false;
+    } else {
+      const lowerText = text.toLowerCase();
+      const haystack = `${packet.summary.toLowerCase()} ${packet.searchText}`;
+      // Space-separated terms all have to appear, so "tcp 443" narrows rather
+      // than looking for that exact string.
+      if (!lowerText.split(/\s+/).every((term) => haystack.includes(term))) return false;
+    }
   }
 
   if (filter.protocolId !== null && !packet.protocolIds.includes(filter.protocolId)) {
