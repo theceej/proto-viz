@@ -43,13 +43,13 @@ const sectionHeader = (little = true) =>
     little,
   );
 
-const interfaceBlock = (linkType: number, tsResol?: number, little = true) =>
+const interfaceBlock = (linkType: number, tsResol?: number, little = true, snapLength = 65535) =>
   block(
     BLOCK.INTERFACE_DESCRIPTION,
     [
       ...u16(linkType, little),
       ...u16(0, little),
-      ...u32(65535, little),
+      ...u32(snapLength, little),
       ...(tsResol === undefined ? [] : [...option(OPTION.IF_TSRESOL, [tsResol], little), ...endOfOptions(little)]),
     ],
     little,
@@ -205,6 +205,35 @@ describe('readPcapng', () => {
     expect(read.records[0]!.originalLength).toBe(4);
     // Simple Packet Blocks carry no timestamp at all.
     expect(read.records[0]!.tsUsec).toBe(0);
+  });
+
+  it('enforces the per-packet limit for a Simple Packet Block with unlimited snap length', () => {
+    const packet = block(BLOCK.SIMPLE_PACKET, [...u32(5), 1, 2, 3, 4, 5]);
+    const capture = file(sectionHeader(), interfaceBlock(1, undefined, true, 0), packet);
+
+    expect(() => readPcapng(capture, { ...DEFAULT_LIMITS, maxPacketBytes: 4 })).toThrow(
+      /Packet 1 claims 5 bytes of data; the per-packet limit is 4 bytes/,
+    );
+  });
+
+  it('enforces the per-packet limit for a Simple Packet Block with a large snap length', () => {
+    const packet = block(BLOCK.SIMPLE_PACKET, [...u32(6), 1, 2, 3, 4, 5, 6]);
+    const capture = file(sectionHeader(), interfaceBlock(1, undefined, true, 1_000_000), packet);
+
+    expect(() => readPcapng(capture, { ...DEFAULT_LIMITS, maxPacketBytes: 5 })).toThrow(
+      /Packet 1 claims 6 bytes of data; the per-packet limit is 5 bytes/,
+    );
+  });
+
+  it('allows Simple Packet Block snap length truncation under the per-packet limit', () => {
+    const packet = block(BLOCK.SIMPLE_PACKET, [...u32(1_000_000), 9, 8, 7, 6]);
+    const read = readPcapng(
+      file(sectionHeader(), interfaceBlock(1, undefined, true, 4), packet),
+      { ...DEFAULT_LIMITS, maxPacketBytes: 4 },
+    );
+
+    expect([...read.records[0]!.bytes]).toEqual([9, 8, 7, 6]);
+    expect(read.records[0]!.originalLength).toBe(1_000_000);
   });
 
   it('reads the obsolete Packet Block, whose interface id is 16-bit', () => {

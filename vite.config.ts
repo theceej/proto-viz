@@ -110,7 +110,7 @@ export default defineConfig(({ command }) => ({
         'src/ui/components/HexView.tsx',
         'src/ui/components/FieldEditor/**',
       ],
-      exclude: ['src/**/*.test.ts', 'src/store/persistence.ts'],
+      exclude: ['src/**/*.test.ts', 'src/**/*.bench.ts', 'src/store/persistence.ts'],
       reporter: ['text-summary', 'text'],
       thresholds: {
         'src/core/**.ts': {

@@ -160,11 +160,143 @@ export default function BitGrid({
   );
 }
 
-function computeSegments(
+export function computeSegments(
   spans: FieldSpan[],
   layout: LayerLayout,
 ): { segments: Segment[]; rowCount: number } {
   const base = layout.byteOffset * 8;
+  const ordered = spans
+    .filter((span) => span.bitLength > 0)
+    .map((span) => ({
+      start: span.bitOffset - base,
+      end: span.bitOffset - base + span.bitLength,
+    }))
+    .sort((a, b) => a.start - b.start);
+  const nonOverlapping = ordered.every(
+    (entry, index) =>
+      entry.start >= 0 && (index === 0 || ordered[index - 1]!.end <= entry.start),
+  );
+  return nonOverlapping
+    ? computeCompactSegments(spans, base)
+    : computeExpandedSegments(spans, base);
+}
+
+/** Build collapsed long fields without allocating one object per 32-bit row. */
+function computeCompactSegments(
+  spans: FieldSpan[],
+  base: number,
+): { segments: Segment[]; rowCount: number } {
+  type Positioned = Segment & { sourceRows?: number };
+  const regular: Positioned[] = [];
+  const collapsed: Positioned[] = [];
+  let maxRow = -1;
+
+  for (const span of spans) {
+    if (span.bitLength <= 0) continue;
+    const start = span.bitOffset - base;
+    const end = start + span.bitLength;
+    const startRow = Math.floor(start / 32);
+    const endRow = Math.floor((end - 1) / 32);
+    maxRow = Math.max(maxRow, endRow);
+    const firstFullRow = Math.ceil(start / 32);
+    const lastFullRow = Math.floor(end / 32) - 1;
+    const fullRows = Math.max(0, lastFullRow - firstFullRow + 1);
+    const partials: Positioned[] = [];
+    const fieldRegular: Positioned[] = [];
+
+    if (startRow === endRow) {
+      partials.push({
+        span,
+        row: startRow,
+        col: start % 32,
+        width: span.bitLength,
+        first: false,
+      });
+    } else if (start % 32 !== 0) {
+      partials.push({
+        span,
+        row: startRow,
+        col: start % 32,
+        width: Math.min(end, (startRow + 1) * 32) - start,
+        first: false,
+      });
+    }
+    if (endRow !== startRow && end % 32 !== 0) {
+      partials.push({
+        span,
+        row: endRow,
+        col: 0,
+        width: end - endRow * 32,
+        first: false,
+      });
+    }
+
+    if (fullRows > 0) {
+      fieldRegular.push({ span, row: firstFullRow, col: 0, width: 32, first: true });
+      const remainingFullRows = fullRows - 1;
+      if (remainingFullRows >= 3) {
+        collapsed.push({
+          span,
+          row: firstFullRow + 1,
+          col: 0,
+          width: 32,
+          first: false,
+          collapsed: `⋯ ${remainingFullRows * 4} bytes`,
+          sourceRows: remainingFullRows,
+        });
+      } else {
+        for (let row = firstFullRow + 1; row <= lastFullRow; row++) {
+          fieldRegular.push({ span, row, col: 0, width: 32, first: false });
+        }
+      }
+      fieldRegular.push(...partials);
+    } else {
+      const widest = partials.reduce(
+        (best, segment) => (segment.width > best.width ? segment : best),
+        partials[0]!,
+      );
+      if (widest) widest.first = true;
+      fieldRegular.push(...partials);
+    }
+    fieldRegular.sort((a, b) => a.row - b.row || a.col - b.col);
+    regular.push(...fieldRegular);
+  }
+
+  collapsed.sort((a, b) => a.row - b.row);
+  const removedPrefix: number[] = [];
+  for (const [index, segment] of collapsed.entries()) {
+    removedPrefix.push((removedPrefix[index - 1] ?? 0) + (segment.sourceRows ?? 1) - 1);
+  }
+  const removedBefore = (row: number) => {
+    let low = 0;
+    let high = collapsed.length;
+    while (low < high) {
+      const middle = Math.floor((low + high) / 2);
+      if (collapsed[middle]!.row < row) low = middle + 1;
+      else high = middle;
+    }
+    return low === 0 ? 0 : removedPrefix[low - 1]!;
+  };
+  const mapRow = (segment: Positioned): Segment => {
+    const result = { ...segment };
+    delete result.sourceRows;
+    return { ...result, row: segment.row - removedBefore(segment.row) };
+  };
+  const removedRows = collapsed.reduce(
+    (total, segment) => total + (segment.sourceRows ?? 1) - 1,
+    0,
+  );
+  return {
+    segments: [...collapsed.map(mapRow), ...regular.map(mapRow)],
+    rowCount: maxRow < 0 ? 0 : maxRow + 1 - removedRows,
+  };
+}
+
+/** Compatibility path for unusual overlapping spans. */
+function computeExpandedSegments(
+  spans: FieldSpan[],
+  base: number,
+): { segments: Segment[]; rowCount: number } {
 
   // Absolute-row segments first.
   interface RawSeg {
