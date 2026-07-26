@@ -57,6 +57,21 @@ describe('FieldEditor tree', () => {
     expect(byLabel('TTL')).toBeDefined();
   });
 
+  it('opens code export for a layer definition', async () => {
+    await import('../ProtocolCodeDialog');
+    mount([newLayer('ipv4')]);
+    await act(async () => {
+      byLabel('Export IPv4 header code').click();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(document.querySelector('[role="dialog"]')!.textContent).toContain(
+      'Export IPv4 header code',
+    );
+    expect(document.querySelector('[aria-label="Generated protocol code"]')?.textContent).toContain(
+      '#pragma once',
+    );
+  });
+
   it('commits an override when an editable field is edited', () => {
     const layers = mount([newLayer('ethernet'), newLayer('ipv4')]);
     type(byLabel('TTL') as HTMLInputElement, '55');

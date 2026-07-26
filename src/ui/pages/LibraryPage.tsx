@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
 import {
   ArrowDownToLine,
   ArrowUpFromLine,
   Check,
+  Code2,
   Download,
   Layers3,
   Plus,
@@ -35,6 +36,8 @@ import {
   PaneResizeHandle,
   usePersistedPaneWidth,
 } from '../components/ResizablePanes';
+
+const ProtocolCodeDialog = lazy(() => import('../components/ProtocolCodeDialog'));
 
 const LAYER_ORDER: LayerHint[] = ['link', 'network', 'transport', 'application', 'tunnel'];
 const LAYER_LABEL: Record<LayerHint, string> = {
@@ -424,6 +427,7 @@ function DetailPanel({
   const removeCustom = useLibraryStore((s) => s.removeCustom);
   const references = referencesFor(def.id, def.references);
   const focusedField = useRef<HTMLTableRowElement | null>(null);
+  const [exportingCode, setExportingCode] = useState(false);
 
   useEffect(() => {
     if (!focusedFieldId || !focusedField.current) return;
@@ -465,6 +469,14 @@ function DetailPanel({
           {def.fullName && <p className="text-[12px] text-zinc-500">{def.fullName}</p>}
         </div>
         <div className="ml-auto flex items-center gap-1">
+          <button
+            className="cursor-pointer rounded p-1.5 text-zinc-500 hover:bg-zinc-800 hover:text-cyan-300"
+            title="Export header code"
+            aria-label={`Export ${def.name} header code`}
+            onClick={() => setExportingCode(true)}
+          >
+            <Code2 className="size-4" />
+          </button>
           {def.source === 'custom' && (
             <button
               className="cursor-pointer rounded p-1.5 text-zinc-500 hover:bg-zinc-800 hover:text-rose-400"
@@ -488,6 +500,11 @@ function DetailPanel({
           </button>
         </div>
       </header>
+      <Suspense fallback={null}>
+        {exportingCode && (
+          <ProtocolCodeDialog definition={def} onClose={() => setExportingCode(false)} />
+        )}
+      </Suspense>
       <div className="flex flex-col gap-5 p-5">
         <AddToStackButton def={def} />
 

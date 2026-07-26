@@ -33,6 +33,8 @@ test('core builder and library reload offline after the shell is cached', async 
   await page.evaluate(() => navigator.serviceWorker.ready);
   await context.setOffline(true);
   try {
+    // Chromium can resolve setOffline before delivering the page's offline event.
+    await expect(page.getByText(/Offline — the builder/)).toBeVisible();
     await page.reload();
     await expect(page.getByRole('heading', { name: 'Stack Builder' })).toBeVisible();
     await expect(page.getByText(/Offline — the builder/)).toBeVisible();

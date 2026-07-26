@@ -41,6 +41,27 @@ test('shows merged protocol references in a dedicated section', async ({ page })
   );
 });
 
+test('exports protocol header code in each supported target', async ({ page }) => {
+  await page.goto('/#/library/ipv4');
+  await page.getByRole('button', { name: 'Export IPv4 header code' }).click();
+
+  const dialog = page.getByRole('dialog', { name: 'Export IPv4 header code' });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByLabel('Generated protocol code')).toContainText('#pragma once');
+
+  const target = dialog.getByLabel('Target');
+  const expected = [
+    ['scapy', 'class Ipv4(Packet):'],
+    ['rust', 'pub struct Ipv4View'],
+    ['wireshark-lua', 'Proto("ipv4"'],
+    ['go', 'package ipv4'],
+  ] as const;
+  for (const [value, source] of expected) {
+    await target.selectOption(value);
+    await expect(dialog.getByLabel('Generated protocol code')).toContainText(source);
+  }
+});
+
 test('searches fields and assignments and focuses field results', async ({ page }) => {
   await page.goto('/#/library');
   const search = page.getByRole('searchbox', { name: 'Search protocol library' });
