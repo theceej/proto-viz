@@ -1,9 +1,10 @@
-import type { FieldDef, FieldValue, LayerInstance } from '../../../core/model';
+import { lazy, Suspense, useState } from 'react';
+import type { FieldDef, FieldValue, LayerInstance, ProtocolDefinition } from '../../../core/model';
 import type { Registry } from '../../../core/registry';
 import type { SerializedPacket } from '../../../core/serialize';
 import { useStackStore } from '../../../store/stackStore';
 import { isActive, useHighlightStore } from '../../../store/highlightStore';
-import { Lock, LockOpen, RotateCcw } from 'lucide-react';
+import { Code2, Lock, LockOpen, RotateCcw } from 'lucide-react';
 import ProtocolInfoLink from '../ProtocolInfoLink';
 import { layerColor } from '../../colors';
 import { bitsLabel, formatFieldValue } from '../../format';
@@ -11,6 +12,8 @@ import FieldInput from './FieldInput';
 import TcpOptionsInput from './TcpOptionsInput';
 import Ipv4OptionsInput from './Ipv4OptionsInput';
 import PayloadSection from './PayloadSection';
+
+const ProtocolCodeDialog = lazy(() => import('../ProtocolCodeDialog'));
 
 /**
  * Editable field tree for every layer in the stack, plus the trailing payload.
@@ -29,20 +32,32 @@ export default function FieldEditor({
   registry: Registry;
   readOnly?: boolean;
 }) {
+  const [exportDefinition, setExportDefinition] = useState<ProtocolDefinition | null>(null);
   return (
-    <div className="flex flex-col gap-4 p-4">
-      {layers.map((layer, i) => (
-        <LayerSection
-          key={layer.uid}
-          layer={layer}
-          layerIndex={i}
-          packet={packet}
-          registry={registry}
-          readOnly={readOnly}
-        />
-      ))}
-      {readOnly ? <ReadOnlyPayload packet={packet} /> : <PayloadSection />}
-    </div>
+    <>
+      <div className="flex flex-col gap-4 p-4">
+        {layers.map((layer, i) => (
+          <LayerSection
+            key={layer.uid}
+            layer={layer}
+            layerIndex={i}
+            packet={packet}
+            registry={registry}
+            readOnly={readOnly}
+            onExportCode={setExportDefinition}
+          />
+        ))}
+        {readOnly ? <ReadOnlyPayload packet={packet} /> : <PayloadSection />}
+      </div>
+      <Suspense fallback={null}>
+        {exportDefinition && (
+          <ProtocolCodeDialog
+            definition={exportDefinition}
+            onClose={() => setExportDefinition(null)}
+          />
+        )}
+      </Suspense>
+    </>
   );
 }
 
@@ -73,12 +88,14 @@ function LayerSection({
   packet,
   registry,
   readOnly,
+  onExportCode,
 }: {
   layer: LayerInstance;
   layerIndex: number;
   packet: SerializedPacket | null;
   registry: Registry;
   readOnly: boolean;
+  onExportCode: (definition: ProtocolDefinition) => void;
 }) {
   const def = registry.get(layer.protocolId);
   const color = layerColor(layerIndex);
@@ -96,6 +113,14 @@ function LayerSection({
       >
         <span className="text-[13px] font-semibold text-zinc-100">{def.name}</span>
         <ProtocolInfoLink protocolId={def.id} name={def.name} />
+        <button
+          className="cursor-pointer rounded p-1 text-zinc-500 hover:bg-zinc-800 hover:text-cyan-300"
+          title="Export header code"
+          aria-label={`Export ${def.name} header code`}
+          onClick={() => onExportCode(def)}
+        >
+          <Code2 className="size-3.5" />
+        </button>
         <span className="ml-auto font-mono text-[11px] text-zinc-500">
           {spansById.size > 0 && packet
             ? bitsLabel(

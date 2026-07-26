@@ -2,24 +2,66 @@ import { useEffect, useState } from 'react';
 import { RefreshCcw, WifiOff, X } from 'lucide-react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 
+const OFFLINE_SESSION_KEY = 'pv-network-offline';
+
+function rememberOffline(offline: boolean): void {
+  try {
+    if (offline) sessionStorage.setItem(OFFLINE_SESSION_KEY, '1');
+    else sessionStorage.removeItem(OFFLINE_SESSION_KEY);
+  } catch {
+    // Connectivity status still works when storage is unavailable.
+  }
+}
+
+function initiallyOnline(): boolean {
+  if (!navigator.onLine) return false;
+  try {
+    return sessionStorage.getItem(OFFLINE_SESSION_KEY) !== '1';
+  } catch {
+    return true;
+  }
+}
+
 /** Accessible network and service-worker update status. */
 export default function PwaStatus() {
-  const [online, setOnline] = useState(() => navigator.onLine);
+  const [online, setOnline] = useState(initiallyOnline);
   const {
     needRefresh: [needRefresh, setNeedRefresh],
     updateServiceWorker,
   } = useRegisterSW();
 
   useEffect(() => {
-    const connected = () => setOnline(true);
-    const disconnected = () => setOnline(false);
-    window.addEventListener('online', connected);
+    let active = true;
+    const connected = async () => {
+      if (!navigator.onLine) return;
+      try {
+        const url = new URL(location.href);
+        url.hash = '';
+        url.searchParams.set('pv-network-check', String(Date.now()));
+        await fetch(url, { cache: 'no-store' });
+        if (!active) return;
+        rememberOffline(false);
+        setOnline(true);
+      } catch {
+        // A service worker may serve the app while the origin remains unreachable.
+      }
+    };
+    const disconnected = () => {
+      rememberOffline(true);
+      setOnline(false);
+    };
+    const handleOnline = () => void connected();
+    window.addEventListener('online', handleOnline);
     window.addEventListener('offline', disconnected);
+    // Recheck after subscribing in case connectivity changed during render.
+    if (!navigator.onLine) disconnected();
+    else if (!online) void connected();
     return () => {
-      window.removeEventListener('online', connected);
+      active = false;
+      window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', disconnected);
     };
-  }, []);
+  }, [online]);
 
   if (!needRefresh && online) return null;
 
