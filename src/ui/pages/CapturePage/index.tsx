@@ -2,8 +2,9 @@ import { useMemo, useRef, useState } from 'react';
 import { AlertTriangle, FolderOpen, Info, MessageSquareText, X } from 'lucide-react';
 import { useLibraryStore } from '../../../store/libraryStore';
 import { useCaptureStore } from '../../../store/captureStore';
-import { openCaptureFile, UnsupportedLinkTypeError } from '../../../core/capture';
+import { UnsupportedLinkTypeError } from '../../../core/capture';
 import { CaptureReadError, DEFAULT_LIMITS } from '../../../core/captureFile';
+import { parseCaptureAsync } from '../../../core/captureWorkerClient';
 import { filterPackets, type CaptureFilter } from '../../../core/captureFilter';
 import { groupFlows, packetsInFlow } from '../../../core/flows';
 import { useInspectionMode } from '../../inspectionMode';
@@ -21,13 +22,9 @@ import { formatByteCount } from './format';
 type Tab = 'packets' | 'flows';
 
 /**
- * The capture viewer: open a classic pcap file, decode every packet with the
- * same engine the builder uses, and inspect any one of them in the existing
- * field / diagram / hex panes.
- *
- * The file is read with `File.arrayBuffer()` and parsed in this tab. There is
- * no upload step and no worker round-trip — the bytes never leave the page,
- * which is the whole point of doing this client-side.
+ * The capture viewer: open a classic pcap or pcapng file, decode every packet
+ * off the main thread via a Web Worker (with synchronous fallback), and inspect
+ * any packet in the field / diagram / hex panes.
  */
 export default function CapturePage() {
   const registry = useLibraryStore((s) => s.registry);
@@ -42,6 +39,8 @@ export default function CapturePage() {
   const close = useCaptureStore((s) => s.close);
 
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState<{ processed: number; total: number } | null>(null);
   const [tab, setTab] = useState<Tab>('packets');
   const [sort, setSort] = useState<Sort>({ key: 'number', ascending: true });
   const [inspectionMode, setInspectionMode] = useInspectionMode();
@@ -49,9 +48,17 @@ export default function CapturePage() {
 
   const openFile = async (file: File) => {
     setError(null);
+    setLoading(true);
+    setProgress(null);
     try {
       const bytes = new Uint8Array(await file.arrayBuffer());
-      setCapture(openCaptureFile(bytes, registry, file.name));
+      const parsedCapture = await parseCaptureAsync({
+        data: bytes,
+        registry,
+        fileName: file.name,
+        onProgress: (processed, total) => setProgress({ processed, total }),
+      });
+      setCapture(parsedCapture);
       setTab('packets');
       setSort({ key: 'number', ascending: true });
     } catch (e) {
@@ -60,6 +67,9 @@ export default function CapturePage() {
       } else {
         setError(`The capture could not be read: ${(e as Error).message}`);
       }
+    } finally {
+      setLoading(false);
+      setProgress(null);
     }
   };
 
@@ -109,6 +119,17 @@ export default function CapturePage() {
             if (file) void openFile(file);
           }}
         />
+        {loading && (
+          <span className="flex items-center gap-2 rounded-md border border-cyan-800/60 bg-cyan-950/40 px-2.5 py-1 text-[12px] text-cyan-300">
+            <span className="size-3 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" />
+            <span>
+              Parsing capture...
+              {progress && progress.total > 0
+                ? ` (${Math.round((progress.processed / progress.total) * 100)}%)`
+                : ''}
+            </span>
+          </span>
+        )}
         {capture && (
           <>
             <span className="flex items-center gap-2 text-[12px] text-zinc-400">
@@ -150,7 +171,12 @@ export default function CapturePage() {
       )}
 
       {!capture ? (
-        <EmptyState onBrowse={() => inputRef.current?.click()} onFile={(f) => void openFile(f)} />
+        <EmptyState
+          onBrowse={() => inputRef.current?.click()}
+          onFile={(f) => void openFile(f)}
+          loading={loading}
+          progress={progress}
+        />
       ) : (
         <>
           {capture.notes.length > 0 && (
@@ -322,11 +348,47 @@ function RawBytes({ bytes }: { bytes: Uint8Array }) {
 function EmptyState({
   onBrowse,
   onFile,
+  loading = false,
+  progress = null,
 }: {
   onBrowse: () => void;
   onFile: (file: File) => void;
+  loading?: boolean;
+  progress?: { processed: number; total: number } | null;
 }) {
   const [dragging, setDragging] = useState(false);
+
+  if (loading) {
+    const percent =
+      progress && progress.total > 0
+        ? Math.round((progress.processed / progress.total) * 100)
+        : null;
+
+    return (
+      <div className="flex min-h-0 flex-1 items-center justify-center p-6">
+        <div className="flex h-56 w-full max-w-xl flex-col items-center justify-center gap-3 rounded-xl border border-cyan-800/60 bg-cyan-950/20 p-6 text-center">
+          <div className="size-6 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" />
+          <p className="text-[13px] font-medium text-cyan-200">
+            Parsing and decoding capture file...
+          </p>
+          <p className="font-mono text-[12px] text-cyan-400/80">
+            {percent !== null
+              ? `${percent}% (${progress!.processed} of ${progress!.total} packets)`
+              : 'Reading records off main thread...'}
+          </p>
+          {percent !== null && (
+            <div className="h-1.5 w-48 overflow-hidden rounded-full border border-cyan-800/60 bg-cyan-950">
+              <div
+                className="h-full bg-cyan-400 transition-all duration-150"
+                style={{ width: `${percent}%` }}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-0 flex-1 items-center justify-center p-6">
       <div
