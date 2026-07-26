@@ -1,31 +1,37 @@
-import type { ByteRange } from '../../core/quiz';
+/** A contiguous run of bytes to highlight. */
+export interface ByteRange {
+  offset: number;
+  length: number;
+}
 
 /**
- * A deliberately *unannotated* hex dump.
+ * A deliberately *unannotated* hex dump: offsets, bytes, ASCII, and any number
+ * of highlighted ranges. Nothing else.
  *
- * The main `HexView` tints bytes by layer and names the protocol under the
- * cursor, which is exactly what a practice question is asking the learner to
- * work out — using it here would print the answer next to the question. This
- * shows offsets, bytes, and ASCII with a single highlighted range and nothing
- * else, so the only information available is the one thing that should be:
- * the bytes on the wire.
+ * Two callers need exactly this, for opposite reasons. Packet Practice shows
+ * it because the main `HexView` tints bytes by layer and names the protocol
+ * under the cursor — which is what a practice question is asking the learner
+ * to work out. The fuzzing lab shows it because a truncated or extended packet
+ * is no longer the length its headers describe, so there is no `SerializedPacket`
+ * to tint from and the raw bytes are all that honestly exists.
  */
 const BYTES_PER_ROW = 16;
 
-export default function QuizHexView({
+export default function PlainHexView({
   bytes,
-  range,
-  /** Dims the highlight once the answer is showing, so the reveal leads. */
+  ranges,
+  /** Dims the highlight, e.g. once a quiz answer is showing so the reveal leads. */
   muted = false,
 }: {
   bytes: Uint8Array;
-  range: ByteRange;
+  ranges: ByteRange[];
   muted?: boolean;
 }) {
   const rows: number[] = [];
   for (let offset = 0; offset < bytes.length; offset += BYTES_PER_ROW) rows.push(offset);
 
-  const inRange = (index: number) => index >= range.offset && index < range.offset + range.length;
+  const inRange = (index: number) =>
+    ranges.some((range) => index >= range.offset && index < range.offset + range.length);
   // Text stays on the zinc ramp, which index.css inverts for light mode; a
   // fixed near-white would be unreadable on the light surface.
   const highlight = muted
@@ -43,8 +49,16 @@ export default function QuizHexView({
     >
       <table className="border-separate border-spacing-0 font-mono text-[12px] leading-6">
         <caption className="sr-only">
-          Packet bytes in hexadecimal. Bytes {range.offset} to{' '}
-          {range.offset + range.length - 1} are highlighted as the subject of the question.
+          Packet bytes in hexadecimal.{' '}
+          {ranges.length === 0
+            ? 'No bytes are highlighted.'
+            : ranges
+                .map((range) =>
+                  range.length === 1
+                    ? `Byte ${range.offset} is highlighted.`
+                    : `Bytes ${range.offset} to ${range.offset + range.length - 1} are highlighted.`,
+                )
+                .join(' ')}
         </caption>
         <tbody>
           {rows.map((rowOffset) => {

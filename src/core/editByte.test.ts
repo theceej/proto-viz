@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createBuiltinRegistry } from '../protocols/index';
 import { newLayer, type LayerInstance, type StackInstance } from './model';
 import { serializeStack, type SerializedPacket } from './serialize';
-import { applyByteEdit } from './editByte';
+import { applyByteEdit, applyByteEdits } from './editByte';
 
 const registry = createBuiltinRegistry();
 
@@ -97,5 +97,89 @@ describe('applyByteEdit', () => {
     expect(applyByteEdit(stack, packet, registry, packet.bytes.length, 0)).toBeNull();
     expect(applyByteEdit(stack, packet, registry, IPV4_TTL, 256)).toBeNull();
     expect(applyByteEdit(stack, packet, registry, IPV4_TTL, -1)).toBeNull();
+  });
+});
+
+describe('applyByteEdits', () => {
+  it('applies every edit in one pass', () => {
+    const { stack, packet } = build();
+    const result = applyByteEdits(
+      stack,
+      packet,
+      registry,
+      new Map([
+        [IPV4_TTL, 9],
+        [IPV4_SRC, 10],
+      ]),
+    );
+
+    const ipv4 = ipv4Of(result!.layers);
+    expect(ipv4.overrides['ttl']).toBe(9);
+    expect(String(ipv4.overrides['src'])).toMatch(/^10\./);
+  });
+
+  it('reads a field spanning several edited bytes once, from the final buffer', () => {
+    // Both halves of the 16-bit checksum change; the field must end up with
+    // the value those two bytes make together, not the first edit's reading.
+    const { stack, packet } = build();
+    const result = applyByteEdits(
+      stack,
+      packet,
+      registry,
+      new Map([
+        [IPV4_CHECKSUM, 0xab],
+        [IPV4_CHECKSUM + 1, 0xcd],
+      ]),
+    );
+
+    const ipv4 = ipv4Of(result!.layers);
+    expect(ipv4.overrides['headerChecksum']).toBe(0xabcd);
+    expect(ipv4.pinned).toContain('headerChecksum');
+  });
+
+  it('leaves fields whose bits no edit touched exactly as they were', () => {
+    const { stack, packet } = build({ 1: { ttl: 33 } });
+    const result = applyByteEdits(stack, packet, registry, new Map([[IPV4_SRC, 10]]));
+
+    const ipv4 = ipv4Of(result!.layers);
+    expect(ipv4.overrides['ttl']).toBe(33);
+    expect(ipv4.pinned).toEqual([]);
+  });
+
+  it('edits header and payload bytes together', () => {
+    const { stack, packet } = build({}, Uint8Array.from([1, 2, 3, 4]));
+    const result = applyByteEdits(
+      stack,
+      packet,
+      registry,
+      new Map([
+        [IPV4_TTL, 5],
+        [packet.payloadOffset + 2, 0xee],
+      ]),
+    );
+
+    expect(ipv4Of(result!.layers).overrides['ttl']).toBe(5);
+    expect([...result!.trailingPayload]).toEqual([1, 2, 0xee, 4]);
+  });
+
+  it('ignores out-of-range and no-op entries, and returns null when all are', () => {
+    const { stack, packet } = build();
+    const current = packet.bytes[IPV4_TTL]!;
+
+    expect(
+      applyByteEdits(stack, packet, registry, new Map([[IPV4_TTL, current]])),
+    ).toBeNull();
+    expect(
+      applyByteEdits(stack, packet, registry, new Map([[9999, 1], [-1, 2]])),
+    ).toBeNull();
+
+    // A valid edit alongside ignorable ones still applies.
+    const mixed = applyByteEdits(
+      stack,
+      packet,
+      registry,
+      new Map([[9999, 1], [IPV4_TTL, current === 7 ? 8 : 7]]),
+    );
+    expect(mixed).not.toBeNull();
   });
 });

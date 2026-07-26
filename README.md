@@ -106,6 +106,22 @@ your browser. Nothing is uploaded anywhere.
   step name ("SYN", "SYN-ACK", "DORA: Offer") as a per-packet comment, which
   Wireshark and the capture viewer both show — so an exported exchange
   reopens explaining itself.
+- **Fuzzing lab** — the open-ended counterpart to the guided "break this
+  packet" experiments. Pick a scope (whole packet, chosen layers, or a byte
+  range), a strategy (random bit flips, zeroed bytes, boundary values, or
+  driving a length field to its maximum), and a seed; length-changing
+  mutations — truncating a packet short of what its headers claim, or
+  appending bytes nothing accounts for — sit behind an advanced toggle. Every
+  run is reproducible from its seed, and mutated bits are marked in both the
+  bit diagram and the hex dump. A diagnosis panel reports what a receiver
+  would make of it: how far a dissector gets before it stops and why, then
+  only the validation and lint failures the mutation actually *introduced*.
+  Length-preserving results fold back into an ordinary stack, so they export
+  as PCAP and share as an exact-packet link — with any computed field the
+  corruption invalidated pinned, because a bit flip in transit does not repair
+  a checksum. A campaign runs one strategy across many seeds and groups the
+  outcomes, which is how the few mutations that break something become visible
+  among the many that do not. Nothing is transmitted anywhere.
 - **Packet practice** — an "identify the packet" drill built from the same
   metadata everything else runs on. A packet is drawn (a random walk over the
   encapsulation graph, or one of the builder presets) and shown as an
@@ -255,6 +271,12 @@ vitest's node environment:
   and runs the records through `decodeStack`; `core/captureFilter.ts` /
   `core/flows.ts` provide the viewer's structured filtering and its
   direction-independent conversation keys.
+- `core/fuzz.ts` / `core/fuzzDiagnosis.ts` / `core/fuzzCampaign.ts` — seeded,
+  scoped packet mutation; the dissect/validate/lint diagnosis of a corrupted
+  packet, reported as a diff against the original; and the batch runner that
+  groups many seeds by outcome. Length-preserving mutations rejoin the stack
+  model through `core/editByte.ts`'s `applyByteEdits`, the same fold-back the
+  hex editor uses.
 - `core/quiz.ts` — generates practice questions and their distractors from
   protocol/field metadata alone, plus the pure scoring fold. No question
   bank: a question is derived from the definition it asks about, every time,

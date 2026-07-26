@@ -120,6 +120,40 @@ export default function HelpPage({ onStartTour }: { onStartTour: () => void }) {
         </p>
       </Section>
 
+      <Section title="Breaking packets on purpose">
+        <p>
+          <Ui>Break this packet</Ui> in the builder offers a fixed menu of
+          instructive faults. <Link className={link} to="/fuzz">Fuzzing Lab</Link>{' '}
+          is the open-ended version: choose what to corrupt (the whole packet,
+          particular layers, or a byte range), how (random bit flips, zeroed
+          bytes, boundary values such as <code className={code}>0x00</code> and{' '}
+          <code className={code}>0xFF</code>, or driving a length field to its
+          maximum), and a <Ui>seed</Ui>. The seed is what makes a corrupted
+          packet worth talking about — the same seed always produces the same
+          packet, so you can share one or come back to it.
+        </p>
+        <p>
+          Mutated bits are outlined in both the bit diagram and the hex dump.
+          The diagnosis panel then reports what a receiver would do: how far a
+          dissector gets before it stops and why, followed by only the checks
+          the mutation <em>newly</em> broke — a packet that already had warnings
+          does not drown the one line that matters. Length-preserving results
+          stay real packets, so <Ui>Export PCAP</Ui> and <Ui>Share</Ui> work,
+          and any checksum the corruption invalidated is pinned rather than
+          quietly recalculated.
+        </p>
+        <p>
+          Turning on <Ui>Allow length-changing mutations</Ui> adds truncating a
+          packet short of what its headers claim, and appending bytes nothing
+          accounts for. Those cannot be described as a stack any more, which is
+          the point, so the lab shows their raw bytes instead. The{' '}
+          <Ui>Campaign</Ui> tab runs one strategy over many seeds and groups
+          the results, which is how you see that most bit flips change nothing a
+          dissector notices and a few stop it dead. Everything runs in this tab;
+          no packet is sent anywhere.
+        </p>
+      </Section>
+
       <Section title="Testing yourself">
         <p>
           <Link className={link} to="/practice">Packet Practice</Link> turns the

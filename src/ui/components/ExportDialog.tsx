@@ -41,13 +41,23 @@ export default function ExportDialog({
   registry,
   validation,
   onClose,
+  onWrapInEthernet,
 }: {
   stack: StackInstance;
   registry: Registry;
   validation: ValidationIssue[];
   onClose: () => void;
+  /**
+   * How to wrap an unexportable stack in Ethernet. Defaults to editing the
+   * builder's stack, which is right when the dialog is showing that stack —
+   * and wrong for a caller exporting some other packet, so those pass their
+   * own handler or omit the affordance by passing null.
+   */
+  onWrapInEthernet?: (() => void) | null;
 }) {
   const insertLayer = useStackStore((s) => s.insertLayer);
+  const wrapInEthernet =
+    onWrapInEthernet === undefined ? () => insertLayer('ethernet', 0) : onWrapInEthernet;
   const [scenarioId, setScenarioId] = useState('single');
   // Classic pcap stays the default: it is what every tool reads, and pcapng
   // only pays for itself when the export has step names worth carrying.
@@ -140,10 +150,10 @@ export default function ExportDialog({
             </div>
           )}
 
-          {plan.canWrapInEthernet && (
+          {plan.canWrapInEthernet && wrapInEthernet && (
             <button
               className="self-start cursor-pointer rounded-md border border-zinc-700 px-2.5 py-1 text-[12px] text-zinc-300 hover:border-cyan-600 hover:text-cyan-300"
-              onClick={() => insertLayer('ethernet', 0)}
+              onClick={wrapInEthernet}
             >
               Wrap stack in Ethernet
             </button>

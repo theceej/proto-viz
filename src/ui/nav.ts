@@ -1,6 +1,7 @@
 import {
   CircleHelp,
   Clapperboard,
+  Bug,
   Brain,
   Columns2,
   FileUp,
@@ -24,6 +25,7 @@ export const NAV: NavItem[] = [
   { to: '/scenario', label: 'Scenario Timeline', icon: Clapperboard },
   { to: '/capture', label: 'Capture Viewer', icon: Radar },
   { to: '/fragmentation', label: 'Fragmentation Lab', icon: Scissors },
+  { to: '/fuzz', label: 'Fuzzing Lab', icon: Bug },
   { to: '/practice', label: 'Packet Practice', icon: Brain },
   { to: '/compare', label: 'Packet Comparison', icon: Columns2 },
   { to: '/library', label: 'Protocol Library', icon: Library },

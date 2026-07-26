@@ -14,7 +14,7 @@
  * a byte to its current value, returns null (no-op).
  */
 import type { FieldValue, LayerInstance, StackInstance } from './model';
-import type { SerializedPacket } from './serialize';
+import type { FieldSpan, SerializedPacket } from './serialize';
 import type { Registry } from './registry';
 import { readSpanValue } from './decode';
 
@@ -50,48 +50,78 @@ export function applyByteEdit(
   byteOffset: number,
   newValue: number,
 ): ByteEditResult | null {
-  if (!Number.isInteger(byteOffset) || byteOffset < 0 || byteOffset >= packet.bytes.length) return null;
-  if (!Number.isInteger(newValue) || newValue < 0 || newValue > 0xff) return null;
-  if (packet.bytes[byteOffset] === newValue) return null;
+  return applyByteEdits(stack, packet, registry, new Map([[byteOffset, newValue]]));
+}
 
+/**
+ * The same fold-back for many bytes at once, which is what the fuzzer needs:
+ * a mutation run rewrites bytes all over the packet, and applying them one at
+ * a time would re-read each field against bytes that later edits then change.
+ * Reading every affected field once, from the fully edited buffer, is both
+ * correct and the behaviour a single edit already had.
+ *
+ * `edits` maps byte offset to new value. Out-of-range or non-byte entries are
+ * ignored; null comes back only when nothing ends up changing.
+ */
+export function applyByteEdits(
+  stack: StackInstance,
+  packet: SerializedPacket,
+  registry: Registry,
+  edits: Map<number, number>,
+): ByteEditResult | null {
   const edited = new Uint8Array(packet.bytes);
-  edited[byteOffset] = newValue;
+  const applied: number[] = [];
+  for (const [byteOffset, newValue] of edits) {
+    if (!Number.isInteger(byteOffset) || byteOffset < 0 || byteOffset >= packet.bytes.length) continue;
+    if (!Number.isInteger(newValue) || newValue < 0 || newValue > 0xff) continue;
+    if (packet.bytes[byteOffset] === newValue) continue;
+    edited[byteOffset] = newValue;
+    applied.push(byteOffset);
+  }
+  if (applied.length === 0) return null;
 
   const payload = stack.trailingPayload ?? new Uint8Array(0);
   const layers = stack.layers.map(cloneLayer);
   const byUid = new Map(layers.map((l) => [l.uid, l]));
+  const trailingPayload = new Uint8Array(payload);
+  let changed = false;
 
-  const covering = packet.spans.filter((span) => {
-    if (span.bitLength === 0) return false;
+  // Every field span any edited byte touches, read once against the final
+  // buffer. A span covering two edited bytes is therefore handled once, not
+  // twice with an intermediate value in between.
+  const touched = new Set<FieldSpan>();
+  for (const span of packet.spans) {
+    if (span.bitLength === 0) continue;
     const first = Math.floor(span.bitOffset / 8);
     const last = Math.floor((span.bitOffset + span.bitLength - 1) / 8);
-    return byteOffset >= first && byteOffset <= last;
-  });
-
-  if (covering.length > 0) {
-    let changed = false;
-    for (const span of covering) {
-      const layer = byUid.get(span.layerUid);
-      const field = layer && registry.get(layer.protocolId)?.fields.find((f) => f.id === span.fieldId);
-      if (!layer || !field) continue;
-      const before = readSpanValue(packet.bytes, span, field);
-      const after = readSpanValue(edited, span, field);
-      if (sameFieldValue(before, after)) continue; // this field's bits are unchanged
-      layer.overrides[span.fieldId] = after;
-      if (span.computed && !layer.pinned.includes(span.fieldId)) layer.pinned.push(span.fieldId);
-      changed = true;
-    }
-    return changed ? { layers, trailingPayload: payload } : null;
+    if (applied.some((offset) => offset >= first && offset <= last)) touched.add(span);
   }
 
-  // No field owns this byte — it's in the trailing payload.
-  if (byteOffset >= packet.payloadOffset) {
+  for (const span of touched) {
+    const layer = byUid.get(span.layerUid);
+    const field = layer && registry.get(layer.protocolId)?.fields.find((f) => f.id === span.fieldId);
+    if (!layer || !field) continue;
+    const before = readSpanValue(packet.bytes, span, field);
+    const after = readSpanValue(edited, span, field);
+    if (sameFieldValue(before, after)) continue; // this field's bits are unchanged
+    layer.overrides[span.fieldId] = after;
+    if (span.computed && !layer.pinned.includes(span.fieldId)) layer.pinned.push(span.fieldId);
+    changed = true;
+  }
+
+  // Bytes no field owns belong to the trailing payload.
+  for (const byteOffset of applied) {
+    const ownedByField = [...touched].some((span) => {
+      const first = Math.floor(span.bitOffset / 8);
+      const last = Math.floor((span.bitOffset + span.bitLength - 1) / 8);
+      return byteOffset >= first && byteOffset <= last;
+    });
+    if (ownedByField || byteOffset < packet.payloadOffset) continue;
     const index = byteOffset - packet.payloadOffset;
-    if (index >= payload.length) return null;
-    const trailingPayload = new Uint8Array(payload);
-    trailingPayload[index] = newValue;
-    return { layers, trailingPayload };
+    if (index >= trailingPayload.length) continue;
+    trailingPayload[index] = edited[byteOffset]!;
+    changed = true;
   }
 
-  return null;
+  return changed ? { layers, trailingPayload } : null;
 }
