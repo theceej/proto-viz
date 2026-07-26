@@ -5,6 +5,7 @@ const routes = [
   '/builder',
   '/scenario',
   '/capture',
+  '/practice',
   '/compare',
   '/library',
   '/map',

@@ -120,6 +120,31 @@ export default function HelpPage({ onStartTour }: { onStartTour: () => void }) {
         </p>
       </Section>
 
+      <Section title="Testing yourself">
+        <p>
+          <Link className={link} to="/practice">Packet Practice</Link> turns the
+          engine around: instead of showing you a packet, it asks you about one.
+          A packet is drawn — a random walk over the encapsulation graph, or one
+          of the builder presets — and shown as a plain hex dump with no layer
+          colouring and no field names, because those would answer the question.
+          You are asked which protocol owns a highlighted header, which field a
+          highlighted span is, or what a field's value is; where a field has a
+          named value table, the question becomes what that value <em>means</em>.
+        </p>
+        <p>
+          Press <Key>1</Key>–<Key>4</Key> to answer and <Key>Enter</Key> to move
+          on, or use the mouse. Answering reveals the right option, an
+          explanation, a link to the specification, and{' '}
+          <Ui>Inspect in Stack Builder</Ui>, which loads that exact packet with
+          the field selected so a miss turns into a proper look. The header
+          tracks score, accuracy, and streak for the session; nothing is stored
+          between visits. Questions are generated from the protocol definitions
+          themselves rather than a fixed list, so protocols you import through{' '}
+          <Link className={link} to="/import">Import Spec</Link> start appearing
+          straight away.
+        </p>
+      </Section>
+
       <Section title="Opening a capture file">
         <p>
           <Link className={link} to="/capture">Capture Viewer</Link> reads both
