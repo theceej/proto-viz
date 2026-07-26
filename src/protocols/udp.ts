@@ -49,6 +49,7 @@ export const udp: ProtocolDefinition = {
         scope: 'headerAndPayload',
         pseudoHeader: 'auto',
         zeroSubstitute: true,
+        receiverLengthField: 'length',
       },
       description: 'Internet checksum over pseudo-header, header, and payload.',
     },

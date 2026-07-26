@@ -39,6 +39,13 @@ export type ComputedSpec =
       scope: 'header' | 'headerAndPayload';
       /** Include an IP pseudo-header (TCP/UDP/ICMPv6). Looked up from the nearest enclosing IP layer. */
       pseudoHeader?: 'ipv4' | 'ipv6' | 'auto';
+      /**
+       * RFC 768: a receiver takes the pseudo-header length from this field of
+       * *this* layer rather than from the enclosing IP header. Decoder-side
+       * only — serialization always uses the true byte count, since a sender
+       * knows it. See `receiverChecksum.ts`.
+       */
+      receiverLengthField?: string;
       /** RFC 768: a computed checksum of zero is transmitted as all ones. */
       zeroSubstitute?: boolean;
       /** Store the value little-endian (SCTP's CRC32c, RFC 4960 appendix B). */
