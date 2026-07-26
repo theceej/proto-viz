@@ -172,7 +172,7 @@ export default function EncapsulationMapPage() {
             Relationship browser
           </h2>
           <div
-            className="flex rounded-md border border-zinc-700 text-[12px]"
+            className="flex overflow-hidden rounded-md border border-zinc-700 text-[12px]"
             role="group"
             aria-label="Relationship view"
           >

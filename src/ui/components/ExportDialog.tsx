@@ -110,7 +110,7 @@ export default function ExportDialog({
 
   return (
     <div
-      className="fixed inset-0 z-40 flex items-center justify-center bg-black/60"
+      className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-4"
       onClick={onClose}
     >
       <div
@@ -118,7 +118,7 @@ export default function ExportDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="export-dialog-title"
-        className="w-[min(26rem,calc(100vw-2rem))] rounded-xl border border-zinc-700 bg-zinc-900 shadow-2xl"
+        className="flex max-h-[calc(100dvh-2rem)] w-[min(26rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border border-zinc-700 bg-zinc-900 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <header className="flex items-center border-b border-zinc-800 px-5 py-3">
@@ -134,7 +134,7 @@ export default function ExportDialog({
           </button>
         </header>
 
-        <div className="flex flex-col gap-4 px-5 py-4">
+        <div className="flex min-h-0 flex-col gap-4 overflow-y-auto px-5 py-4">
           {plan.ok ? (
             <div className="flex items-start gap-2 text-[12px] text-zinc-400">
               <Info className="mt-0.5 size-3.5 shrink-0 text-sky-400" />

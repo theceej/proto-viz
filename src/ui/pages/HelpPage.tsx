@@ -4,7 +4,7 @@ import { GraduationCap } from 'lucide-react';
 /** Built-in user guide: one scannable page, linked from the sidebar. */
 export default function HelpPage({ onStartTour }: { onStartTour: () => void }) {
   return (
-    <div className="mx-auto max-w-3xl px-8 py-8">
+    <div className="mx-auto max-w-3xl px-4 py-8 sm:px-8">
       <h1 className="text-xl font-semibold tracking-tight text-zinc-100">Help</h1>
       <p className="mt-2 text-[13px] leading-relaxed text-zinc-400">
         proto-viz is a playground for network protocols: compose a protocol stack,

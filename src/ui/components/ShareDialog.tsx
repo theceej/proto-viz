@@ -72,7 +72,7 @@ export default function ShareDialog({
 
   return (
     <div
-      className="fixed inset-0 z-40 flex items-center justify-center bg-black/60"
+      className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-4"
       onClick={onClose}
     >
       <div
@@ -80,7 +80,7 @@ export default function ShareDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="share-dialog-title"
-        className="w-[min(26rem,calc(100vw-2rem))] rounded-xl border border-zinc-700 bg-zinc-900 shadow-2xl"
+        className="flex max-h-[calc(100dvh-2rem)] w-[min(26rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border border-zinc-700 bg-zinc-900 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <header className="flex items-center border-b border-zinc-800 px-5 py-3">
@@ -96,7 +96,7 @@ export default function ShareDialog({
           </button>
         </header>
 
-        <div className="flex flex-col gap-4 px-5 py-4">
+        <div className="flex min-h-0 flex-col gap-4 overflow-y-auto px-5 py-4">
           <div>
             <div className="mb-1.5 text-[11px] font-semibold tracking-widest text-zinc-500 uppercase">
               This stack as words
@@ -106,7 +106,7 @@ export default function ShareDialog({
                 <div className="rounded-md border border-zinc-700 bg-zinc-950/60 px-3 py-2.5 text-center font-mono text-[15px] tracking-wide text-cyan-300 select-all">
                   {encoded.code}
                 </div>
-                <div className="mt-2 flex gap-2">
+                <div className="mt-2 flex flex-wrap gap-2">
                   <button
                     className="flex cursor-pointer items-center gap-1.5 rounded-md border border-zinc-700 px-2.5 py-1.5 text-[12px] text-zinc-300 hover:border-cyan-600 hover:text-cyan-300"
                     onClick={() => copy('code', encoded.code)}

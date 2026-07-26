@@ -172,7 +172,7 @@ export default function FuzzingTab({ source, onHandoff }: LabTabProps) {
 
       <section
         aria-label="Fuzzing controls"
-        className="flex flex-wrap items-end gap-4 border-b border-zinc-800 bg-zinc-900/30 px-6 py-3"
+        className="flex flex-wrap items-end gap-4 border-b border-zinc-800 bg-zinc-900/30 px-4 py-3 sm:px-6"
       >
         <label className="flex flex-col gap-1 text-[11px] tracking-widest text-zinc-500 uppercase">
           Strategy
@@ -260,7 +260,7 @@ export default function FuzzingTab({ source, onHandoff }: LabTabProps) {
         </label>
       </section>
 
-      <p className="border-b border-zinc-800 px-6 py-1.5 text-[12px] text-zinc-500">
+      <p className="border-b border-zinc-800 px-4 py-1.5 text-[12px] text-zinc-500 sm:px-6">
         {STRATEGY_COPY[strategy].description} Everything happens in this tab — nothing is sent
         anywhere.
       </p>
@@ -331,7 +331,7 @@ export default function FuzzingTab({ source, onHandoff }: LabTabProps) {
 }
 
 const FIELD =
-  'rounded border border-zinc-700 bg-zinc-950/60 px-2 py-1 text-[12px] text-zinc-200 outline-none focus:border-cyan-600';
+  'rounded-md border border-zinc-700 bg-zinc-950/60 px-2 py-1.5 text-[12px] text-zinc-200 outline-none focus:border-cyan-600';
 
 interface RunState {
   result: FuzzResult | null;
@@ -363,7 +363,7 @@ function SinglePane({
   if (!run) return null;
   if (run.error !== null || !run.result || !run.diagnosis) {
     return (
-      <p role="alert" className="px-6 py-6 text-[13px] text-amber-300">
+      <p role="alert" className="px-4 py-6 text-[13px] text-amber-300 sm:px-6">
         {run.error ?? 'No mutation could be produced.'}
       </p>
     );
@@ -378,7 +378,7 @@ function SinglePane({
     <>
       <section
         aria-label="Mutation result"
-        className="flex flex-wrap items-start gap-x-6 gap-y-3 border-b border-zinc-800 px-6 py-3"
+        className="flex flex-wrap items-start gap-x-6 gap-y-3 border-b border-zinc-800 px-4 py-3 sm:px-6"
       >
         <div className="min-w-0 flex-1">
           <h2 className="mb-1 text-[11px] tracking-widest text-zinc-500 uppercase">
@@ -420,7 +420,7 @@ function SinglePane({
         </div>
       </section>
 
-      <section aria-label="Diagnosis" className="border-b border-zinc-800 px-6 py-3">
+      <section aria-label="Diagnosis" className="border-b border-zinc-800 px-4 py-3 sm:px-6">
         <ol className="flex flex-col gap-2">
           {diagnosis.steps.map((step, i) => {
             const { icon: Icon, className } = SEVERITY_STYLE[step.severity];
@@ -520,7 +520,7 @@ function CampaignPane({
   onOpenSeed: (seed: number) => void;
 }) {
   return (
-    <div className="min-h-0 flex-1 overflow-auto px-6 py-4">
+    <div className="min-h-0 flex-1 overflow-auto px-4 py-4 sm:px-6">
       <div className="mb-4 flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1 text-[11px] tracking-widest text-zinc-500 uppercase">
           Runs
@@ -607,7 +607,7 @@ function CampaignPane({
 }
 
 const ACTION =
-  'flex cursor-pointer items-center gap-1.5 rounded-md border border-zinc-700 px-2.5 py-1 text-[12px] text-zinc-300 hover:border-cyan-600 hover:text-cyan-300 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-600';
+  'flex cursor-pointer items-center gap-1.5 rounded-md border border-zinc-700 px-2.5 py-1.5 text-[12px] text-zinc-300 hover:border-cyan-600 hover:text-cyan-300 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-600';
 
 /** Bit ranges as byte ranges, for the plain hex view. */
 function byteRanges(
@@ -642,4 +642,3 @@ function TabButton({
     </button>
   );
 }
-
