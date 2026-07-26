@@ -230,7 +230,7 @@ export default function WorkspacePage() {
       </header>
 
       {status && (
-        <div role={status.kind === 'error' ? 'alert' : 'status'} className={`mt-5 rounded-lg border px-4 py-3 text-[13px] ${status.kind === 'error' ? 'border-red-800 bg-red-950/30 text-red-200' : 'border-emerald-800 bg-emerald-950/30 text-emerald-200'}`}>
+        <div role={status.kind === 'error' ? 'alert' : 'status'} className={`mt-5 rounded-lg border px-4 py-3 text-[13px] ${status.kind === 'error' ? 'border-rose-800 bg-rose-950/30 text-rose-200' : 'border-emerald-800 bg-emerald-950/30 text-emerald-200'}`}>
           {status.message}
         </div>
       )}
@@ -258,7 +258,7 @@ export default function WorkspacePage() {
         <section className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-5">
           <h2 className="flex items-center gap-2 text-[15px] font-semibold text-zinc-100"><Upload className="size-4 text-cyan-400" /> Import</h2>
           <p className="mt-2 text-[12px] leading-relaxed text-zinc-500">Open a workspace JSON file up to 10 MiB. You will review every change before it is written.</p>
-          <label className="mt-5 flex min-h-28 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-zinc-700 bg-zinc-950/30 px-4 text-center hover:border-cyan-700">
+          <label className="mt-5 flex min-h-28 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-zinc-700 bg-zinc-950/30 px-4 text-center hover:border-cyan-700">
             <Upload className="mb-2 size-5 text-zinc-500" />
             <span className="text-[13px] font-medium text-zinc-200">Choose workspace file</span>
             <span className="mt-1 text-[11px] text-zinc-500">.proto-viz-workspace.json or legacy library JSON</span>
@@ -352,7 +352,7 @@ function Meta({ term, value }: { term: string; value: string }) {
 
 function Diagnostics({ title, items, error = false }: { title: string; items: ParsedWorkspace['warnings']; error?: boolean }) {
   if (items.length === 0) return null;
-  return <div className="mt-3" role={error ? 'alert' : undefined}><h4 className={`text-[12px] font-medium ${error ? 'text-red-300' : 'text-amber-300'}`}>{title}</h4><ul className="mt-1 list-disc space-y-1 pl-5 text-[12px] text-zinc-400">{items.map((item, index) => <li key={`${item.code}-${item.path ?? index}`}>{item.message}{item.path ? ` (${item.path})` : ''}</li>)}</ul></div>;
+  return <div className="mt-3" role={error ? 'alert' : undefined}><h4 className={`text-[12px] font-medium ${error ? 'text-rose-300' : 'text-amber-300'}`}>{title}</h4><ul className="mt-1 list-disc space-y-1 pl-5 text-[12px] text-zinc-400">{items.map((item, index) => <li key={`${item.code}-${item.path ?? index}`}>{item.message}{item.path ? ` (${item.path})` : ''}</li>)}</ul></div>;
 }
 
 function currentSnapshot(persisted: PersistenceSnapshot): WorkspaceLocalSnapshot {

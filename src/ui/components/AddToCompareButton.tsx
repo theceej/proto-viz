@@ -17,7 +17,7 @@ export default function AddToCompareButton({
 
   return (
     <button
-      className="flex cursor-pointer items-center gap-1 rounded-md border border-zinc-700 px-2 py-1 text-[12px] text-zinc-300 hover:border-cyan-600 hover:text-cyan-300 disabled:cursor-not-allowed disabled:text-zinc-600"
+      className="flex cursor-pointer items-center gap-1 rounded-md border border-zinc-700 px-2 py-1 text-[12px] text-zinc-300 hover:border-cyan-600 hover:text-cyan-300 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-600"
       disabled={!packet}
       aria-label="Add to compare"
       title={count === 2 ? 'Add packet and replace the oldest comparison selection' : 'Add packet to comparison'}

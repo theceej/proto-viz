@@ -55,7 +55,7 @@ export default function DecodeDialog({
 
   return (
     <div
-      className="fixed inset-0 z-40 flex items-center justify-center bg-black/60"
+      className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-4"
       onClick={onClose}
     >
       <div
@@ -63,7 +63,7 @@ export default function DecodeDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="decode-dialog-title"
-        className="w-[min(30rem,calc(100vw-2rem))] rounded-xl border border-zinc-700 bg-zinc-900 shadow-2xl"
+        className="flex max-h-[calc(100dvh-2rem)] w-[min(30rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border border-zinc-700 bg-zinc-900 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <header className="flex items-center border-b border-zinc-800 px-5 py-3">
@@ -79,7 +79,7 @@ export default function DecodeDialog({
           </button>
         </header>
 
-        <div className="flex flex-col gap-3 px-5 py-4">
+        <div className="flex min-h-0 flex-col gap-3 overflow-y-auto px-5 py-4">
           <label className="block">
             <span className="mb-1.5 block text-[11px] font-semibold tracking-widest text-zinc-500 uppercase">
               Packet hex
@@ -158,7 +158,7 @@ export default function DecodeDialog({
           </div>
         </div>
 
-        <footer className="flex items-center gap-2 border-t border-zinc-800 px-5 py-3">
+        <footer className="flex flex-wrap items-center gap-2 border-t border-zinc-800 px-5 py-3">
           <p className="mr-auto text-[11px] text-zinc-600">
             Mismatched computed fields (e.g. a wrong checksum) are pinned so the
             exact bytes are kept.

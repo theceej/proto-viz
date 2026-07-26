@@ -86,7 +86,7 @@ export default function App() {
       >
         Skip to content
       </a>
-      <div className="flex h-screen">
+      <div className="flex h-dvh">
         {persistenceError && (
           <div role="alert" className="fixed top-3 right-3 z-50 max-w-sm rounded-lg border border-amber-700 bg-zinc-900 p-3 text-[12px] text-amber-200 shadow-xl">
             <p className="font-medium">Custom protocols could not be read.</p>
@@ -95,7 +95,7 @@ export default function App() {
           </div>
         )}
         <aside
-          className={`flex shrink-0 flex-col border-r border-zinc-800 bg-zinc-900/60 transition-[width] duration-150 ${
+          className={`flex min-h-0 shrink-0 flex-col border-r border-zinc-800 bg-zinc-900/60 transition-[width] duration-150 ${
             collapsed ? 'w-14' : 'w-14 md:w-56'
           }`}
         >
@@ -114,7 +114,7 @@ export default function App() {
               </div>
             )}
           </div>
-          <nav className={`flex flex-col gap-1 ${collapsed ? 'px-2' : 'px-2 md:px-3'}`}>
+          <nav className={`flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto ${collapsed ? 'px-2' : 'px-2 md:px-3'}`}>
             {NAV.map(({ to, label, icon: Icon }) => (
               <NavLink
                 key={to}
@@ -135,7 +135,7 @@ export default function App() {
               </NavLink>
             ))}
           </nav>
-          <div className="mt-auto">
+          <div className="shrink-0">
             {!collapsed && (
               <div className="hidden px-5 py-3 text-[11px] leading-relaxed text-zinc-600 md:block">
                 Runs entirely in your browser.

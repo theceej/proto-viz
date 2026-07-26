@@ -63,7 +63,7 @@ export default function ProtocolCodeDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="protocol-code-title"
-        className="flex h-[min(52rem,calc(100vh-1rem))] w-[min(68rem,calc(100vw-1rem))] min-w-0 flex-col overflow-hidden rounded-xl border border-zinc-700 bg-zinc-900 shadow-2xl"
+        className="flex h-[min(52rem,calc(100dvh-1rem))] w-[min(68rem,calc(100vw-1rem))] min-w-0 flex-col overflow-hidden rounded-xl border border-zinc-700 bg-zinc-900 shadow-2xl"
         onClick={(event) => event.stopPropagation()}
       >
         <header className="flex items-center gap-3 border-b border-zinc-800 px-4 py-3 sm:px-5">
@@ -130,7 +130,7 @@ export default function ProtocolCodeDialog({
                 : ''}
           </span>
           <button
-            className="cursor-pointer px-3 py-1.5 text-[13px] text-zinc-400"
+            className="cursor-pointer rounded-md px-3 py-1.5 text-[13px] text-zinc-400 hover:text-zinc-200"
             onClick={onClose}
           >
             Cancel

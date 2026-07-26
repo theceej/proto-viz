@@ -55,3 +55,19 @@ test.describe('narrow viewport (375px)', () => {
     await expect(page.getByRole('heading', { name: 'Protocol Library' })).toBeVisible();
   });
 });
+
+test.describe('short viewport', () => {
+  test.use({ viewport: { width: 667, height: 375 } });
+
+  test('builder dialogs remain reachable in landscape', async ({ page }) => {
+    await page.goto('/#/builder');
+    for (const name of ['Export PCAP', 'Decode', 'Share', 'Diagram'] as const) {
+      await page.getByRole('button', { name, exact: true }).click();
+      const box = await page.getByRole('dialog').boundingBox();
+      expect(box, name).not.toBeNull();
+      expect(box!.y, name).toBeGreaterThanOrEqual(0);
+      expect(box!.y + box!.height, name).toBeLessThanOrEqual(375);
+      await page.keyboard.press('Escape');
+    }
+  });
+});
