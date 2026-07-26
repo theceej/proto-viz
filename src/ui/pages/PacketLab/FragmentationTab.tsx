@@ -336,7 +336,7 @@ function Lesson({ title, children }: { title: string; children: React.ReactNode 
 }
 
 function StatusBadge({ status }: { status: 'incomplete' | 'complete' | 'ambiguous' | 'rejected' }) {
-  const color = status === 'complete' ? 'text-emerald-400' : status === 'ambiguous' || status === 'rejected' ? 'text-rose-400' : 'text-amber-400';
+  const color = status === 'complete' ? 'text-emerald-400' : status === 'ambiguous' || status === 'rejected' ? 'text-rose-400' : 'text-amber-300';
   return <span className={color}>{status}</span>;
 }
 
@@ -348,7 +348,7 @@ function FragmentError({ issues }: { issues: FragmentIssue[] }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 py-12 text-center" role="alert">
       <h2 className="text-sm font-semibold text-zinc-200">This datagram cannot be fragmented yet</h2>
-      {issues.map((item) => <p key={item.code} className="max-w-xl text-[13px] text-amber-400">{item.message}</p>)}
+      {issues.map((item) => <p key={item.code} className="max-w-xl text-[13px] text-amber-300">{item.message}</p>)}
       <p className="max-w-xl text-[12px] text-zinc-500">Try a smaller MTU if the packet already fits, or correct the packet and its IP layout in Builder.</p>
       <Link to="/builder" className="mt-2 rounded-md border border-cyan-700 px-3 py-1.5 text-[12px] text-cyan-300 hover:bg-cyan-500/10">Open Stack Builder</Link>
     </div>
@@ -356,7 +356,7 @@ function FragmentError({ issues }: { issues: FragmentIssue[] }) {
 }
 
 function IssueList({ issues }: { issues: FragmentIssue[] }) {
-  return <div role="status" aria-live="polite" className="flex flex-col gap-1 px-4 py-2 sm:px-6">{issues.map((item) => <p key={`${item.code}-${item.message}`} className={`text-[12px] ${item.severity === 'error' ? 'text-rose-400' : item.severity === 'warning' ? 'text-amber-400' : 'text-sky-400'}`}>{item.message}</p>)}</div>;
+  return <div role="status" aria-live="polite" className="flex flex-col gap-1 px-4 py-2 sm:px-6">{issues.map((item) => <p key={`${item.code}-${item.message}`} className={`text-[12px] ${item.severity === 'error' ? 'text-rose-400' : item.severity === 'warning' ? 'text-amber-300' : 'text-sky-400'}`}>{item.message}</p>)}</div>;
 }
 
 function Unavailable({ title, detail }: { title: string; detail: string }) {

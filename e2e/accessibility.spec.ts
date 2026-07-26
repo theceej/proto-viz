@@ -51,6 +51,11 @@ for (const route of routes) {
       }, theme);
       await page.goto(`/#${route}`);
       await expect(page.locator('main')).toBeVisible();
+      // Every route but the builder is a lazy chunk, and some pages lazy-load
+      // again inside themselves. Without waiting for those fetches to settle,
+      // axe can scan an empty shell and pass — which is how a real contrast
+      // failure on /lab survived a local run and only showed up on CI.
+      await page.waitForLoadState('networkidle');
 
       await expectNoWcagViolations(page);
     });
