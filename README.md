@@ -307,7 +307,10 @@ vitest's node environment:
 ## Accessibility
 
 The app targets WCAG 2.2 AA. Text and borders meet contrast minimums in
-dark and light mode. Everything is keyboard-operable: bit-grid fields are
+dark and light mode: the light theme's accent tokens in `src/index.css` are
+each dark enough for 4.5:1 against *all three* surfaces the app paints on
+(zinc-950, zinc-900, zinc-800), not merely the lightest, and each carries its
+measured ratios as a comment. Everything is keyboard-operable: bit-grid fields are
 focusable toggle buttons that drive the cross-view highlight, layers
 reorder via their drag handle (Space to lift, arrows to move), dialogs
 trap and restore focus and close on Escape, and validation results are
@@ -328,6 +331,14 @@ WCAG 2.x A/AA ruleset with zero violations.
 
 To re-run the automated audit: build, serve `dist/`, and run axe-core
 (installed as a dev dependency) against each route.
+
+The audit is only as good as the states it visits. The shared route sweep in
+`e2e/accessibility.spec.ts` sees each page in its *default* state, so anything
+that appears only after an interaction — an active toggle, a hand-off banner,
+a warning that needs particular input — needs its own check, and several have
+one. The sweep also waits for the network to settle before scanning: every
+route but the builder is a lazy chunk, and axe will happily scan an empty
+shell and report no violations.
 
 ## Security
 
