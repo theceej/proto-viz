@@ -73,6 +73,7 @@ const STACKS: Record<string, string[]> = {
   'ethernet-8023': ['ethernet-8023'],
   stp: ['ethernet-8023', 'stp'],
   lldp: ['ethernet', 'lldp'],
+  lacp: ['ethernet', 'lacp'],
   vrrp: ['ethernet', 'ipv4', 'vrrp'],
   hsrp: ['ethernet', 'ipv4', 'udp', 'hsrp'],
   ripv2: ['ethernet', 'ipv4', 'udp', 'ripv2'],
