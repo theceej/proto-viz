@@ -10,7 +10,7 @@ import {
   Undo2,
   X,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { useStackStore } from '../../store/stackStore';
 import { useRegisterCommands } from '../useRegisterCommands';
@@ -18,9 +18,8 @@ import type { Command } from '../../store/commandStore';
 import { randomStack } from '../../core/random';
 import { PRESETS, PRESET_GROUPS, presetStackLayers } from '../../core/presets';
 import { applyByteEdit } from '../../core/editByte';
-import { decodeShare } from '../../core/share';
-import { decodePacketBlob } from '../../core/shareBlob';
 import type { ExperimentApplication } from '../../core/experiments';
+import type { LayerInstance } from '../../core/model';
 import { usePacket } from '../usePacket';
 import { useEscape } from '../a11y';
 import SavedStacks from '../components/SavedStacks';
@@ -30,14 +29,28 @@ import HexView from '../components/HexView';
 import FieldEditor from '../components/FieldEditor';
 import PacketDiagrams from '../components/PacketDiagrams';
 import ResizablePanes from '../components/ResizablePanes';
-import ExportDialog from '../components/ExportDialog';
-import ShareDialog from '../components/ShareDialog';
-import DecodeDialog from '../components/DecodeDialog';
-import DiagramExportDialog from '../components/DiagramExportDialog';
 import ExperimentsMenu from '../components/ExperimentsMenu';
 import ToolbarButton from '../components/ToolbarButton';
 import { useInspectionMode } from '../inspectionMode';
 import AddToCompareButton from '../components/AddToCompareButton';
+
+/** What a `?s=` (and optional `&e=`) URL resolved to, once decoded. */
+type ShareLoad =
+  | { ids: string[] }
+  | { layers: LayerInstance[]; payload: Uint8Array }
+  | { error: string };
+
+/**
+ * The four modal dialogs are code-split: each is rendered only once opened,
+ * and between them they are the builder's only reason to eagerly load the
+ * hex decoder, the SVG diagram exporter, the pcap and pcapng writers, and
+ * the scenario generators. Keeping them out of the initial download costs a
+ * fetch on first open and nothing after that.
+ */
+const ExportDialog = lazy(() => import('../components/ExportDialog'));
+const ShareDialog = lazy(() => import('../components/ShareDialog'));
+const DecodeDialog = lazy(() => import('../components/DecodeDialog'));
+const DiagramExportDialog = lazy(() => import('../components/DiagramExportDialog'));
 
 export default function BuilderPage() {
   const { stack, registry, packet, serializeError, validation } = usePacket();
@@ -62,15 +75,32 @@ export default function BuilderPage() {
   // renders as an error banner until dismissed.
   const shareParam = searchParams.get('s');
   const editsParam = searchParams.get('e');
-  const shareLoad = useMemo(() => {
-    if (shareParam === null) return null;
-    try {
-      const ids = decodeShare(shareParam);
-      if (editsParam) return decodePacketBlob(editsParam, ids, registry);
-      return { ids };
-    } catch (e) {
-      return { error: (e as Error).message };
-    }
+  // The word-code decoder carries the 2048-word BIP-39 list, ~6.5 KiB gzip,
+  // and this is its only eager use — the Share dialog that encodes is already
+  // code-split. Loading it only when the URL actually carries a code keeps it
+  // out of the initial download for the visitors (nearly all of them) who did
+  // not arrive from a share link.
+  const [shareLoad, setShareLoad] = useState<ShareLoad | null>(null);
+  useEffect(() => {
+    if (shareParam === null) return;
+    let cancelled = false;
+    void (async () => {
+      let result: ShareLoad;
+      try {
+        const [{ decodeShare }, { decodePacketBlob }] = await Promise.all([
+          import('../../core/share'),
+          import('../../core/shareBlob'),
+        ]);
+        const ids = decodeShare(shareParam);
+        result = editsParam ? decodePacketBlob(editsParam, ids, registry) : { ids };
+      } catch (e) {
+        result = { error: (e as Error).message };
+      }
+      if (!cancelled) setShareLoad(result);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [shareParam, editsParam, registry]);
   useEffect(() => {
     if (!shareLoad || 'error' in shareLoad) return;
@@ -202,23 +232,27 @@ export default function BuilderPage() {
         />
       </header>
 
-      {exporting && (
-        <ExportDialog
-          stack={stack}
-          registry={registry}
-          validation={validation}
-          onClose={() => setExporting(false)}
-        />
-      )}
-      {sharing && (
-        <ShareDialog stack={stack} registry={registry} onClose={() => setSharing(false)} />
-      )}
-      {decoding && (
-        <DecodeDialog registry={registry} onClose={() => setDecoding(false)} />
-      )}
-      {exportingDiagram && packet && (
-        <DiagramExportDialog packet={packet} registry={registry} onClose={() => setExportingDiagram(false)} />
-      )}
+      <Suspense fallback={null}>
+        {exporting && (
+          <ExportDialog
+            stack={stack}
+            registry={registry}
+            validation={validation}
+            onClose={() => setExporting(false)}
+          />
+        )}
+        {sharing && (
+          <ShareDialog stack={stack} registry={registry} onClose={() => setSharing(false)} />
+        )}
+        {decoding && <DecodeDialog registry={registry} onClose={() => setDecoding(false)} />}
+        {exportingDiagram && packet && (
+          <DiagramExportDialog
+            packet={packet}
+            registry={registry}
+            onClose={() => setExportingDiagram(false)}
+          />
+        )}
+      </Suspense>
 
       {shareLoad && 'error' in shareLoad && (
         <div
