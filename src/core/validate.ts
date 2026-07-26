@@ -8,6 +8,7 @@ import type { Registry } from './registry';
 import type { SerializedPacket } from './serialize';
 import { carriersOf, NS, resolveBinding } from './bindings';
 import { lintPacket } from './semanticLint';
+import { receiverChecksumFindings } from './receiverChecksum';
 
 const STANDARD_ETHERNET_MTU = 1500;
 const ETHERNET_PROTOCOL_IDS = new Set(['ethernet', 'ethernet-8023']);
@@ -172,6 +173,7 @@ export function validateStack(
 
   if (packet) {
     addMtuIssues(issues, stack, defs as ProtocolDefinition[], packet);
+    addPseudoHeaderIssues(issues, stack, registry, packet);
     issues.push(...lintPacket(stack, registry, packet));
   }
 
@@ -239,6 +241,48 @@ function addExtensionHeaderIssues(issues: ValidationIssue[], defs: ProtocolDefin
     }
   });
 }
+
+/**
+ * Report checksums that a receiver would compute differently from the sender.
+ *
+ * The serializer builds pseudo-headers from ground truth, so overstating a
+ * length field or pointing Protocol at the wrong transport leaves the checksum
+ * bytes untouched — and the packet looks fine here while a real receiver, which
+ * has only the header fields to go on, computes a different sum and drops it.
+ * That silence is the whole point of the check: it fires only when the headers
+ * and the wire disagree, which is never the case for a well-formed packet.
+ */
+function addPseudoHeaderIssues(
+  issues: ValidationIssue[],
+  stack: StackInstance,
+  registry: Registry,
+  packet: SerializedPacket,
+): void {
+  for (const finding of receiverChecksumFindings(stack, registry, packet)) {
+    const name = registry.get(stack.layers[finding.layerIndex]!.protocolId)?.name ?? 'transport';
+    const detail =
+      finding.computed === null
+        ? 'and there is no segment left for it to check at all — it drops the packet before computing anything.'
+        : `so it computes ${hex16(finding.computed)} where the packet carries ${hex16(
+            finding.onWire,
+          )}, and drops the packet as a checksum failure.`;
+
+    issues.push({
+      severity: 'warning',
+      layerIndex: finding.layerIndex,
+      code: 'pseudo-header-mismatch',
+      fieldId: finding.fieldId,
+      message: `${finding.cause}. A receiver builds the ${name} pseudo-header from the header fields, ${detail}`,
+      suggestion:
+        finding.computed === null
+          ? 'Correct the length field, or unpin it to let the serializer recompute it.'
+          : 'The checksum on the wire is the one this packet was built with; a receiver disagrees because a header field it reads was changed after the fact.',
+      reference: finding.reference,
+    });
+  }
+}
+
+const hex16 = (value: number) => `0x${value.toString(16).padStart(4, '0')}`;
 
 function addMtuIssues(
   issues: ValidationIssue[],
