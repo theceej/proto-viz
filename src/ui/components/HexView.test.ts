@@ -369,7 +369,9 @@ describe('HexView byte editing', () => {
     expect(useHighlightStore.getState().locked?.fieldId).toBe('header');
 
     // Re-enable: the cursor signals editability and a click no longer locks.
-    useHighlightStore.setState({ locked: null });
+    act(() => {
+      useHighlightStore.setState({ locked: null });
+    });
     act(() => editToggle().click());
     expect(byte(3).className).toContain('cursor-text');
     act(() => byte(3).click());
