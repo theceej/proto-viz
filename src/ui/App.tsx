@@ -22,6 +22,7 @@ import BuilderTour from './components/BuilderTour';
 const ScenarioPage = lazy(() => import('./pages/ScenarioPage'));
 const CapturePage = lazy(() => import('./pages/CapturePage'));
 const FragmentationLabPage = lazy(() => import('./pages/FragmentationLabPage'));
+const PracticePage = lazy(() => import('./pages/PracticePage'));
 const ComparePage = lazy(() => import('./pages/ComparePage'));
 const LibraryPage = lazy(() => import('./pages/LibraryPage'));
 const EncapsulationMapPage = lazy(() => import('./pages/EncapsulationMapPage'));
@@ -235,6 +236,14 @@ export default function App() {
               element={
                 <Suspense fallback={null}>
                   <FragmentationLabPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/practice"
+              element={
+                <Suspense fallback={null}>
+                  <PracticePage />
                 </Suspense>
               }
             />

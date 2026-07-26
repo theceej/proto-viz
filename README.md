@@ -106,6 +106,21 @@ your browser. Nothing is uploaded anywhere.
   step name ("SYN", "SYN-ACK", "DORA: Offer") as a per-packet comment, which
   Wireshark and the capture viewer both show — so an exported exchange
   reopens explaining itself.
+- **Packet practice** — an "identify the packet" drill built from the same
+  metadata everything else runs on. A packet is drawn (a random walk over the
+  encapsulation graph, or one of the builder presets) and shown as an
+  *unannotated* hex dump — no layer tinting, no field names, nothing that
+  would answer the question. Three question types are generated: which
+  protocol owns a highlighted header, which field a highlighted span is, and
+  what a field's value is or, for fields with an enum table, what that value
+  means. Wrong options are drawn from the nearest plausible neighbours — a
+  sibling field of the same header, a protocol that could legally have sat in
+  that position, another label from the same enum table — so the exercise
+  can't be won by elimination. Answering reveals the correct option, an
+  explanation, the specification link, and a button that loads the packet
+  into the Stack Builder with the field selected. A session score tracks
+  accuracy and streak. Because questions come from the definitions rather
+  than a question bank, protocols you import are included with no extra work.
 - **Spec import** — upload an RFC or protocol spec as TXT, HTML, DOCX, or
   PDF. ASCII packet diagrams (including RFC 768's 1-char-per-bit style and
   DNS's 16-bit rows) are detected and parsed with confidence scoring, then
@@ -229,6 +244,10 @@ vitest's node environment:
   and runs the records through `decodeStack`; `core/captureFilter.ts` /
   `core/flows.ts` provide the viewer's structured filtering and its
   direction-independent conversation keys.
+- `core/quiz.ts` — generates practice questions and their distractors from
+  protocol/field metadata alone, plus the pure scoring fold. No question
+  bank: a question is derived from the definition it asks about, every time,
+  so it cannot drift out of date and custom protocols need no curation.
 - `import/` — text extraction per format and the ASCII-diagram parser with
   confidence scoring.
 - `ui/` — React + Tailwind interface; zustand stores; IndexedDB persistence.
