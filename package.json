@@ -30,7 +30,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@fontsource-variable/jetbrains-mono": "^5.3.0",
     "@scure/bip39": "^2.2.0",
-    "dompurify": "^3.4.12",
+    "dompurify": "^3.4.13",
     "idb": "^8.0.3",
     "lucide-react": "^1.26.0",
     "mammoth": "^1.12.0",
