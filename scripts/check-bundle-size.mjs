@@ -30,13 +30,13 @@ import { gzipSync } from 'node:zlib';
  * script and lists its static imports as `modulepreload` links, so the split
  * comes from the build itself and stays correct as chunking changes.
  *
- * Baseline (gzip): initial 157,378 B; largest route 18,555 B; deployed
- * 876,751 B. Every run prints these as exact bytes, so re-baselining after a
+ * Baseline after educator quiz packages (gzip): initial 162,840 B; largest
+ * route 18,663 B; deployed 968,248 B. Every run prints these as exact bytes, so re-baselining after a
  * deliberate change is a matter of copying the line it printed.
  */
 const INITIAL_GZIP_LIMIT = 173_000;
 const LARGEST_ROUTE_GZIP_LIMIT = 24_000;
-const DEPLOYED_GZIP_LIMIT = 964_000;
+const DEPLOYED_GZIP_LIMIT = 970_000;
 
 /** Chunks fetched only on-demand for background tasks or PDF/DOCX spec imports. */
 const OPTIONAL_CHUNK = /^(?:pdf|mammoth|captureWorker)/;
