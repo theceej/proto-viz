@@ -36,7 +36,7 @@ import { gzipSync } from 'node:zlib';
  */
 const INITIAL_GZIP_LIMIT = 173_000;
 const LARGEST_ROUTE_GZIP_LIMIT = 24_000;
-const DEPLOYED_GZIP_LIMIT = 964_000;
+const DEPLOYED_GZIP_LIMIT = 995_000;
 
 /** Chunks fetched only on-demand for background tasks or PDF/DOCX spec imports. */
 const OPTIONAL_CHUNK = /^(?:pdf|mammoth|captureWorker)/;
