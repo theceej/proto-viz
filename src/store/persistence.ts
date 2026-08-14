@@ -1,11 +1,15 @@
 /** IndexedDB persistence for custom protocol definitions and saved stacks. */
 import { openDB, type IDBPDatabase } from 'idb';
 import type { LayerInstance, ProtocolDefinition } from '../core/model';
+import type { QuizPackage } from '../core/assignmentQuiz';
+import type { QuizAttempt } from '../core/quizAttempt';
 
 const DB_NAME = 'proto-viz';
 const PROTOCOLS = 'customProtocols';
 const STACKS = 'savedStacks';
 const META = 'workspaceMeta';
+const QUIZ_DRAFTS = 'quizDrafts';
+const QUIZ_ATTEMPTS = 'quizAttempts';
 const REVISION_KEY = 'revision';
 
 export type LoadResult<T> =
@@ -36,6 +40,12 @@ export interface PersistenceSnapshot {
   revision: number;
 }
 
+export interface QuizDraft {
+  id: string;
+  updatedAt: string;
+  quiz: QuizPackage;
+}
+
 export type PersistenceCategoryUpdate<T> =
   | { mode: 'untouched' }
   | { mode: 'merge' | 'replace'; data: T[] };
@@ -61,14 +71,58 @@ export interface PersistenceTransactionOperations {
 let dbPromise: Promise<IDBPDatabase> | null = null;
 
 function db(): Promise<IDBPDatabase> {
-  dbPromise ??= openDB(DB_NAME, 3, {
+  dbPromise ??= openDB(DB_NAME, 4, {
     upgrade(database, oldVersion) {
       if (oldVersion < 1) database.createObjectStore(PROTOCOLS, { keyPath: 'id' });
       if (oldVersion < 2) database.createObjectStore(STACKS, { keyPath: 'id' });
       if (oldVersion < 3) database.createObjectStore(META).put(0, REVISION_KEY);
+      if (oldVersion < 4) {
+        database.createObjectStore(QUIZ_DRAFTS, { keyPath: 'id' });
+        database.createObjectStore(QUIZ_ATTEMPTS, { keyPath: 'packageFingerprint' });
+      }
     },
   });
   return dbPromise;
+}
+
+export async function saveQuizDraft(draft: QuizDraft): Promise<PersistenceResult<QuizDraft>> {
+  return putQuizRecord(QUIZ_DRAFTS, draft);
+}
+
+export async function loadQuizDrafts(): Promise<LoadResult<QuizDraft>> {
+  return readPersisted(async () => ((await (await db()).getAll(QUIZ_DRAFTS)) as QuizDraft[]).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)));
+}
+
+export async function deleteQuizDraft(id: string): Promise<PersistenceApplyResult> {
+  return deleteQuizRecord(QUIZ_DRAFTS, id);
+}
+
+/** One resumable attempt per package fingerprint. Saving a restart replaces it explicitly. */
+export async function saveQuizAttempt(attempt: QuizAttempt): Promise<PersistenceResult<QuizAttempt>> {
+  return putQuizRecord(QUIZ_ATTEMPTS, attempt);
+}
+
+export async function loadQuizAttempt(packageFingerprint: string): Promise<PersistenceResult<QuizAttempt | undefined>> {
+  try { return { ok: true, data: await (await db()).get(QUIZ_ATTEMPTS, packageFingerprint) as QuizAttempt | undefined }; }
+  catch (error) { return { ok: false, errorName: error instanceof Error ? error.name : 'UnknownError' }; }
+}
+
+export async function loadQuizAttempts(): Promise<LoadResult<QuizAttempt>> {
+  return readPersisted(async () => ((await (await db()).getAll(QUIZ_ATTEMPTS)) as QuizAttempt[]).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)));
+}
+
+export async function deleteQuizAttempt(packageFingerprint: string): Promise<PersistenceApplyResult> {
+  return deleteQuizRecord(QUIZ_ATTEMPTS, packageFingerprint);
+}
+
+async function putQuizRecord<T>(store: typeof QUIZ_DRAFTS | typeof QUIZ_ATTEMPTS, value: T): Promise<PersistenceResult<T>> {
+  try { await (await db()).put(store, value); await persistHint(); return { ok: true, data: value }; }
+  catch (error) { return { ok: false, errorName: error instanceof Error ? error.name : 'UnknownError' }; }
+}
+
+async function deleteQuizRecord(store: typeof QUIZ_DRAFTS | typeof QUIZ_ATTEMPTS, key: string): Promise<PersistenceApplyResult> {
+  try { await (await db()).delete(store, key); return { ok: true }; }
+  catch (error) { return { ok: false, errorName: error instanceof Error ? error.name : 'UnknownError' }; }
 }
 
 async function persistHint(): Promise<void> {
