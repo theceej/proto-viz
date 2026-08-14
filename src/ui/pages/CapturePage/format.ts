@@ -18,3 +18,14 @@ export function formatByteCount(bytes: number): string {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KiB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MiB`;
 }
+
+export function formatByteRate(bytesPerSec: number): string {
+  if (bytesPerSec < 1024) return `${bytesPerSec.toFixed(0)} B/s`;
+  if (bytesPerSec < 1024 * 1024) return `${(bytesPerSec / 1024).toFixed(1)} KiB/s`;
+  return `${(bytesPerSec / (1024 * 1024)).toFixed(2)} MiB/s`;
+}
+
+export function formatPacketRate(packetsPerSec: number): string {
+  if (packetsPerSec < 1000) return `${packetsPerSec.toFixed(1)} pkts/s`;
+  return `${(packetsPerSec / 1000).toFixed(1)}k pkts/s`;
+}

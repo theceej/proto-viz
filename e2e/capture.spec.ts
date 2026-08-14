@@ -105,6 +105,45 @@ test('groups packets into flows and narrows the list to one', async ({ page }) =
   await expect(page.getByRole('button', { name: 'Packets (5)' })).toBeVisible();
 });
 
+test('views capture analytics: traffic throughput, protocol breakdown, and TCP timeline', async ({
+  page,
+}) => {
+  await openCapture(page);
+
+  // Switch to Analytics tab
+  await page.getByRole('button', { name: 'Analytics' }).click();
+
+  // Check Traffic Throughput widget
+  const throughput = page.getByRole('region', { name: 'Capture throughput analytics' });
+  await expect(throughput.getByRole('heading', { name: 'Traffic Throughput' })).toBeVisible();
+  await expect(throughput.getByRole('radio', { name: 'Bytes/sec' })).toBeVisible();
+  await throughput.getByRole('radio', { name: 'Bytes/sec' }).click();
+  await expect(throughput.getByRole('radio', { name: 'Bytes/sec' })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+
+  // Check Protocol Breakdown widget
+  const protocol = page.getByRole('region', { name: 'Protocol breakdown analytics' });
+  await expect(protocol.getByRole('heading', { name: 'Protocol Breakdown' })).toBeVisible();
+  await expect(protocol.getByRole('button', { name: /DNS/ })).toBeVisible();
+  await expect(protocol.getByRole('button', { name: /TCP/ })).toBeVisible();
+
+  // Click on DNS in the protocol breakdown to filter
+  await protocol.getByRole('button', { name: /DNS/ }).click();
+  await expect(matchCount(page)).toHaveText('2 of 5 packets');
+
+  // Clear protocol filter
+  await page.getByRole('button', { name: 'Clear filters' }).click();
+  await expect(matchCount(page)).toHaveText('5 of 5 packets');
+
+  // Check TCP Stream Timeline widget
+  const tcp = page.getByRole('region', { name: 'TCP Sequence & ACK timeline' });
+  await expect(tcp.getByRole('heading', { name: 'TCP Stream Timeline' })).toBeVisible();
+  await expect(tcp.getByRole('combobox', { name: 'Select TCP Flow' })).toBeVisible();
+  await expect(tcp.getByText('192.0.2.10:49152 (Initiator)')).toBeVisible();
+});
+
 test('sends two capture packets to Packet Comparison', async ({ page }) => {
   await openCapture(page);
   const list = page.getByRole('grid');

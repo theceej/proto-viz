@@ -16,6 +16,11 @@
 import type { CapturePacket, DecodeStatus } from './capture';
 import { matchesDisplayFilter, parseDisplayFilter } from './displayFilter';
 
+export interface TimeRangeFilter {
+  minUsec: number;
+  maxUsec: number;
+}
+
 export interface CaptureFilter {
   /** Free text, matched case-insensitively against summary and field values. */
   text: string;
@@ -29,6 +34,8 @@ export interface CaptureFilter {
   minLength: number | null;
   maxLength: number | null;
   status: DecodeStatus | null;
+  /** Time window filter in microseconds relative to the first packet */
+  timeRange: TimeRangeFilter | null;
 }
 
 export const EMPTY_FILTER: CaptureFilter = {
@@ -39,6 +46,7 @@ export const EMPTY_FILTER: CaptureFilter = {
   minLength: null,
   maxLength: null,
   status: null,
+  timeRange: null,
 };
 
 /** True when no criterion is set, i.e. the filter matches every packet. */
@@ -50,7 +58,8 @@ export function isEmptyFilter(filter: CaptureFilter): boolean {
     filter.port === null &&
     filter.minLength === null &&
     filter.maxLength === null &&
-    filter.status === null
+    filter.status === null &&
+    filter.timeRange === null
   );
 }
 
@@ -102,6 +111,15 @@ function matchesPreparedFilter(
   if (filter.maxLength !== null && packet.capturedLength > filter.maxLength) return false;
   if (filter.status !== null && packet.status !== filter.status) return false;
 
+  if (filter.timeRange !== null) {
+    if (
+      packet.relativeUsec < filter.timeRange.minUsec ||
+      packet.relativeUsec > filter.timeRange.maxUsec
+    ) {
+      return false;
+    }
+  }
+
   return true;
 }
 
@@ -118,7 +136,8 @@ export function filterPackets(
     filter.port === null &&
     filter.minLength === null &&
     filter.maxLength === null &&
-    filter.status === null
+    filter.status === null &&
+    filter.timeRange === null
   ) return packets;
   const textMatcher = compileTextMatcher(text);
   return packets.filter((packet) => matchesPreparedFilter(packet, filter, textMatcher));
