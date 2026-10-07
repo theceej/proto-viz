@@ -2,6 +2,7 @@ import type { ProtocolDefinition, StackInstance } from './model';
 import type { Registry } from './registry';
 import { serializeStack } from './serialize';
 import { generateQuestions } from './quiz';
+import { validateStack } from './validate';
 import { createBuiltinRegistry } from '../protocols';
 import {
   createWorkspaceWireBudget,
@@ -162,17 +163,106 @@ export function packageFilename(title: string): string {
   return `${slug}${QUIZ_EXTENSION}`;
 }
 
-export function generateAssignmentQuestions(packet: AssignmentPacket, registry: Registry): AssignmentQuestion[] {
+export function generateAssignmentQuestions(
+  packet: AssignmentPacket,
+  registry: Registry,
+): AssignmentQuestion[] {
   const serialized = serializeStack(packet.stack, registry);
-  const generated = generateQuestions(serialized, registry, { count: 30, rng: () => 0.42 }).map((question, index): AssignmentQuestion => {
-    const layerIndex = packet.stack.layers.findIndex((layer) => layer.uid === question.focus.layerUid);
-    return { id: `${packet.id}-generated-${index + 1}`, kind: question.kind === 'protocol-at-span' ? 'protocol-identification' : question.kind === 'field-at-span' ? 'field-identification' : 'field-value', packetId: packet.id, prompt: question.prompt, choices: question.choices.map(({ id, label }) => ({ id, label })), correctChoiceId: question.choices.find((choice) => choice.correct)!.id, explanation: question.explanation, focus: { layerIndex, ...(question.focus.fieldId ? { fieldId: question.focus.fieldId } : {}), byteRange: question.range } };
+  const generated = generateQuestions(serialized, registry, {
+    count: 30,
+    rng: () => 0.42,
+  }).map((question, index): AssignmentQuestion => {
+    const layerIndex = packet.stack.layers.findIndex(
+      (layer) => layer.uid === question.focus.layerUid,
+    );
+    return {
+      id: `${packet.id}-generated-${index + 1}`,
+      kind:
+        question.kind === 'protocol-at-span'
+          ? 'protocol-identification'
+          : question.kind === 'field-at-span'
+            ? 'field-identification'
+            : 'field-value',
+      packetId: packet.id,
+      prompt: question.prompt,
+      choices: question.choices.map(({ id, label }) => ({ id, label })),
+      correctChoiceId: question.choices.find((choice) => choice.correct)!.id,
+      explanation: question.explanation,
+      focus: {
+        layerIndex,
+        ...(question.focus.fieldId ? { fieldId: question.focus.fieldId } : {}),
+        byteRange: question.range,
+      },
+    };
   });
   for (let i = 0; i < serialized.layers.length; i++) {
-    const layer = serialized.layers[i]!; const next = serialized.layers[i + 1]; const payloadLength = (next?.byteOffset ?? serialized.bytes.length) - (layer.byteOffset + layer.headerBytes);
-    generated.push({ id: `${packet.id}-payload-${i}`, kind: 'payload-length', packetId: packet.id, prompt: `How many payload bytes follow the ${registry.get(layer.protocolId)?.name ?? layer.protocolId} header before the next boundary?`, choices: distinctNumbers(payloadLength).map((n) => ({ id: String(n), label: `${n} bytes` })), correctChoiceId: String(payloadLength), explanation: `The payload begins at byte ${layer.byteOffset + layer.headerBytes} and ends at byte ${next?.byteOffset ?? serialized.bytes.length}.`, focus: { layerIndex: i, byteRange: { offset: layer.byteOffset, length: layer.headerBytes } } });
+    const layer = serialized.layers[i]!;
+    const next = serialized.layers[i + 1];
+    const payloadLength =
+      (next?.byteOffset ?? serialized.bytes.length) - (layer.byteOffset + layer.headerBytes);
+    generated.push({
+      id: `${packet.id}-payload-${i}`,
+      kind: 'payload-length',
+      packetId: packet.id,
+      prompt: `How many payload bytes follow the ${registry.get(layer.protocolId)?.name ?? layer.protocolId} header before the next boundary?`,
+      choices: distinctNumbers(payloadLength).map((n) => ({
+        id: String(n),
+        label: `${n} bytes`,
+      })),
+      correctChoiceId: String(payloadLength),
+      explanation: `The payload begins at byte ${layer.byteOffset + layer.headerBytes} and ends at byte ${next?.byteOffset ?? serialized.bytes.length}.`,
+      focus: {
+        layerIndex: i,
+        byteRange: { offset: layer.byteOffset, length: layer.headerBytes },
+      },
+    });
   }
-  return generated;
+  // A malformed-field candidate must point to a real field diagnostic, never
+  // a whole-stack layering warning or an invented mutation of the packet.
+  const malformed: AssignmentQuestion[] = [];
+  const seen = new Set<string>();
+  const diagnostics = validateStack(packet.stack, registry, serialized);
+  for (const issue of diagnostics) {
+    if (!issue.fieldId || (issue.severity !== 'warning' && issue.severity !== 'error')) continue;
+    const layer = packet.stack.layers[issue.layerIndex];
+    const span = serialized.spans.find(
+      (item) => item.layerUid === layer?.uid && item.fieldId === issue.fieldId,
+    );
+    const def = layer && registry.get(layer.protocolId);
+    const field = def?.fields.find((item) => item.id === issue.fieldId);
+    const key = `${issue.layerIndex}:${issue.fieldId}`;
+    if (!span || !field || seen.has(key)) continue;
+    // Avoid claiming a unique answer when multiple diagnosed fields appear
+    // among the alternatives.
+    const diagnosed = new Set(
+      diagnostics
+        .filter((item) => item.layerIndex === issue.layerIndex && item.fieldId)
+        .map((item) => item.fieldId),
+    );
+    const choices = [field, ...def!.fields.filter((item) => !diagnosed.has(item.id))]
+      .slice(0, 4)
+      .map((item) => ({ id: item.id, label: item.name }));
+    if (choices.length < 2) continue;
+    seen.add(key);
+    malformed.push({
+      id: `${packet.id}-invalid-${issue.layerIndex}-${issue.fieldId}`,
+      kind: 'invalid-field',
+      packetId: packet.id,
+      prompt: `Which ${def!.name} field is flagged by this diagnostic: ${issue.message}`,
+      choices,
+      correctChoiceId: field.id,
+      explanation: issue.message,
+      focus: {
+        layerIndex: issue.layerIndex,
+        fieldId: field.id,
+        byteRange: {
+          offset: Math.floor(span.bitOffset / 8),
+          length: Math.ceil(((span.bitOffset % 8) + span.bitLength) / 8),
+        },
+      },
+    });
+  }
+  return [...malformed, ...generated];
 }
 
 const equalBytes = (a: Uint8Array, b: Uint8Array) => a.length === b.length && a.every((value, index) => value === b[index]);

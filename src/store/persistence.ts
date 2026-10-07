@@ -44,6 +44,9 @@ export interface QuizDraft {
   id: string;
   updatedAt: string;
   quiz: QuizPackage;
+  /** Optional for compatibility with drafts created by the original exporter. */
+  authoringStep?: 'details' | 'packets' | 'questions' | 'review';
+  authoringQuestionId?: string;
 }
 
 export type PersistenceCategoryUpdate<T> =
