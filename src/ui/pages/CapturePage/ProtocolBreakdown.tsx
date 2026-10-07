@@ -342,7 +342,7 @@ export default function ProtocolBreakdown({
                 {/* Proportion bar */}
                 <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-800">
                   <div
-                    className="h-full rounded-full transition-all duration-300"
+                    className="h-full rounded-full transition-all duration-300 motion-reduce:transition-none"
                     style={{
                       width: `${Math.max(1, pct)}%`,
                       backgroundColor: color,
