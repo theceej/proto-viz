@@ -99,6 +99,7 @@ export const SHARE_PROTOCOL_IDS: readonly string[] = [
   'lacp',
   'ikev2',
   'ikev2-natt',
+  'qinq',
 ];
 
 export class ShareCodeError extends Error {}

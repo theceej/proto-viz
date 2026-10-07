@@ -3,6 +3,7 @@ import { createRegistry, type Registry } from '../core/registry';
 import { enumTables } from './enums';
 import { ethernet } from './ethernet';
 import { vlan8021q } from './vlan8021q';
+import { qinq } from './qinq';
 import { arp } from './arp';
 import { ipv4 } from './ipv4';
 import { ipv6 } from './ipv6';
@@ -66,6 +67,7 @@ import { lacp } from './lacp';
 export const builtinProtocols: ProtocolDefinition[] = [
   ethernet,
   vlan8021q,
+  qinq,
   arp,
   ipv4,
   ipv6,

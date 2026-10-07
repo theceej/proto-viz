@@ -22,7 +22,7 @@ your browser. Nothing is uploaded anywhere.
 ## Features
 
 - **Protocol library** — Dozens of built-in protocols with full bit-level
-  field layouts. Core: Ethernet II, 802.3 (LLC and SNAP), 802.1Q, ARP, IPv4,
+  field layouts. Core: Ethernet II, 802.3 (LLC and SNAP), 802.1Q, 802.1ad QinQ, ARP, IPv4,
   IPv6 (with Hop-by-Hop, Routing, Fragment, and Destination Options extension
   headers), ICMP, ICMPv6 (incl. NDP and MLDv2), IGMP v2/v3, TCP, UDP, SCTP,
   EAPOL/802.1X. Infrastructure: STP, LLDP, CDP, VRRP, HSRP, RIPv1/v2,
