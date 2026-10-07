@@ -300,6 +300,10 @@ vitest's node environment:
   protocol/field metadata alone, plus the pure scoring fold. No question
   bank: a question is derived from the definition it asks about, every time,
   so it cannot drift out of date and custom protocols need no curation.
+- `core/assignmentQuiz.ts` / `core/assignmentAuthoring.ts` — portable quiz
+  packages, packet snapshots, generated and manual questions, and validation
+  for the guided educator workflow. Authoring drafts resume from IndexedDB;
+  packages bundle the custom protocols used by their packets.
 - `import/` — text extraction per format and the ASCII-diagram parser with
   confidence scoring.
 - `ui/` — React + Tailwind interface; zustand stores; IndexedDB persistence.

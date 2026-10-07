@@ -1,60 +1,267 @@
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { useEscape, useModalFocus } from '../a11y';
 import { useNavigate } from 'react-router';
-import { serializeStack } from '../../core/serialize';
-import { QUIZ_APP, QUIZ_KIND, QUIZ_VERSION, exportQuizPackage, generateAssignmentQuestions, packageFilename, parseQuizPackage, type ParsedQuizPackage, type QuizPackage } from '../../core/assignmentQuiz';
-import { answerQuestion, buildPrintableResult, createAttempt, moveAttempt, reviewAttempt, shuffledChoices, submitAttempt, validateIdentity, type QuizAttempt } from '../../core/quizAttempt';
-import { loadQuizAttempt, saveQuizAttempt, saveQuizDraft } from '../../store/persistence';
-import { useLibraryStore } from '../../store/libraryStore';
+import { parseQuizPackage, type ParsedQuizPackage } from '../../core/assignmentQuiz';
+import {
+  answerQuestion,
+  buildPrintableResult,
+  createAttempt,
+  moveAttempt,
+  reviewAttempt,
+  shuffledChoices,
+  submitAttempt,
+  validateIdentity,
+  type QuizAttempt,
+} from '../../core/quizAttempt';
+import {
+  loadQuizAttempt,
+  loadQuizDrafts,
+  saveQuizAttempt,
+  type QuizDraft,
+} from '../../store/persistence';
 import { useStackStore } from '../../store/stackStore';
 import { useHighlightStore } from '../../store/highlightStore';
 import PlainHexView from './PlainHexView';
 
 type Screen = 'home' | 'create' | 'identity' | 'resume' | 'attempt' | 'result';
-const button = 'rounded-md border border-zinc-700 px-3 py-2 text-[13px] text-zinc-200 hover:border-cyan-600 hover:text-cyan-300';
-const input = 'rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-[13px] text-zinc-100 outline-none focus:border-cyan-600';
+const button =
+  'rounded-md border border-zinc-700 px-3 py-2 text-[13px] text-zinc-200 hover:border-cyan-600 hover:text-cyan-300';
+const AssignmentAuthoring = lazy(() => import('./AssignmentAuthoring'));
+const input =
+  'rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-[13px] text-zinc-100 outline-none focus:border-cyan-600';
 
 export default function AssignmentsDialog({ onClose }: { onClose(): void }) {
-  const registry = useLibraryStore((state) => state.registry); const custom = useLibraryStore((state) => state.custom);
-  const layers = useStackStore((state) => state.layers); const trailingPayload = useStackStore((state) => state.trailingPayload);
-  const [screen, setScreen] = useState<Screen>('home'); const [parsed, setParsed] = useState<ParsedQuizPackage | null>(null); const [attempt, setAttempt] = useState<QuizAttempt | null>(null); const [error, setError] = useState(''); const [identity, setIdentity] = useState({ name: '', email: '' });
-  const [meta, setMeta] = useState({ title: '', description: '', educator: '', course: '', feedbackMode: 'instant' as QuizPackage['feedbackMode'] });
+  const [screen, setScreen] = useState<Screen>('home');
+  const [parsed, setParsed] = useState<ParsedQuizPackage | null>(null);
+  const [attempt, setAttempt] = useState<QuizAttempt | null>(null);
+  const [error, setError] = useState('');
+  const [identity, setIdentity] = useState({ name: '', email: '' });
+  const [drafts, setDrafts] = useState<QuizDraft[]>([]);
+  const [draft, setDraft] = useState<QuizDraft | null>(null);
+  const [draftError, setDraftError] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => { const key = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); }; window.addEventListener('keydown', key); return () => window.removeEventListener('keydown', key); }, [onClose]);
-  const persist = (next: QuizAttempt) => { setAttempt(next); void saveQuizAttempt(next).then((result) => { if (!result.ok) setError(`Could not save progress (${result.errorName}).`); }); };
+  const dialogRef = useRef<HTMLElement>(null);
+  useEscape(true, onClose);
+  useModalFocus(dialogRef);
+  const refreshDrafts = () => {
+    void loadQuizDrafts().then((result) => {
+      if (result.ok) {
+        setDrafts(result.data);
+        setDraftError('');
+      } else setDraftError(`Could not load drafts (${result.errorName}).`);
+    });
+  };
+  useEffect(() => {
+    let active = true;
+    void loadQuizDrafts().then((result) => {
+      if (!active) return;
+      if (result.ok) setDrafts(result.data);
+      else setDraftError(`Could not load drafts (${result.errorName}).`);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+  const persist = (next: QuizAttempt) => {
+    setAttempt(next);
+    void saveQuizAttempt(next).then((result) => {
+      if (!result.ok) setError(`Could not save progress (${result.errorName}).`);
+    });
+  };
 
   const openFile = async (file?: File) => {
-    if (!file) return; setError('');
-    if (!file.name.endsWith('.protoviz-quiz') && !file.name.endsWith('.json')) { setError('Choose a .protoviz-quiz or .json file.'); return; }
-    try { const next = parseQuizPackage(await file.text()); setParsed(next); const saved = await loadQuizAttempt(next.fingerprint); if (saved.ok && saved.data) { setAttempt(saved.data); setScreen('resume'); } else setScreen('identity'); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not open package.'); }
-  };
-  const start = () => { if (!parsed || !validateIdentity(identity)) return; const next = createAttempt(parsed.quiz, parsed.fingerprint, identity); persist(next); setScreen('attempt'); };
-  const create = () => {
+    if (!file) return;
     setError('');
+    if (!file.name.endsWith('.protoviz-quiz') && !file.name.endsWith('.json')) {
+      setError('Choose a .protoviz-quiz or .json file.');
+      return;
+    }
     try {
-      if (!meta.title.trim() || layers.length === 0) throw new Error('Add a title and ensure the Builder has at least one layer.');
-      const stack = { layers, trailingPayload }; const packetBytes = serializeStack(stack, registry).bytes; const referenced = new Set(layers.map((layer) => layer.protocolId));
-      const packet = { id: crypto.randomUUID(), label: 'Builder packet', source: { kind: 'builder' as const }, stack, expectedBytes: packetBytes };
-      const quiz: QuizPackage = { app: QUIZ_APP, kind: QUIZ_KIND, version: QUIZ_VERSION, quizId: crypto.randomUUID(), ...meta, createdAt: new Date().toISOString(), customProtocols: custom.filter((definition) => referenced.has(definition.id)), packets: [packet], questions: generateAssignmentQuestions(packet, registry).slice(0, 20) };
-      if (quiz.questions.length === 0) throw new Error('No valid questions could be generated from this stack.');
-      const json = exportQuizPackage(quiz); void saveQuizDraft({ id: quiz.quizId, updatedAt: new Date().toISOString(), quiz });
-      const link = document.createElement('a'); link.href = URL.createObjectURL(new Blob([json], { type: 'application/json' })); link.download = packageFilename(quiz.title); link.click(); URL.revokeObjectURL(link.href);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not create assignment.'); }
+      const next = parseQuizPackage(await file.text());
+      setParsed(next);
+      const saved = await loadQuizAttempt(next.fingerprint);
+      if (saved.ok && saved.data) {
+        setAttempt(saved.data);
+        setScreen('resume');
+      } else setScreen('identity');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not open package.');
+    }
+  };
+  const start = () => {
+    if (!parsed || !validateIdentity(identity)) return;
+    const next = createAttempt(parsed.quiz, parsed.fingerprint, identity);
+    persist(next);
+    setScreen('attempt');
   };
 
-  return <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-    <section role="dialog" aria-modal="true" aria-labelledby="assignment-title" className="max-h-[92vh] w-full max-w-4xl overflow-auto rounded-xl border border-zinc-700 bg-zinc-900 p-5 text-zinc-200 shadow-2xl">
-      <header className="mb-4 flex items-center justify-between"><h2 id="assignment-title" className="text-lg font-semibold">Assignments</h2><button className={button} onClick={onClose} aria-label="Close assignments">Close</button></header>
-      {error && <p role="alert" className="mb-4 rounded-md border border-rose-700 bg-rose-950/30 p-3 text-[13px] text-rose-300">{error}</p>}
-      {screen === 'home' && <div className="grid gap-3 sm:grid-cols-2"><button className={button} onClick={() => setScreen('create')}>Create assignment</button><button className={button} onClick={() => fileRef.current?.click()}>Open package</button><input ref={fileRef} className="sr-only" type="file" accept=".protoviz-quiz,.json,application/json" onChange={(event) => void openFile(event.target.files?.[0])} /><p className="sm:col-span-2 text-[12px] text-zinc-500">Packages are transparent local learning files. Answer keys are readable JSON; this is not a secure or proctored exam system.</p></div>}
-      {screen === 'create' && <div className="grid gap-3"><p className="text-[13px] text-zinc-400">Create from the current Stack Builder packet. Candidate questions are generated from its serialized fields and layer boundaries.</p><label className="grid gap-1 text-[12px]">Title<input className={input} value={meta.title} onChange={(e) => setMeta({ ...meta, title: e.target.value })} /></label><label className="grid gap-1 text-[12px]">Description<textarea className={input} value={meta.description} onChange={(e) => setMeta({ ...meta, description: e.target.value })} /></label><div className="grid gap-3 sm:grid-cols-2"><label className="grid gap-1 text-[12px]">Educator<input className={input} value={meta.educator} onChange={(e) => setMeta({ ...meta, educator: e.target.value })} /></label><label className="grid gap-1 text-[12px]">Course<input className={input} value={meta.course} onChange={(e) => setMeta({ ...meta, course: e.target.value })} /></label></div><label className="grid gap-1 text-[12px]">Feedback<select className={input} value={meta.feedbackMode} onChange={(e) => setMeta({ ...meta, feedbackMode: e.target.value as QuizPackage['feedbackMode'] })}><option value="instant">Instant</option><option value="on-submit">After submission</option></select></label><div className="flex gap-2"><button className={button} onClick={create}>Validate and download</button><button className={button} onClick={() => setScreen('home')}>Back</button></div></div>}
-      {screen === 'resume' && attempt && <div className="grid gap-3"><p>A saved attempt for <strong>{attempt.quiz.title}</strong> was found.</p><div className="flex gap-2"><button className={button} onClick={() => setScreen(attempt.submittedAt ? 'result' : 'attempt')}>Resume</button><button className={button} onClick={() => { setAttempt(null); setIdentity({ name: '', email: '' }); setScreen('identity'); }}>Restart</button></div></div>}
-      {screen === 'identity' && parsed && <form className="grid gap-3" onSubmit={(e) => { e.preventDefault(); start(); }}><h3 className="font-medium">{parsed.quiz.title}</h3><p className="text-[13px] text-zinc-400">{parsed.quiz.description}</p><label className="grid gap-1 text-[12px]">Student name<input autoFocus className={input} required value={identity.name} onChange={(e) => setIdentity({ ...identity, name: e.target.value })} /></label><label className="grid gap-1 text-[12px]">Student email<input className={input} required type="email" value={identity.email} onChange={(e) => setIdentity({ ...identity, email: e.target.value })} /></label><button className={button} disabled={!validateIdentity(identity)}>Start assignment</button></form>}
-      {screen === 'attempt' && attempt && <AttemptView attempt={attempt} onChange={persist} onDone={(next) => { persist(next); setScreen('result'); }} />}
-      {screen === 'result' && attempt?.submittedAt && <ResultView attempt={attempt} />}
-    </section>
-  </div>;
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <section
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="assignment-title"
+        className="max-h-[92vh] w-full max-w-4xl overflow-auto rounded-xl border border-zinc-700 bg-zinc-900 p-5 text-zinc-200 shadow-2xl"
+      >
+        <header className="mb-4 flex items-center justify-between">
+          <h2 id="assignment-title" className="text-lg font-semibold">
+            Assignments
+          </h2>
+          <button className={button} onClick={onClose} aria-label="Close assignments">
+            Close
+          </button>
+        </header>
+        {error && (
+          <p
+            role="alert"
+            className="mb-4 rounded-md border border-rose-700 bg-rose-950/30 p-3 text-[13px] text-rose-300"
+          >
+            {error}
+          </p>
+        )}
+        {screen === 'home' && (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <button
+              className={button}
+              onClick={() => {
+                setDraft(null);
+                setError('');
+                setScreen('create');
+              }}
+            >
+              Create assignment
+            </button>
+            <button className={button} onClick={() => fileRef.current?.click()}>
+              Open package
+            </button>
+            <input
+              ref={fileRef}
+              className="sr-only"
+              type="file"
+              accept=".protoviz-quiz,.json,application/json"
+              onChange={(event) => void openFile(event.target.files?.[0])}
+            />
+            <p className="sm:col-span-2 text-[12px] text-zinc-500">
+              Packages are transparent local learning files. Answer keys are readable JSON; this is
+              not a secure or proctored exam system.
+            </p>
+          </div>
+        )}
+        {screen === 'home' && (
+          <section aria-label="Assignment drafts" className="mt-4 grid gap-2">
+            <h3 className="font-semibold">Saved drafts</h3>
+            {draftError && <p role="alert">{draftError}</p>}
+            {drafts.map((item) => (
+              <button
+                key={item.id}
+                className={`${button} text-left`}
+                onClick={() => {
+                  setDraft(item);
+                  setError('');
+                  setScreen('create');
+                }}
+              >
+                Resume draft: {item.quiz.title || 'Untitled assignment'}
+              </button>
+            ))}
+            <button className={button} onClick={refreshDrafts}>
+              Refresh drafts
+            </button>
+          </section>
+        )}
+        {screen === 'create' && (
+          <Suspense fallback={<p role="status">Loading assignment authoring…</p>}>
+            <AssignmentAuthoring
+              key={draft?.id ?? 'new'}
+              draft={draft}
+              onBack={() => {
+                setScreen('home');
+                refreshDrafts();
+              }}
+            />
+          </Suspense>
+        )}
+        {screen === 'resume' && attempt && (
+          <div className="grid gap-3">
+            <p>
+              A saved attempt for <strong>{attempt.quiz.title}</strong> was found.
+            </p>
+            <div className="flex gap-2">
+              <button
+                className={button}
+                onClick={() => setScreen(attempt.submittedAt ? 'result' : 'attempt')}
+              >
+                Resume
+              </button>
+              <button
+                className={button}
+                onClick={() => {
+                  setAttempt(null);
+                  setIdentity({ name: '', email: '' });
+                  setScreen('identity');
+                }}
+              >
+                Restart
+              </button>
+            </div>
+          </div>
+        )}
+        {screen === 'identity' && parsed && (
+          <form
+            className="grid gap-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              start();
+            }}
+          >
+            <h3 className="font-medium">{parsed.quiz.title}</h3>
+            <p className="text-[13px] text-zinc-400">{parsed.quiz.description}</p>
+            <label className="grid gap-1 text-[12px]">
+              Student name
+              <input
+                autoFocus
+                className={input}
+                required
+                value={identity.name}
+                onChange={(e) => setIdentity({ ...identity, name: e.target.value })}
+              />
+            </label>
+            <label className="grid gap-1 text-[12px]">
+              Student email
+              <input
+                className={input}
+                required
+                type="email"
+                value={identity.email}
+                onChange={(e) => setIdentity({ ...identity, email: e.target.value })}
+              />
+            </label>
+            <button className={button} disabled={!validateIdentity(identity)}>
+              Start assignment
+            </button>
+          </form>
+        )}
+        {screen === 'attempt' && attempt && (
+          <AttemptView
+            attempt={attempt}
+            onChange={persist}
+            onDone={(next) => {
+              persist(next);
+              setScreen('result');
+            }}
+          />
+        )}
+        {screen === 'result' && attempt?.submittedAt && <ResultView attempt={attempt} />}
+      </section>
+    </div>
+  );
 }
 
 function AttemptView({ attempt, onChange, onDone }: { attempt: QuizAttempt; onChange(value: QuizAttempt): void; onDone(value: QuizAttempt): void }) {

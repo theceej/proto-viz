@@ -44,6 +44,9 @@ export interface QuizDraft {
   id: string;
   updatedAt: string;
   quiz: QuizPackage;
+  /** Optional for compatibility with drafts created by the original exporter. */
+  authoringStep?: 'details' | 'packets' | 'questions' | 'review';
+  authoringQuestionId?: string;
 }
 
 export type PersistenceCategoryUpdate<T> =
@@ -85,16 +88,25 @@ function db(): Promise<IDBPDatabase> {
   return dbPromise;
 }
 
-export async function saveQuizDraft(draft: QuizDraft): Promise<PersistenceResult<QuizDraft>> {
-  return putQuizRecord(QUIZ_DRAFTS, draft);
+// Keep pending writes visible across authoring modal instances. A reopened
+// draft must not be read before the previous instance's closing flush commits.
+let quizDraftWrites: Promise<unknown> = Promise.resolve();
+
+export function saveQuizDraft(draft: QuizDraft): Promise<PersistenceResult<QuizDraft>> {
+  const write = quizDraftWrites.then(() => putQuizRecord(QUIZ_DRAFTS, draft));
+  quizDraftWrites = write;
+  return write;
 }
 
 export async function loadQuizDrafts(): Promise<LoadResult<QuizDraft>> {
+  await quizDraftWrites;
   return readPersisted(async () => ((await (await db()).getAll(QUIZ_DRAFTS)) as QuizDraft[]).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)));
 }
 
 export async function deleteQuizDraft(id: string): Promise<PersistenceApplyResult> {
-  return deleteQuizRecord(QUIZ_DRAFTS, id);
+  const deletion = quizDraftWrites.then(() => deleteQuizRecord(QUIZ_DRAFTS, id));
+  quizDraftWrites = deletion;
+  return deletion;
 }
 
 /** One resumable attempt per package fingerprint. Saving a restart replaces it explicitly. */
