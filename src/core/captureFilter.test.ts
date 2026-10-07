@@ -47,6 +47,7 @@ describe('isEmptyFilter', () => {
     expect(isEmptyFilter(filter({ text: '   ' }))).toBe(true);
     expect(isEmptyFilter(filter({ port: 80 }))).toBe(false);
     expect(isEmptyFilter(filter({ minLength: 0 }))).toBe(false);
+    expect(isEmptyFilter(filter({ timeRange: { minUsec: 0, maxUsec: 100 } }))).toBe(false);
   });
 });
 
@@ -96,6 +97,27 @@ describe('matchesFilter', () => {
     expect(matchesFilter(packet({ status: 'failed' }), filter({ status: 'failed' }))).toBe(true);
   });
 
+  it('filters by timeRange within relative capture timestamp bounds', () => {
+    expect(
+      matchesFilter(
+        packet({ relativeUsec: 500 }),
+        filter({ timeRange: { minUsec: 400, maxUsec: 600 } }),
+      ),
+    ).toBe(true);
+    expect(
+      matchesFilter(
+        packet({ relativeUsec: 300 }),
+        filter({ timeRange: { minUsec: 400, maxUsec: 600 } }),
+      ),
+    ).toBe(false);
+    expect(
+      matchesFilter(
+        packet({ relativeUsec: 700 }),
+        filter({ timeRange: { minUsec: 400, maxUsec: 600 } }),
+      ),
+    ).toBe(false);
+  });
+
   it('ANDs independent criteria together', () => {
     expect(matchesFilter(packet(), filter({ protocolId: 'tcp', port: 80 }))).toBe(true);
     expect(matchesFilter(packet(), filter({ protocolId: 'tcp', port: 443 }))).toBe(false);
@@ -104,9 +126,15 @@ describe('matchesFilter', () => {
 
 describe('filterPackets', () => {
   const packets = [
-    packet({ number: 1 }),
-    packet({ number: 2, dstPort: 443, summary: 'TLS', protocolIds: ['ethernet', 'ipv4', 'tcp', 'tls'] }),
-    packet({ number: 3, status: 'failed', protocolIds: [], source: null, destination: null }),
+    packet({ number: 1, relativeUsec: 0 }),
+    packet({
+      number: 2,
+      relativeUsec: 500_000,
+      dstPort: 443,
+      summary: 'TLS',
+      protocolIds: ['ethernet', 'ipv4', 'tcp', 'tls'],
+    }),
+    packet({ number: 3, relativeUsec: 1_000_000, status: 'failed', protocolIds: [], source: null, destination: null }),
   ];
 
   it('returns the same array when the filter is empty', () => {
@@ -117,6 +145,15 @@ describe('filterPackets', () => {
     expect(filterPackets(packets, filter({ protocolId: 'tcp' })).map((p) => p.number)).toEqual([
       1, 2,
     ]);
+  });
+
+  it('filters by time window', () => {
+    expect(
+      filterPackets(
+        packets,
+        filter({ timeRange: { minUsec: 400_000, maxUsec: 600_000 } }),
+      ).map((p) => p.number),
+    ).toEqual([2]);
   });
 
   it('prepares display-filter text once for the whole invocation', () => {

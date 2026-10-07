@@ -17,9 +17,12 @@ import FilterBar from './FilterBar';
 import PacketList, { comparePackets, type Sort } from './PacketList';
 import FlowList from './FlowList';
 import CaptureTimeline from './CaptureTimeline';
+import ThroughputChart from './ThroughputChart';
+import ProtocolBreakdown from './ProtocolBreakdown';
+import TcpSequenceTimeline from './TcpSequenceTimeline';
 import { formatByteCount } from './format';
 
-type Tab = 'packets' | 'flows';
+type Tab = 'packets' | 'flows' | 'analytics';
 
 /**
  * The capture viewer: open a classic pcap or pcapng file, decode every packet
@@ -114,6 +117,10 @@ export default function CapturePage() {
   // Flows are grouped from the filtered set so the conversation list answers
   // "what is in what I am looking at", not "what was in the file".
   const matched = useMemo(() => filterPackets(packets, filter), [packets, filter]);
+  const throughputPackets = useMemo(
+    () => filterPackets(packets, { ...filter, timeRange: null }),
+    [packets, filter],
+  );
   const flows = useMemo(() => groupFlows(matched), [matched]);
   const activeFlow = flows.find((flow) => flow.key === flowKey) ?? null;
 
@@ -242,6 +249,9 @@ export default function CapturePage() {
             <TabButton active={tab === 'flows'} onClick={() => setTab('flows')}>
               Flows ({flows.length})
             </TabButton>
+            <TabButton active={tab === 'analytics'} onClick={() => setTab('analytics')}>
+              Analytics
+            </TabButton>
             {activeFlow && (
               <button
                 className="ml-2 flex cursor-pointer items-center gap-1 rounded-md border border-cyan-700 bg-cyan-700/15 px-2 py-0.5 text-[11px] text-cyan-200 hover:bg-cyan-700/25"
@@ -256,8 +266,8 @@ export default function CapturePage() {
             </span>
           </div>
 
-          <div className="flex h-64 shrink-0 flex-col border-b border-zinc-800">
-            {tab === 'packets' ? (
+          {tab === 'packets' ? (
+            <div className="flex h-64 shrink-0 flex-col border-b border-zinc-800">
               <PacketList
                 packets={listed}
                 selected={selected}
@@ -265,7 +275,9 @@ export default function CapturePage() {
                 sort={sort}
                 onSortChange={setSort}
               />
-            ) : (
+            </div>
+          ) : tab === 'flows' ? (
+            <div className="flex h-64 shrink-0 flex-col border-b border-zinc-800">
               <FlowList
                 flows={flows}
                 activeKey={flowKey}
@@ -276,8 +288,27 @@ export default function CapturePage() {
                   if (first !== undefined) select(first);
                 }}
               />
-            )}
-          </div>
+            </div>
+          ) : (
+            <div className="flex max-h-[420px] shrink-0 flex-col gap-4 overflow-y-auto border-b border-zinc-800 bg-zinc-950/20 p-4">
+              <ThroughputChart
+                packets={throughputPackets}
+                selectedRange={filter.timeRange}
+                onSelectTimeRange={(range) => changeFilter({ ...filter, timeRange: range })}
+              />
+              <ProtocolBreakdown
+                packets={matched}
+                selectedProtocolId={filter.protocolId}
+                onSelectProtocol={(protocolId) => changeFilter({ ...filter, protocolId })}
+              />
+              <TcpSequenceTimeline
+                packets={matched}
+                flows={flows}
+                selectedPacket={selected}
+                onSelectPacket={select}
+              />
+            </div>
+          )}
 
           {current?.comment !== undefined && (
             <p className="border-b border-zinc-800 px-6 py-1.5 text-[11px] text-zinc-300">

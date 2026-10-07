@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FilterX } from 'lucide-react';
+import { FilterX, X } from 'lucide-react';
 import type { CapturePacket, DecodeStatus } from '../../../core/capture';
 import {
   EMPTY_FILTER,
@@ -192,6 +192,23 @@ export default function FilterBar({
           ))}
         </select>
       </label>
+
+      {filter.timeRange && (
+        <span className="flex items-center gap-1.5 rounded-md border border-cyan-800/80 bg-cyan-950/40 px-2 py-0.5 font-mono text-[11px] text-cyan-300">
+          <span>
+            Time: {(filter.timeRange.minUsec / 1_000_000).toFixed(4)}s –{' '}
+            {(filter.timeRange.maxUsec / 1_000_000).toFixed(4)}s
+          </span>
+          <button
+            type="button"
+            className="cursor-pointer text-cyan-400 hover:text-cyan-200"
+            aria-label="Clear time range filter"
+            onClick={() => set('timeRange', null)}
+          >
+            <X className="size-3" aria-hidden />
+          </button>
+        </span>
+      )}
 
       <button
         className="flex cursor-pointer items-center gap-1 rounded-md border border-zinc-700 px-2 py-1 text-[12px] text-zinc-300 hover:border-cyan-600 hover:text-cyan-300 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-600"

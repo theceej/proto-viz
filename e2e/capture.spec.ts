@@ -105,6 +105,99 @@ test('groups packets into flows and narrows the list to one', async ({ page }) =
   await expect(page.getByRole('button', { name: 'Packets (5)' })).toBeVisible();
 });
 
+test('views capture analytics: traffic throughput, protocol breakdown, and TCP timeline', async ({
+  page,
+}) => {
+  await openCapture(page);
+
+  // Switch to Analytics tab
+  await page.getByRole('button', { name: 'Analytics' }).click();
+
+  // Check Traffic Throughput widget
+  const throughput = page.getByRole('region', { name: 'Capture throughput analytics' });
+  await expect(throughput.getByRole('heading', { name: 'Traffic Throughput' })).toBeVisible();
+  await expect(throughput.getByRole('radio', { name: 'Bytes/sec' })).toBeVisible();
+  await throughput.getByRole('radio', { name: 'Bytes/sec' }).click();
+  await expect(throughput.getByRole('radio', { name: 'Bytes/sec' })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+
+  // Check Protocol Breakdown widget
+  const protocol = page.getByRole('region', { name: 'Protocol breakdown analytics' });
+  await expect(protocol.getByRole('heading', { name: 'Protocol Breakdown' })).toBeVisible();
+  await expect(protocol.getByRole('button', { name: /DNS/ })).toBeVisible();
+  await expect(protocol.getByRole('button', { name: /TCP/ })).toBeVisible();
+
+  // Click on DNS in the protocol breakdown to filter
+  await protocol.getByRole('button', { name: /DNS/ }).click();
+  await expect(matchCount(page)).toHaveText('2 of 5 packets');
+
+  // Clear protocol filter
+  await page.getByRole('button', { name: 'Clear filters' }).click();
+  await expect(matchCount(page)).toHaveText('5 of 5 packets');
+
+  // Check TCP Stream Timeline widget
+  const tcp = page.getByRole('region', { name: 'TCP Sequence & ACK timeline' });
+  await expect(tcp.getByRole('heading', { name: 'TCP Stream Timeline' })).toBeVisible();
+  await expect(tcp.getByRole('combobox', { name: 'Select TCP Flow' })).toBeVisible();
+  await expect(tcp.getByText('192.0.2.10:49152 (Initiator)')).toBeVisible();
+});
+
+test('filters time and inspects TCP packets using keyboard controls', async ({ page }) => {
+  await openCapture(page);
+  await page.getByRole('button', { name: 'Analytics', exact: true }).click();
+  const throughput = page.getByRole('region', { name: 'Capture throughput analytics' });
+  const packetsMetric = throughput.getByRole('radio', { name: 'Packets/sec' });
+  await packetsMetric.focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(throughput.getByRole('radio', { name: 'Bytes/sec' })).toHaveAttribute('aria-checked', 'true');
+  const end = throughput.getByRole('spinbutton', { name: 'End time (seconds)' });
+  const originalEnd = await end.inputValue();
+  await throughput.getByRole('spinbutton', { name: 'Start time (seconds)' }).fill('0');
+  await end.fill('0');
+  await throughput.getByRole('button', { name: 'Apply time range' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(matchCount(page)).toHaveText('1 of 5 packets');
+  await expect(throughput.getByRole('img')).toBeVisible();
+  await throughput.getByRole('button', { name: 'Reset time filter' }).click();
+  await expect(matchCount(page)).toHaveText('5 of 5 packets');
+  await expect(end).toHaveValue(originalEnd);
+
+  const protocol = page.getByRole('region', { name: 'Protocol breakdown analytics' });
+  await protocol.getByRole('radio', { name: 'All Layers' }).click();
+  await expect(protocol.getByText('Slices show layer occurrences; bars show capture share.')).toBeVisible();
+  const tcp = page.getByRole('region', { name: 'TCP Sequence & ACK timeline' });
+  await tcp.getByRole('combobox', { name: 'Inspect TCP packet' }).selectOption('2');
+  await expect(tcp.getByText('Selected packet: #2')).toBeVisible();
+  await page.getByRole('button', { name: 'Packets (5)' }).click();
+  await expect(page.getByRole('grid').locator('tbody tr').nth(1)).toHaveAttribute('aria-selected', 'true');
+});
+
+test('brushes the throughput timeline at its displayed SVG coordinates', async ({ page }) => {
+  await page.setViewportSize({ width: 1800, height: 900 });
+  await openCapture(page);
+  await page.getByRole('button', { name: 'Analytics', exact: true }).click();
+  const throughput = page.getByRole('region', { name: 'Capture throughput analytics' });
+  const duration = Number(await throughput.getByRole('spinbutton', { name: 'End time (seconds)' }).inputValue());
+  const chart = throughput.getByRole('img');
+  const coordinates = await chart.evaluate((element) => {
+    const svg = element as SVGSVGElement;
+    const matrix = svg.getScreenCTM()!;
+    return [0.1, 0.9].map((ratio) => {
+      const point = new DOMPoint(75 + ratio * 905, 85).matrixTransform(matrix);
+      return { x: point.x, y: point.y };
+    });
+  });
+  await page.mouse.move(coordinates[0]!.x, coordinates[0]!.y);
+  await page.mouse.down();
+  await page.mouse.move(coordinates[1]!.x, coordinates[1]!.y, { steps: 5 });
+  await page.mouse.up();
+  await expect(throughput.getByRole('button', { name: 'Reset time filter' })).toBeVisible();
+  expect(Number(await throughput.getByRole('spinbutton', { name: 'Start time (seconds)' }).inputValue())).toBeCloseTo(duration * 0.1, 5);
+  expect(Number(await throughput.getByRole('spinbutton', { name: 'End time (seconds)' }).inputValue())).toBeCloseTo(duration * 0.9, 5);
+});
+
 test('sends two capture packets to Packet Comparison', async ({ page }) => {
   await openCapture(page);
   const list = page.getByRole('grid');
@@ -225,6 +318,17 @@ test('rejects a corrupt pcapng by explaining what is wrong with it', async ({ pa
 });
 
 for (const theme of ['dark', 'light'] as const) {
+  test(`capture analytics has no WCAG A/AA violations in ${theme} mode`, async ({ page }) => {
+    await page.addInitScript((selected) => localStorage.setItem('pv-theme', selected), theme);
+    await openCapture(page);
+    await page.getByRole('button', { name: 'Analytics', exact: true }).click();
+    const results = await new AxeBuilder({ page })
+      .include('[aria-label="Capture throughput analytics"], [aria-label="Protocol breakdown analytics"], [aria-label="TCP Sequence & ACK timeline"]')
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22a', 'wcag22aa'])
+      .analyze();
+    expect(results.violations).toEqual([]);
+  });
+
   test(`a loaded capture has no automated WCAG A/AA violations in ${theme} mode`, async ({
     page,
   }) => {
