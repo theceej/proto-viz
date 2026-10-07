@@ -107,8 +107,9 @@ export const PRESETS: Preset[] = [
   {
     name: 'Q-in-Q',
     group: 'VLANs & tunnels',
-    description: 'Two stacked 802.1Q tags — 802.1ad provider bridging.',
-    layers: [l('ethernet'), l('vlan-8021q'), l('vlan-8021q'), l('ipv4'), l('udp')],
+    description:
+      'An 802.1ad service tag (S-VLAN 200) outside an 802.1Q customer tag (C-VLAN 100).',
+    layers: [l('ethernet'), l('qinq'), l('vlan-8021q'), l('ipv4'), l('udp')],
   },
   {
     name: 'VXLAN overlay',

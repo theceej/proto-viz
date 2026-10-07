@@ -8,7 +8,7 @@ export const vlan8021q: ProtocolDefinition = {
   layerHint: 'link',
   source: 'builtin',
   description:
-    'A 4-byte tag inserted after the Ethernet source address. On the wire, the TPID 0x8100 occupies the EtherType position of the outer frame and the tag carries the real EtherType — which is exactly how the stack serializes here. Stack two tags for Q-in-Q.',
+    'A 4-byte customer VLAN tag inserted after the Ethernet source address. On the wire, the TPID 0x8100 occupies the EtherType position of the outer frame and the tag carries the real EtherType — which is exactly how the stack serializes here. Place an 802.1ad QinQ service tag before this layer for provider bridging; two 802.1Q tags model legacy double tagging.',
   fields: [
     {
       id: 'pcp',

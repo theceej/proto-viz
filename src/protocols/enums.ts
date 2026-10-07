@@ -14,6 +14,7 @@ export const enumTables: EnumTable[] = [
       0x8863: 'PPPoE Discovery',
       0x8864: 'PPPoE Session',
       0x88a8: '802.1ad Q-in-Q',
+      0x9100: 'QinQ (legacy TPID)',
       0x88cc: 'LLDP',
       0x888e: 'EAPOL / IEEE 802.1X',
     },

@@ -35,6 +35,24 @@ async function loadTcpPreset(page: Page) {
   await page.getByRole('button', { name: /TCP over Ethernet/ }).click();
 }
 
+test('Q-in-Q preset builds a service tag outside the customer tag and edits its wire bits', async ({ page }) => {
+  await page.goto('/#/builder');
+  await page.getByRole('button', { name: 'Presets' }).click();
+  await page.getByRole('button', { name: /^Q-in-Q/ }).click();
+  await expect(page.getByRole('button', { name: 'Reorder 802.1ad QinQ layer' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Reorder 802.1Q VLAN layer' })).toBeVisible();
+  await expect(page.locator('[data-byte-offset="12"]')).toHaveText('88');
+  await expect(page.locator('[data-byte-offset="13"]')).toHaveText('a8');
+  await expect(page.locator('[data-byte-offset="16"]')).toHaveText('81');
+  await expect(page.locator('[data-byte-offset="17"]')).toHaveText('00');
+  await page.getByRole('textbox', { name: 'Service VLAN ID', exact: true }).fill('2000');
+  await page.getByRole('textbox', { name: 'Service PCP', exact: true }).fill('5');
+  await expect(page.locator('[data-byte-offset="14"]')).toHaveText('a7');
+  await expect(page.locator('[data-byte-offset="15"]')).toHaveText('d0');
+  await expect(page.locator('[data-byte-offset="18"]')).toHaveText('00');
+  await expect(page.locator('[data-byte-offset="19"]')).toHaveText('64');
+});
+
 test('builds a stack, edits a field, and updates the hex view', async ({ page }) => {
   await page.goto('/#/builder');
   for (const protocol of ['TCP', 'IPv4', 'Ethernet II']) {

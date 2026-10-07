@@ -20,6 +20,7 @@ const registry = createBuiltinRegistry();
 const TSHARK_PROTOCOL_NAMES: Record<string, string> = {
   ethernet: 'eth',
   'vlan-8021q': 'vlan',
+  qinq: 'ieee8021ad',
   ipv4: 'ip',
   'icmpv6-ndp': 'icmpv6',
   igmpv3: 'igmp',
@@ -50,6 +51,7 @@ const TSHARK_PROTOCOL_NAMES: Record<string, string> = {
 const STACKS: Record<string, string[]> = {
   ethernet: ['ethernet'],
   'vlan-8021q': ['ethernet', 'vlan-8021q', 'ipv4', 'udp'],
+  qinq: ['ethernet', 'qinq', 'vlan-8021q', 'ipv4', 'udp'],
   arp: ['ethernet', 'arp'],
   ipv4: ['ethernet', 'ipv4'],
   ipv6: ['ethernet', 'ipv6', 'udp'],
@@ -186,6 +188,51 @@ describe('every builtin protocol', () => {
 });
 
 describe.runIf(process.env.TSHARK === '1')('tshark export validation', () => {
+  it('dissects standard and legacy QinQ service/customer tag values independently', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'proto-viz-tshark-qinq-'));
+    try {
+      for (const tpid of [0x88a8, 0x9100]) {
+        const stack: StackInstance = {
+          layers: ['ethernet', 'qinq', 'vlan-8021q', 'ipv4', 'udp'].map(newLayer),
+        };
+        stack.layers[0]!.overrides.etherType = tpid;
+        stack.layers[0]!.pinned.push('etherType');
+        stack.layers[1]!.overrides = { pcp: 5, dei: 1, vid: 2000 };
+        stack.layers[2]!.overrides = { pcp: 2, dei: 0, vid: 100 };
+        const path = join(directory, `${tpid}.pcap`);
+        await writeFile(
+          path,
+          writePcap(
+            [{ bytes: serializeStack(stack, registry).bytes, tsSec: 1_700_000_000, tsUsec: 0 }],
+            planExport(stack, registry).linkType!,
+          ),
+        );
+        const fields = execFileSync(
+          'tshark',
+          [
+            '-r', path, '-T', 'fields',
+            '-e', 'eth.type', '-e', 'ieee8021ad.id', '-e', 'ieee8021ad.priority',
+            '-e', 'ieee8021ad.dei', '-e', 'vlan.id', '-e', 'vlan.priority',
+            '-e', 'vlan.dei', '-e', '_ws.malformed', '-E', 'separator=|',
+          ],
+          { encoding: 'utf8' },
+        ).trim();
+        const values = fields.split('|');
+        expect(values.slice(0, 6), `TPID ${tpid.toString(16)}`).toEqual([
+          `0x${tpid.toString(16)}`,
+          // tshark treats the legacy TPID as two ordinary VLAN tags.
+          ...(tpid === 0x88a8 ? ['2000', '5', '1', '100', '2'] : ['', '', '', '2000,100', '5,2']),
+        ]);
+        expect(values[6]!.split(',').map((value) => value === 'True' || value === '1')).toEqual(
+          tpid === 0x88a8 ? [false] : [true, false],
+        );
+        expect(values[7]).toBe('');
+      }
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
   it('validates generated IPv4 and IPv6 UDP fragment sequences and reassembly', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'proto-viz-tshark-fragments-'));
     const payload = Uint8Array.from({ length: 240 }, (_, index) => (index * 37 + 11) & 0xff);
