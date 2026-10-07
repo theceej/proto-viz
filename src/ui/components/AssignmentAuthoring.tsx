@@ -64,7 +64,6 @@ export default function AssignmentAuthoring({
   const [error, setError] = useState('');
   const [saveStatus, setSaveStatus] = useState('Saving draft…');
   const heading = useRef<HTMLHeadingElement>(null);
-  const saveQueue = useRef(Promise.resolve());
   const latestDraft = useRef<QuizDraft | null>(null);
   const revision = useRef(0);
   const custom = useLibraryStore((state) => state.custom);
@@ -119,8 +118,7 @@ export default function AssignmentAuthoring({
     };
     latestDraft.current = record;
     const save = () => {
-      saveQueue.current = saveQueue.current.then(async () => {
-        const result = await saveQuizDraft(record);
+      void saveQuizDraft(record).then((result) => {
         if (revision.current === current)
           setSaveStatus(
             result.ok
@@ -136,10 +134,7 @@ export default function AssignmentAuthoring({
   useEffect(
     () => () => {
       const record = latestDraft.current;
-      if (record)
-        saveQueue.current = saveQueue.current.then(async () => {
-          await saveQuizDraft({ ...record, updatedAt: new Date().toISOString() });
-        });
+      if (record) void saveQuizDraft({ ...record, updatedAt: new Date().toISOString() });
     },
     [],
   );
@@ -557,21 +552,19 @@ export default function AssignmentAuthoring({
       <footer className="flex flex-wrap gap-2 border-t border-zinc-700 pt-4">
         <button
           className={button}
-          onClick={() => {
-            saveQueue.current = saveQueue.current.then(async () => {
-              const result = await saveQuizDraft({
-                id: quiz.quizId,
-                updatedAt: new Date().toISOString(),
-                quiz,
-                authoringStep: step,
-                authoringQuestionId: question?.id,
-              });
-              if (result.ok) onBack();
-              else
-                setSaveStatus(
-                  `Draft could not be saved (${result.errorName}). Keep this window open and try saving again.`,
-                );
+          onClick={async () => {
+            const result = await saveQuizDraft({
+              id: quiz.quizId,
+              updatedAt: new Date().toISOString(),
+              quiz,
+              authoringStep: step,
+              authoringQuestionId: question?.id,
             });
+            if (result.ok) onBack();
+            else
+              setSaveStatus(
+                `Draft could not be saved (${result.errorName}). Keep this window open and try saving again.`,
+              );
           }}
         >
           Back to assignments
