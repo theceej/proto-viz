@@ -207,6 +207,22 @@ export default function HelpPage({ onStartTour }: { onStartTour: () => void }) {
         </p>
       </Section>
 
+      <Section title="Creating assignments">
+        <p>
+          Open <Ui>Assignments</Ui> in <Link className={link} to="/practice">Packet Practice</Link>,
+          then choose <Ui>Create assignment</Ui>. Enter the lesson details and select packets from
+          the current Builder, saved stacks, or individual steps of a saved composed scenario.
+          Each selection keeps a snapshot of that packet.
+        </p>
+        <p>
+          Review the generated questions, edit prompts and answer choices, choose the correct answer
+          and inspection target, and add or reorder your own questions. The review step shows
+          validation diagnostics before downloading a <code className={code}>.protoviz-quiz</code>
+          package. Drafts save locally and reopen at the same authoring step and question;
+          check the save status before leaving. Referenced custom protocols travel with the package.
+        </p>
+      </Section>
+
       <Section title="Opening a capture file">
         <p>
           <Link className={link} to="/capture">Capture Viewer</Link> reads both
