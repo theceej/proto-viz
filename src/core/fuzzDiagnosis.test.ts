@@ -103,6 +103,37 @@ describe('diagnoseFuzz', () => {
     expect(diagnosis.steps.map((s) => s.stage)).toEqual(['decode', 'validation', 'lint']);
   });
 
+  it('reports the checksum a receiver would compute from a lying length', () => {
+    // A mutation that overstates IPv4 Total Length leaves the transport
+    // checksum bytes untouched — the packet still dissects and every structural
+    // check passes, so without the receiver's view the diagnosis would say the
+    // corruption was harmless. It is not: a receiver derives the TCP
+    // pseudo-header length from that field and drops the segment.
+    const { stack, packet } = build();
+    const mutated: StackInstance = {
+      ...stack,
+      layers: stack.layers.map((layer) =>
+        layer.protocolId === 'ipv4'
+          ? { ...layer, overrides: { ...layer.overrides, totalLength: 60 }, pinned: ['totalLength'] }
+          : layer,
+      ),
+    };
+    const diagnosis = diagnoseFuzz(
+      { stack, packet },
+      {
+        bytes: serializeStack(mutated, registry).bytes,
+        mutations: [],
+        stack: mutated,
+        lengthChanged: false,
+      },
+      registry,
+    );
+
+    const issue = diagnosis.introducedValidation.find((i) => i.code === 'pseudo-header-mismatch');
+    expect(issue).toBeDefined();
+    expect(issue!.message).toContain('Total Length');
+  });
+
   it('handles a packet with no layers at all', () => {
     const stack: StackInstance = { layers: [] };
     const packet = serializeStack(stack, registry);

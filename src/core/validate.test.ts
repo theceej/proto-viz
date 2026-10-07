@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { newLayer, type StackInstance } from './model';
 import { getValidNextProtocols, validateStack } from './validate';
+import { serializeStack } from './serialize';
 import { createBuiltinRegistry } from '../protocols';
 
 const registry = createBuiltinRegistry();
@@ -141,5 +142,49 @@ describe('IPv6 extension-header ordering', () => {
     ).find((i) => i.code === 'ext-header-order')!;
     expect(issue.severity).toBe('warning');
     expect(issue.message).toContain('Routing');
+  });
+});
+
+describe('pseudo-header mismatch (#152)', () => {
+  const validate = (s: StackInstance) => validateStack(s, registry, serializeStack(s, registry));
+  const mismatches = (s: StackInstance) =>
+    validate(s).filter((issue) => issue.code === 'pseudo-header-mismatch');
+
+  it('says nothing about a well-formed packet', () => {
+    for (const ids of [
+      ['ethernet', 'ipv4', 'tcp'],
+      ['ethernet', 'ipv4', 'udp'],
+      ['ethernet', 'ipv6', 'tcp'],
+      ['ethernet', 'ipv6', 'icmpv6'],
+    ])
+      expect(mismatches(stack(ids))).toEqual([]);
+  });
+
+  it('warns that a receiver computes a different TCP checksum', () => {
+    const s = stack(['ethernet', 'ipv4', 'tcp']);
+    const ipv4 = s.layers[1]!;
+    // What "Overstate the IPv4 total length" and a hex edit both amount to.
+    ipv4.overrides['totalLength'] = 60;
+    ipv4.pinned.push('totalLength');
+
+    const [issue] = mismatches(s);
+    expect(issue).toBeDefined();
+    expect(issue!.severity).toBe('warning');
+    expect(issue!.layerIndex).toBe(2);
+    expect(issue!.fieldId).toBe('checksum');
+    expect(issue!.message).toContain('Total Length');
+    expect(issue!.message).toMatch(/so it computes 0x[0-9a-f]{4}/);
+    expect(issue!.message).toContain('drops the packet');
+    expect(issue!.reference).toContain('RFC 9293');
+  });
+
+  it('explains that an impossible length is never checksummed at all', () => {
+    const s = stack(['ethernet', 'ipv4', 'tcp']);
+    s.layers[1]!.overrides['totalLength'] = 10;
+    s.layers[1]!.pinned.push('totalLength');
+
+    const [issue] = mismatches(s);
+    expect(issue!.message).toContain('no segment left for it to check');
+    expect(issue!.suggestion).toContain('unpin');
   });
 });

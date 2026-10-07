@@ -100,3 +100,9 @@ body {
   scrollbar-width: thin;
   scrollbar-color: var(--color-zinc-700) transparent;
 }
+@media print {
+  body * { visibility: hidden !important; }
+  .quiz-print, .quiz-print * { visibility: visible !important; }
+  .quiz-print { position: absolute; inset: 0; padding: 24px; color: #000 !important; background: #fff !important; }
+  .quiz-print li { break-inside: avoid; border-color: #bbb !important; }
+}

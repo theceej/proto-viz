@@ -17,6 +17,7 @@ import { useHighlightStore } from '../../store/highlightStore';
 import { usePrefersReducedMotion } from '../usePrefersReducedMotion';
 import PlainHexView from '../components/PlainHexView';
 import ProtocolInfoLink from '../components/ProtocolInfoLink';
+import AssignmentsDialog from '../components/AssignmentsDialog';
 import { referencesFor } from '../../protocols/refs';
 
 const SOURCES: { id: QuizSource; label: string; description: string }[] = [
@@ -62,6 +63,7 @@ export default function PracticePage() {
   const [index, setIndex] = useState(0);
   const [answered, setAnswered] = useState<string | null>(null);
   const [score, setScore] = useState<Score>(EMPTY_SCORE);
+  const [assignmentsOpen, setAssignmentsOpen] = useState(false);
 
   const nextRound = useCallback(
     (from: QuizSource) => {
@@ -184,6 +186,12 @@ export default function PracticePage() {
         >
           <Dices className="size-3.5" aria-hidden />
           New packet
+        </button>
+        <button
+          className="flex cursor-pointer items-center gap-1.5 rounded-md border border-zinc-700 px-2.5 py-1 text-[12px] text-zinc-300 hover:border-cyan-600 hover:text-cyan-300"
+          onClick={() => setAssignmentsOpen(true)}
+        >
+          Assignments
         </button>
         <ScoreBoard score={score} />
       </header>
@@ -320,6 +328,7 @@ export default function PracticePage() {
           </section>
         </div>
       )}
+      {assignmentsOpen && <AssignmentsDialog onClose={() => setAssignmentsOpen(false)} />}
     </div>
   );
 }

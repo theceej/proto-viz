@@ -62,6 +62,15 @@ export default function HelpPage({ onStartTour }: { onStartTour: () => void }) {
           accepts text or hex, and the dice button fills it with random bytes.
         </p>
         <p>
+          Checksums are computed the way a sender does, from the packet's real
+          size and protocol. A receiver has only the header fields to go on, so
+          when one of those is made to lie — an overstated Total Length, a
+          Protocol pointing at the wrong transport — a warning appears giving the
+          checksum a receiver would compute and the one actually on the wire.
+          Those two disagreeing is why a packet that looks fine here is dropped
+          on a real network.
+        </p>
+        <p>
           <Ui>Break this packet</Ui> turns that into guided experiments: it offers
           only the corruptions that apply to your stack — a bad checksum, a
           mismatched length, an invalid IHL/data offset, a selector pointing at the

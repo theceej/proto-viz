@@ -39,6 +39,33 @@ type StackLike = {
   trailingPayload?: Uint8Array;
 };
 
+/** Public, bounded access to the workspace wire codec for other local file formats. */
+export interface WorkspaceWireBudget { bytes: number }
+
+export function createWorkspaceWireBudget(): WorkspaceWireBudget { return { bytes: 0 }; }
+
+export function encodeWorkspaceProtocol(definition: ProtocolDefinition): unknown {
+  return encodeProtocol(definition);
+}
+
+export function decodeWorkspaceProtocols(input: unknown, path = '$.customProtocols', budget = createWorkspaceWireBudget()): ProtocolDefinition[] {
+  return parseProtocols(array(input, path, MAX_PROTOCOLS), path, budget);
+}
+
+export function encodeWorkspaceStack(stack: StackLike): Record<string, unknown> {
+  return encodeStack(stack);
+}
+
+export function decodeWorkspaceStack(input: unknown, path = '$.stack', budget = createWorkspaceWireBudget()): StackInstance {
+  return parseStack(input, path, budget);
+}
+
+export function encodeWorkspaceBytes(bytes: Uint8Array): { $bytes: string } { return encodeBytes(bytes); }
+
+export function decodeWorkspaceBytes(input: unknown, path: string, budget = createWorkspaceWireBudget(), max = MAX_PACKET): Uint8Array {
+  return decodeBytes(input, path, budget, max);
+}
+
 export interface WorkspaceSavedStack extends SavedStack {
   expectedBytes: Uint8Array;
 }

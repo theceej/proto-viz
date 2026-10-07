@@ -153,6 +153,43 @@ test('edits a byte in the hex view and reflects it across views', async ({ page 
   await expect(page.getByRole('textbox', { name: 'TTL', exact: true })).toHaveValue('64');
 });
 
+/**
+ * #152: a hex edit in one layer can decide a computed field in another. Editing
+ * an IPv4 address changes the TCP pseudo-header, so the TCP checksum has to
+ * follow it — through the real editor, not just the fold-back unit tests.
+ */
+test('recomputes the TCP checksum when an IPv4 address byte is hex-edited', async ({ page }) => {
+  await loadTcpPreset(page);
+  await page
+    .getByRole('region', { name: 'Hex dump' })
+    .getByRole('button', { name: 'Edit' })
+    .click();
+
+  // Ethernet(14) › IPv4(20) › TCP: byte 26 starts the IPv4 source address, and
+  // the TCP checksum is the 16-bit field at 50. Each byte's aria-label names the
+  // field that owns it, so the offsets are asserted rather than assumed.
+  const checksumHigh = page.locator('[data-byte-offset="50"]');
+  const checksumLow = page.locator('[data-byte-offset="51"]');
+  await expect(checksumHigh).toHaveAttribute('aria-label', /tcp checksum/);
+  await expect(checksumLow).toHaveAttribute('aria-label', /tcp checksum/);
+  const before = [await checksumHigh.textContent(), await checksumLow.textContent()];
+
+  const srcByte = page.locator('[data-byte-offset="26"]');
+  await expect(srcByte).toHaveAttribute('aria-label', /ipv4 src/);
+  await srcByte.focus();
+  await page.keyboard.press('7');
+  await page.keyboard.press('f');
+  await expect(srcByte).toHaveText('7f');
+
+  // The address edit is in the IPv4 header; the checksum that moved is TCP's.
+  await expect
+    .poll(async () => [await checksumHigh.textContent(), await checksumLow.textContent()])
+    .not.toEqual(before);
+  await expect(page.getByRole('textbox', { name: 'Source Address', exact: true })).toHaveValue(
+    /^127\./,
+  );
+});
+
 test('exports a PCAP with the expected file header', async ({ page }) => {
   await loadTcpPreset(page);
   await page.getByRole('button', { name: 'Export PCAP' }).click();
