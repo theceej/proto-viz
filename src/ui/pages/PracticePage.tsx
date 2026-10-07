@@ -135,6 +135,7 @@ export default function PracticePage() {
   useEffect(() => {
     if (!question) return;
     const onKey = (e: KeyboardEvent) => {
+      if (assignmentsOpen) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const tag = (e.target as HTMLElement | null)?.tagName ?? '';
       if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
@@ -157,7 +158,7 @@ export default function PracticePage() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [question, answered, answer, advance]);
+  }, [question, answered, answer, advance, assignmentsOpen]);
 
   const transition = reducedMotion ? '' : 'transition-colors';
   const total = round?.questions.length ?? 0;
