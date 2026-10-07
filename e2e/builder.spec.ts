@@ -35,6 +35,23 @@ async function loadTcpPreset(page: Page) {
   await page.getByRole('button', { name: /TCP over Ethernet/ }).click();
 }
 
+test('gRPC preset edits message bytes and recomputes both framing lengths', async ({ page }) => {
+  await page.goto('/#/builder');
+  await page.getByRole('button', { name: 'Presets' }).click();
+  await page.getByRole('button', { name: /^gRPC message/ }).click();
+  await expect(page.getByRole('button', { name: 'Reorder gRPC layer' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Reorder HTTP/2 layer' })).toBeVisible();
+  // Ethernet (14), IPv4 (20), TCP (20), HTTP/2 (9), then the gRPC prefix.
+  await expect(page.locator('[data-byte-offset="56"]')).toHaveText('0c');
+  await expect(page.locator('[data-byte-offset="67"]')).toHaveText('07');
+  await page.getByRole('textbox', { name: 'Message Bytes', exact: true }).fill('0a 03 66 6f 6f');
+  await expect(page.locator('[data-byte-offset="56"]')).toHaveText('0a');
+  await expect(page.locator('[data-byte-offset="67"]')).toHaveText('05');
+  await expect(page.locator('[data-byte-offset="70"]')).toHaveText('66');
+  await page.getByRole('combobox', { name: 'Compressed Flag', exact: true }).fill('1');
+  await expect(page.locator('[data-byte-offset="63"]')).toHaveText('01');
+});
+
 test('Q-in-Q preset builds a service tag outside the customer tag and edits its wire bits', async ({ page }) => {
   await page.goto('/#/builder');
   await page.getByRole('button', { name: 'Presets' }).click();

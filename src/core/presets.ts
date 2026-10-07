@@ -79,6 +79,12 @@ export const PRESETS: Preset[] = [
     layers: [l('ethernet'), l('ipv4'), l('udp'), l('dns')],
   },
   {
+    name: 'gRPC message',
+    group: 'Basics',
+    description: 'One complete uncompressed message in an HTTP/2 DATA frame; stream headers are separate.',
+    layers: [l('ethernet'), l('ipv4'), l('tcp', { flags: 0x18 }), l('http2'), l('grpc')],
+  },
+  {
     name: 'ICMP ping',
     group: 'Basics',
     description: 'An ICMP echo request (type 8) with a short data payload.',

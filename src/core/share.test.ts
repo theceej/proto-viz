@@ -27,6 +27,7 @@ describe('share codes', () => {
     expect(SHARE_PROTOCOL_IDS[78]).toBe('ikev2');
     expect(SHARE_PROTOCOL_IDS[79]).toBe('ikev2-natt');
     expect(SHARE_PROTOCOL_IDS[80]).toBe('qinq');
+    expect(SHARE_PROTOCOL_IDS[81]).toBe('grpc');
   });
 
   it('round-trips representative stacks', () => {
@@ -36,6 +37,7 @@ describe('share codes', () => {
       ['ethernet', 'ipv4', 'udp', 'dns'],
       ['ethernet', 'vlan-8021q', 'vlan-8021q', 'ipv4', 'udp'],
       ['ethernet', 'qinq', 'vlan-8021q', 'ipv4', 'udp'],
+      ['ethernet', 'ipv4', 'tcp', 'http2', 'grpc'],
       ['ethernet', 'ipv4', 'udp', 'vxlan', 'ethernet', 'ipv4', 'udp'],
       ['ethernet', 'ipv4', 'tcp', 'tls', 'http1'],
       [...SHARE_PROTOCOL_IDS].slice(0, MAX_SHARE_LAYERS),

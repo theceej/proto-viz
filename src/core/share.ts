@@ -100,6 +100,7 @@ export const SHARE_PROTOCOL_IDS: readonly string[] = [
   'ikev2',
   'ikev2-natt',
   'qinq',
+  'grpc',
 ];
 
 export class ShareCodeError extends Error {}

@@ -44,6 +44,7 @@ import { stun } from './stun';
 import { ipsecAh, ipsecEsp } from './ipsec';
 import { websocket } from './websocket';
 import { http2 } from './http2';
+import { grpc } from './grpc';
 import { mqtt } from './mqtt';
 import { coap } from './coap';
 import { llmnr, mdns } from './mdns';
@@ -109,6 +110,7 @@ export const builtinProtocols: ProtocolDefinition[] = [
   ipsecAh,
   websocket,
   http2,
+  grpc,
   mqtt,
   coap,
   mdns,

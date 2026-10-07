@@ -170,6 +170,7 @@ export function validateStack(
   }
 
   addExtensionHeaderIssues(issues, defs as ProtocolDefinition[]);
+  addGrpcCarrierIssues(issues, stack, defs as ProtocolDefinition[], packet);
 
   if (packet) {
     addMtuIssues(issues, stack, defs as ProtocolDefinition[], packet);
@@ -178,6 +179,50 @@ export function validateStack(
   }
 
   return issues;
+}
+
+/** The builder models one complete gRPC message in an unpadded DATA frame. */
+function addGrpcCarrierIssues(
+  issues: ValidationIssue[],
+  stack: StackInstance,
+  defs: ProtocolDefinition[],
+  packet?: SerializedPacket,
+): void {
+  defs.forEach((def, index) => {
+    if (def.id !== 'http2' || defs[index + 1]?.id !== 'grpc') return;
+    const layer = stack.layers[index]!;
+    const value = (fieldId: string): number => Number(
+      packet?.spans.find((span) => span.layerUid === layer.uid && span.fieldId === fieldId)?.value ??
+      layer.overrides[fieldId] ??
+      def.fields.find((field) => field.id === fieldId)?.default,
+    );
+    const warn = (fieldId: string, code: string, message: string) => issues.push({
+      severity: 'warning',
+      layerIndex: index,
+      fieldId,
+      code,
+      message,
+      reference: 'gRPC over HTTP/2',
+    });
+    if (value('type') !== 0) {
+      warn(
+        'type', 'grpc-http2-data',
+        'gRPC messages belong in HTTP/2 DATA frames (type 0); HEADERS carry separate stream metadata.',
+      );
+    }
+    if (value('streamId') === 0) {
+      warn(
+        'streamId', 'grpc-http2-stream',
+        'gRPC DATA requires a nonzero HTTP/2 stream identifier.',
+      );
+    }
+    if ((value('frameFlags') & 0x08) !== 0) {
+      warn(
+        'frameFlags', 'grpc-http2-padding',
+        'This gRPC example requires an unpadded DATA frame; the PADDED flag needs a pad-length byte and padding that are not modeled here.',
+      );
+    }
+  });
 }
 
 /**

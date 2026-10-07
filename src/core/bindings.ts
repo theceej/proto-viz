@@ -23,6 +23,7 @@ export const NS = {
   mplsPayload: 'mpls-payload', // opaque: MPLS has no payload-type field
   l2tpPayload: 'l2tp-payload',
   tlsPayload: 'tls-payload', // opaque: TLS fragment content
+  http2Payload: 'http2-payload', // frame body; application identity requires stream headers
   icmpPayload: 'icmp-payload', // opaque: quoted datagram inside ICMP errors
   llcSap: 'llc-sap', // 802.2 LLC DSAP (802.3 frames select payload by SAP)
   gtpPayload: 'gtp-payload', // opaque: GTP-U tunnels a user IP packet

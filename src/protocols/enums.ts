@@ -2,6 +2,11 @@ import type { EnumTable } from '../core/model';
 
 export const enumTables: EnumTable[] = [
   {
+    id: 'grpc-compression',
+    name: 'gRPC compressed flag',
+    values: { 0: 'Uncompressed', 1: 'Compressed (grpc-encoding)' },
+  },
+  {
     id: 'ethertype',
     name: 'EtherTypes',
     values: {
