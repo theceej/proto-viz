@@ -21,7 +21,13 @@ export const http2: ProtocolDefinition = {
     { id: 'reserved', name: 'R', type: 'uint', bitLength: 1, default: 0 },
     { id: 'streamId', name: 'Stream Identifier', type: 'uint', bitLength: 31, default: 1, description: 'Odd for client-initiated streams; 0 = connection control.' },
   ],
-  providesNamespaces: [],
+  providesNamespaces: [
+    {
+      id: NS.http2Payload,
+      displayName: 'frame body (stream headers select the application)',
+      selectorFieldId: null,
+    },
+  ],
   encapsulations: [
     { namespaceId: NS.tlsPayload },
     { namespaceId: NS.tcpDstPort, value: 80 },

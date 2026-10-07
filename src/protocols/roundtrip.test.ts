@@ -33,6 +33,7 @@ const TSHARK_PROTOCOL_NAMES: Record<string, string> = {
   'ipsec-esp': 'esp',
   'ipsec-ah': 'ah',
   http2: 'tls',
+  grpc: 'tls', // cleartext gRPC is checked below with stream headers
   wireguard: 'wg',
   gtpu: 'gtp',
   pop3: 'pop',
@@ -94,6 +95,7 @@ const STACKS: Record<string, string[]> = {
   'ipsec-ah': ['ethernet', 'ipv4', 'ipsec-ah', 'tcp'],
   websocket: ['ethernet', 'ipv4', 'tcp', 'websocket'],
   http2: ['ethernet', 'ipv4', 'tcp', 'tls', 'http2'],
+  grpc: ['ethernet', 'ipv4', 'tcp', 'tls', 'http2', 'grpc'],
   mqtt: ['ethernet', 'ipv4', 'tcp', 'mqtt'],
   coap: ['ethernet', 'ipv4', 'udp', 'coap'],
   mdns: ['ethernet', 'ipv4', 'udp', 'mdns'],
@@ -188,6 +190,60 @@ describe('every builtin protocol', () => {
 });
 
 describe.runIf(process.env.TSHARK === '1')('tshark export validation', () => {
+  it('dissects gRPC in an HTTP/2 stream with real content-type headers', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'proto-viz-tshark-grpc-'));
+    try {
+      // HPACK static indexes: POST=3, http=6; literal path=4, authority=1,
+      // content-type=31. Strings are deliberately not Huffman encoded.
+      const literal = (index: number, text: string): number[] => {
+        const bytes = new TextEncoder().encode(text);
+        return [...(index < 15 ? [index] : [15, index - 15]), bytes.length, ...bytes];
+      };
+      const headers = [
+        0x83, 0x86,
+        ...literal(4, '/example.Greeter/SayHello'),
+        ...literal(1, 'example.com'),
+        ...literal(31, 'application/grpc'),
+        0, 2, 0x74, 0x65, 8, ...new TextEncoder().encode('trailers'), // te: trailers
+      ];
+      const data = serializeStack({ layers: ['http2', 'grpc'].map(newLayer) }, registry).bytes;
+      const preface = new TextEncoder().encode('PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n');
+      const stream = new Uint8Array([
+        ...preface,
+        0, 0, 0, 4, 0, 0, 0, 0, 0, // empty SETTINGS
+        0, 0, headers.length, 1, 4, 0, 0, 0, 1, ...headers, // HEADERS, END_HEADERS, stream 1
+        ...data,
+      ]);
+      const stack: StackInstance = {
+        layers: ['ethernet', 'ipv4', 'tcp'].map(newLayer),
+        trailingPayload: stream,
+      };
+      stack.layers[2]!.overrides = { flags: 0x18, dstPort: 80 };
+      const path = join(directory, 'grpc.pcap');
+      await writeFile(
+        path,
+        writePcap(
+          [{ bytes: serializeStack(stack, registry).bytes, tsSec: 1_700_000_000, tsUsec: 0 }],
+          planExport(stack, registry).linkType!,
+        ),
+      );
+      const fields = execFileSync(
+        'tshark',
+        [
+          '-r', path, '-d', 'tcp.port==80,http2',
+          '-o', 'tcp.check_checksum:TRUE', '-o', 'ip.check_checksum:TRUE',
+          '-T', 'fields', '-e', 'grpc.compressed_flag', '-e', 'grpc.message_length',
+          '-e', 'grpc.message_data', '-e', '_ws.malformed',
+          '-e', 'ip.checksum.status', '-e', 'tcp.checksum.status', '-E', 'separator=|',
+        ],
+        { encoding: 'utf8' },
+      ).trim();
+      expect(fields).toBe('0|7|0a0568656c6c6f||1|1');
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
   it('dissects standard and legacy QinQ service/customer tag values independently', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'proto-viz-tshark-qinq-'));
     try {

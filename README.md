@@ -28,7 +28,8 @@ your browser. Nothing is uploaded anywhere.
   EAPOL/802.1X. Infrastructure: STP, LLDP, CDP, VRRP, HSRP, RIPv1/v2,
   EIGRP, OSPF, IS-IS, BGP, BFD, PIM,
   NetFlow v5. Applications: EAP, DNS, mDNS, LLMNR, NBNS, DHCP, DHCPv6, HTTP/1.1,
-  HTTP/2, WebSocket, TLS record, QUIC, NTP, TFTP, RADIUS, STUN, RTP, RTCP,
+  HTTP/2, gRPC (message framing with opaque payload bytes), WebSocket, TLS record,
+  QUIC, NTP, TFTP, RADIUS, STUN, RTP, RTCP,
   SIP, RTSP, MQTT, CoAP, Modbus TCP, SMB2, FTP, SMTP, POP3, IMAP, Telnet,
   IRC, Syslog, SSDP. Tunnels & VPN: GRE, VXLAN, GENEVE, MPLS, GTP-U, IPsec
   AH/ESP, WireGuard, PPPoE, L2TP. RFC references in the library link to the

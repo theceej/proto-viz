@@ -16,9 +16,10 @@
  * - A layer whose header can't be sized from the wire (free-form text
  *   protocols, multiple value-length fields) is left undecoded; its bytes
  *   become payload.
- * - Opaque namespaces are followed only when exactly one protocol claims
- *   them (VXLAN → Ethernet). Several claimants (an ICMP quoted datagram,
- *   a TLS fragment) mean the content is a guess, so it stays payload.
+ * - Opaque namespaces are followed only when exactly one non-conventional
+ *   protocol claims them (VXLAN → Ethernet). Several claimants or a lone
+ *   conventional application (HTTP/2 → gRPC) require context unavailable
+ *   in the header, so their content stays payload.
  * - Compressed DNS names (pointer labels) are not decoded.
  */
 import type { Expr, FieldValue, ProtocolDefinition, StackInstance } from './model';
@@ -485,8 +486,13 @@ function nextProtocol(
     }
     // Opaque namespace: follow only a structurally certain carriage.
     const claimants = claims.byNamespace.get(ns.id) ?? [];
-    if (claimants.length === 1) return claimants[0];
-    if (claimants.length > 1) {
+    if (
+      claimants.length === 1 &&
+      claimants[0]!.encapsulations.some(
+        (claim) => claim.namespaceId === ns.id && !claim.conventional,
+      )
+    ) return claimants[0];
+    if (claimants.length > 0) {
       notes.push(
         `${def.name} carries its payload opaquely (${ns.displayName}); content kept as raw payload`,
       );
