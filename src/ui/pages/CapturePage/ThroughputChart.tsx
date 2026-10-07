@@ -6,6 +6,7 @@ import {
   type ThroughputBucket,
 } from '../../../core/captureAnalytics';
 import type { TimeRangeFilter } from '../../../core/captureFilter';
+import { navigateChartRadios } from './chartControls';
 import {
   formatByteCount,
   formatByteRate,
@@ -53,8 +54,11 @@ export default function ThroughputChart({
 
   const getSvgX = (e: React.PointerEvent<SVGSVGElement>): number => {
     if (!svgRef.current) return 0;
-    const rect = svgRef.current.getBoundingClientRect();
-    const rawX = ((e.clientX - rect.left) / rect.width) * SVG_WIDTH;
+    const point = svgRef.current.createSVGPoint();
+    point.x = e.clientX;
+    point.y = e.clientY;
+    const matrix = svgRef.current.getScreenCTM();
+    const rawX = matrix ? point.matrixTransform(matrix.inverse()).x : PAD_LEFT;
     return Math.max(PAD_LEFT, Math.min(PAD_LEFT + PLOT_WIDTH, rawX));
   };
 
@@ -74,7 +78,7 @@ export default function ThroughputChart({
     const x = getSvgX(e);
     setDragStartPx(x);
     setDragCurrentPx(x);
-    (e.target as Element).setPointerCapture?.(e.pointerId);
+    e.currentTarget.setPointerCapture?.(e.pointerId);
   };
 
   const handlePointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
@@ -96,12 +100,13 @@ export default function ThroughputChart({
     }
   };
 
-  const handlePointerUp = () => {
+  const handlePointerUp = (e: React.PointerEvent<SVGSVGElement>) => {
     if (dragStartPx !== null && dragCurrentPx !== null) {
-      const dist = Math.abs(dragCurrentPx - dragStartPx);
+      const endPx = getSvgX(e);
+      const dist = Math.abs(endPx - dragStartPx);
       if (dist >= 6) {
-        const u1 = pxToUsec(Math.min(dragStartPx, dragCurrentPx));
-        const u2 = pxToUsec(Math.max(dragStartPx, dragCurrentPx));
+        const u1 = pxToUsec(Math.min(dragStartPx, endPx));
+        const u2 = pxToUsec(Math.max(dragStartPx, endPx));
         onSelectTimeRange({ minUsec: u1, maxUsec: u2 });
       } else {
         // Single click: find bucket clicked
@@ -182,14 +187,15 @@ export default function ThroughputChart({
             </button>
           )}
 
-          <div className="flex rounded-md border border-zinc-700 bg-zinc-950 p-0.5" role="radiogroup" aria-label="Throughput Metric">
+          <div className="flex rounded-md border border-zinc-700 bg-zinc-950 p-0.5" role="radiogroup" aria-label="Throughput Metric" onKeyDown={navigateChartRadios}>
             <button
               type="button"
               role="radio"
               aria-checked={metric === 'packets'}
+              tabIndex={metric === 'packets' ? 0 : -1}
               className={`cursor-pointer rounded px-2.5 py-0.5 text-[11px] font-medium transition-colors ${
                 metric === 'packets'
-                  ? 'bg-cyan-600 text-white'
+                  ? 'bg-cyan-700 text-white'
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
               onClick={() => setMetric('packets')}
@@ -200,9 +206,10 @@ export default function ThroughputChart({
               type="button"
               role="radio"
               aria-checked={metric === 'bytes'}
+              tabIndex={metric === 'bytes' ? 0 : -1}
               className={`cursor-pointer rounded px-2.5 py-0.5 text-[11px] font-medium transition-colors ${
                 metric === 'bytes'
-                  ? 'bg-cyan-600 text-white'
+                  ? 'bg-cyan-700 text-white'
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
               onClick={() => setMetric('bytes')}
@@ -252,7 +259,10 @@ export default function ThroughputChart({
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
-          onPointerCancel={handlePointerUp}
+          onPointerCancel={() => {
+            setDragStartPx(null);
+            setDragCurrentPx(null);
+          }}
           onPointerLeave={handlePointerLeave}
         >
           <defs>
@@ -437,7 +447,38 @@ export default function ThroughputChart({
         )}
       </div>
 
-      <div className="flex items-center justify-between text-[11px] text-zinc-500">
+      <form
+        key={`${summary.firstUsec}:${summary.lastUsec}:${selectedRange?.minUsec}:${selectedRange?.maxUsec}`}
+        className="flex flex-wrap items-end gap-2 text-[11px] text-zinc-400"
+        onChange={(event) => {
+          (event.currentTarget.elements.namedItem('end') as HTMLInputElement).setCustomValidity('');
+        }}
+        onSubmit={(event) => {
+          event.preventDefault();
+          const data = new FormData(event.currentTarget);
+          const minUsec = Number(data.get('start')) * 1_000_000;
+          const maxUsec = Number(data.get('end')) * 1_000_000;
+          const end = event.currentTarget.elements.namedItem('end') as HTMLInputElement;
+          if (maxUsec < minUsec) {
+            end.setCustomValidity('End time must be at or after start time.');
+            end.reportValidity();
+            return;
+          }
+          onSelectTimeRange({ minUsec, maxUsec });
+        }}
+      >
+        <label className="flex flex-col gap-1">
+          Start time (seconds)
+          <input name="start" type="number" required step="0.000001" defaultValue={formatRelativeTime(selectedRange?.minUsec ?? summary.firstUsec)} className="w-32 rounded border border-zinc-700 bg-zinc-950 px-2 py-1 text-zinc-200" />
+        </label>
+        <label className="flex flex-col gap-1">
+          End time (seconds)
+          <input name="end" type="number" required step="0.000001" defaultValue={formatRelativeTime(selectedRange?.maxUsec ?? summary.lastUsec)} onChange={(event) => event.currentTarget.setCustomValidity('')} className="w-32 rounded border border-zinc-700 bg-zinc-950 px-2 py-1 text-zinc-200" />
+        </label>
+        <button type="submit" className="rounded border border-zinc-700 px-2 py-1 text-zinc-200 hover:border-cyan-600">Apply time range</button>
+      </form>
+
+      <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-zinc-500">
         <span className="flex items-center gap-1.5">
           <BarChart2 className="size-3.5" aria-hidden />
           Click or drag across timeline to filter packet table

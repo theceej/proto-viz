@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { CapturePacket } from './capture';
 import type { Flow } from './flows';
+import { groupFlows } from './flows';
+import { openCaptureFile } from './capture';
+import { newLayer } from './model';
+import { serializeStack } from './serialize';
+import { LINKTYPE, writePcap } from './pcap';
+import { createBuiltinRegistry } from '../protocols';
 import {
   calculateThroughputBuckets,
   calculateProtocolDistribution,
@@ -34,6 +40,14 @@ function makePacket(partial: Partial<CapturePacket> & { number: number; relative
 }
 
 describe('calculateThroughputBuckets', () => {
+  it('uses consistent rates for packets sharing one timestamp', () => {
+    const result = calculateThroughputBuckets([
+      makePacket({ number: 1, relativeUsec: 0 }),
+      makePacket({ number: 2, relativeUsec: 0 }),
+    ]);
+    expect(result.buckets).toHaveLength(1);
+    expect(result.maxPacketsPerSec).toBe(result.avgPacketsPerSec);
+  });
   it('returns zeroes for an empty packet list', () => {
     const res = calculateThroughputBuckets([]);
     expect(res.totalPackets).toBe(0);
@@ -87,6 +101,12 @@ describe('calculateThroughputBuckets', () => {
 });
 
 describe('calculateProtocolDistribution', () => {
+  it('counts a repeated protocol once per packet in all-layer mode', () => {
+    const result = calculateProtocolDistribution([
+      makePacket({ number: 1, relativeUsec: 0, protocols: ['IPv4', 'IPv4', 'TCP'], protocolIds: ['ipv4', 'ipv4', 'tcp'] }),
+    ], 'all');
+    expect(result.items.find((item) => item.protocolId === 'ipv4')?.packetPercentage).toBe(100);
+  });
   const packets = [
     makePacket({
       number: 1,
@@ -145,6 +165,45 @@ describe('calculateProtocolDistribution', () => {
 });
 
 describe('calculateStevensPlot and extractTcpDetails', () => {
+  const tcpPacket = (number: number, seq: number, ack: number, flags: number, reverse = false) =>
+    makePacket({
+      number, relativeUsec: number * 1000,
+      source: '127.0.0.1', destination: '127.0.0.1',
+      srcPort: reverse ? 80 : 49152, dstPort: reverse ? 49152 : 80,
+      stack: { layers: [{ uid: `tcp-${number}`, protocolId: 'tcp', overrides: { seq, ack, flags }, pinned: [] }] },
+    });
+
+  it('distinguishes loopback directions and resolves the first ACK against the peer baseline', () => {
+    const packets = [tcpPacket(1, 5000, 9001, 0x10), tcpPacket(2, 9000, 5001, 0x10, true)];
+    const plot = calculateStevensPlot(packets, groupFlows(packets)[0]!);
+    expect(plot.points.map((point) => point.direction)).toEqual(['forward', 'reverse']);
+    expect(plot.points.map((point) => point.relAck)).toEqual([1, 1]);
+  });
+
+  it('does not invent a relative ACK when the peer was never captured', () => {
+    const packets = [tcpPacket(1, 5000, 9001, 0x10)];
+    expect(calculateStevensPlot(packets, groupFlows(packets)[0]!).points[0]!.relAck).toBeNull();
+  });
+
+  it('handles wrapped sequence numbers and counts SYN alongside data', () => {
+    const packets = [tcpPacket(1, 0xffffffff, 0, 0x02), tcpPacket(2, 0, 0, 0)];
+    packets[0]!.capturedLength = 64; // 10 bytes after the estimated headers.
+    const plot = calculateStevensPlot(packets, groupFlows(packets)[0]!);
+    expect(plot.points[1]!.relSeq).toBe(1);
+    expect(plot.maxSeqForward).toBe(11);
+  });
+
+  it('excludes Ethernet padding from TCP payload and supports raw IP captures', () => {
+    const registry = createBuiltinRegistry();
+    for (const ethernet of [true, false]) {
+      const layers = [...(ethernet ? [newLayer('ethernet')] : []), newLayer('ipv4'), newLayer('tcp')];
+      const packet = serializeStack({ layers }, registry);
+      const bytes = new Uint8Array(packet.bytes.length + 6);
+      bytes.set(packet.bytes);
+      const capture = openCaptureFile(writePcap([{ bytes, tsSec: 1, tsUsec: 0 }], ethernet ? LINKTYPE.ETHERNET : LINKTYPE.RAW), registry, 'padding.pcap');
+      expect(extractTcpDetails(capture.packets[0]!)?.payloadLength).toBe(0);
+    }
+  });
   it('extracts TCP details including sequence, ack, flags, and window', () => {
     const p = makePacket({
       number: 1,

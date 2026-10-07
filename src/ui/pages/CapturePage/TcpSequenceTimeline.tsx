@@ -8,6 +8,7 @@ import {
   type TcpPacketPoint,
 } from '../../../core/captureAnalytics';
 import { formatByteCount, formatDuration, formatRelativeTime } from './format';
+import { navigateChartRadios } from './chartControls';
 
 interface TcpSequenceTimelineProps {
   packets: CapturePacket[];
@@ -93,12 +94,12 @@ export default function TcpSequenceTimeline({
     1,
     relativeSeq
       ? Math.max(plotData.maxSeqForward, plotData.maxSeqReverse, plotData.maxAckForward, plotData.maxAckReverse)
-      : Math.max(...plotData.points.map((p) => Math.max(p.seq, p.ack ?? 0))),
+      : plotData.points.reduce((max, p) => Math.max(max, p.seq + p.payloadLength + Number(p.flags.syn) + Number(p.flags.fin), p.ack ?? 0), 0),
   );
 
   const minSeqVal = relativeSeq
     ? 0
-    : Math.min(...plotData.points.map((p) => Math.min(p.seq, p.ack ?? p.seq)));
+    : plotData.points.reduce((min, p) => Math.min(min, p.seq, p.ack ?? p.seq), Infinity);
 
   const seqSpan = Math.max(1, maxSeqVal - minSeqVal);
 
@@ -145,14 +146,15 @@ export default function TcpSequenceTimeline({
         {/* View Options */}
         <div className="flex flex-wrap items-center gap-2">
           {/* Direction Filter */}
-          <div className="flex rounded-md border border-zinc-700 bg-zinc-950 p-0.5" role="radiogroup" aria-label="Direction">
+          <div className="flex rounded-md border border-zinc-700 bg-zinc-950 p-0.5" role="radiogroup" aria-label="Direction" onKeyDown={navigateChartRadios}>
             <button
               type="button"
               role="radio"
               aria-checked={dirFilter === 'all'}
+              tabIndex={dirFilter === 'all' ? 0 : -1}
               className={`cursor-pointer rounded px-2.5 py-0.5 text-[10px] font-medium transition-colors ${
                 dirFilter === 'all'
-                  ? 'bg-cyan-600 text-white'
+                  ? 'bg-cyan-700 text-white'
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
               onClick={() => setDirFilter('all')}
@@ -163,9 +165,10 @@ export default function TcpSequenceTimeline({
               type="button"
               role="radio"
               aria-checked={dirFilter === 'forward'}
+              tabIndex={dirFilter === 'forward' ? 0 : -1}
               className={`cursor-pointer rounded px-2.5 py-0.5 text-[10px] font-medium transition-colors ${
                 dirFilter === 'forward'
-                  ? 'bg-cyan-600 text-white'
+                  ? 'bg-cyan-700 text-white'
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
               onClick={() => setDirFilter('forward')}
@@ -176,9 +179,10 @@ export default function TcpSequenceTimeline({
               type="button"
               role="radio"
               aria-checked={dirFilter === 'reverse'}
+              tabIndex={dirFilter === 'reverse' ? 0 : -1}
               className={`cursor-pointer rounded px-2.5 py-0.5 text-[10px] font-medium transition-colors ${
                 dirFilter === 'reverse'
-                  ? 'bg-cyan-600 text-white'
+                  ? 'bg-cyan-700 text-white'
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
               onClick={() => setDirFilter('reverse')}
@@ -223,6 +227,18 @@ export default function TcpSequenceTimeline({
           {plotData.points.length} packets · {formatDuration(plotData.durationUsec)}
         </div>
       </div>
+
+      <label className="flex flex-wrap items-center gap-2 text-[11px] text-zinc-400">
+        Inspect TCP packet
+        <select
+          className="max-w-full rounded border border-zinc-700 bg-zinc-950 px-2 py-1 text-zinc-200"
+          value={visiblePoints.some((point) => point.packetNumber === selectedPacket) ? selectedPacket! : ''}
+          onChange={(event) => onSelectPacket(Number(event.target.value))}
+        >
+          <option value="" disabled>Select a packet</option>
+          {visiblePoints.map((point) => <option key={point.packetNumber} value={point.packetNumber}>#{point.packetNumber} · {formatRelativeTime(point.relativeUsec)}s · {point.direction} · {point.flagNames.join(', ')}</option>)}
+        </select>
+      </label>
 
       {/* SVG Stevens Sequence Plot */}
       <div className="relative">
@@ -286,7 +302,7 @@ export default function TcpSequenceTimeline({
 
             const payloadLen = pt.payloadLength;
             const hasData = payloadLen > 0;
-            const endSeqVal = seqVal + (hasData ? payloadLen : (pt.flags.syn || pt.flags.fin ? 1 : 0));
+            const endSeqVal = seqVal + payloadLen + Number(pt.flags.syn) + Number(pt.flags.fin);
             const yEnd = getY(endSeqVal);
 
             return (
@@ -329,7 +345,7 @@ export default function TcpSequenceTimeline({
                 />
 
                 {/* ACK Point (if ACK present) */}
-                {pt.ack !== null && (
+                {pt.ack !== null && (!relativeSeq || pt.relAck !== null) && (
                   <circle
                     cx={x}
                     cy={getY(relativeSeq ? (pt.relAck ?? 0) : pt.ack)}

@@ -7,6 +7,7 @@ import {
 } from '../../../core/captureAnalytics';
 import { layerColor } from '../../colors';
 import { formatByteCount } from './format';
+import { navigateChartRadios } from './chartControls';
 
 interface ProtocolBreakdownProps {
   packets: CapturePacket[];
@@ -79,8 +80,12 @@ function describeArc(
 
 function computeSlices(items: ProtocolShare[], metric: DistributionMetric) {
   let cumulative = 0;
+  // All-layer percentages overlap (one packet can contain several protocols).
+  // Normalize the donut to layer occurrences while the bars show capture share.
+  const total = items.reduce((sum, item) => sum + (metric === 'packets' ? item.packetCount : item.byteCount), 0);
   return items.map((item) => {
-    const pct = metric === 'packets' ? item.packetPercentage : item.bytePercentage;
+    const count = metric === 'packets' ? item.packetCount : item.byteCount;
+    const pct = total > 0 ? count / total * 100 : 0;
     const angle = (pct / 100) * 360;
     const startAngle = cumulative;
     const endAngle = cumulative + angle;
@@ -138,14 +143,15 @@ export default function ProtocolBreakdown({
 
         <div className="flex flex-wrap items-center gap-2">
           {/* Scope Toggle: Top vs All */}
-          <div className="flex rounded-md border border-zinc-700 bg-zinc-950 p-0.5" role="radiogroup" aria-label="Protocol Layer Scope">
+          <div className="flex rounded-md border border-zinc-700 bg-zinc-950 p-0.5" role="radiogroup" aria-label="Protocol Layer Scope" onKeyDown={navigateChartRadios}>
             <button
               type="button"
               role="radio"
               aria-checked={scope === 'top'}
+              tabIndex={scope === 'top' ? 0 : -1}
               className={`cursor-pointer rounded px-2.5 py-0.5 text-[11px] font-medium transition-colors ${
                 scope === 'top'
-                  ? 'bg-cyan-600 text-white'
+                  ? 'bg-cyan-700 text-white'
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
               onClick={() => setScope('top')}
@@ -156,9 +162,10 @@ export default function ProtocolBreakdown({
               type="button"
               role="radio"
               aria-checked={scope === 'all'}
+              tabIndex={scope === 'all' ? 0 : -1}
               className={`cursor-pointer rounded px-2.5 py-0.5 text-[11px] font-medium transition-colors ${
                 scope === 'all'
-                  ? 'bg-cyan-600 text-white'
+                  ? 'bg-cyan-700 text-white'
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
               onClick={() => setScope('all')}
@@ -168,14 +175,15 @@ export default function ProtocolBreakdown({
           </div>
 
           {/* Metric Toggle: Packets vs Bytes */}
-          <div className="flex rounded-md border border-zinc-700 bg-zinc-950 p-0.5" role="radiogroup" aria-label="Breakdown Metric">
+          <div className="flex rounded-md border border-zinc-700 bg-zinc-950 p-0.5" role="radiogroup" aria-label="Breakdown Metric" onKeyDown={navigateChartRadios}>
             <button
               type="button"
               role="radio"
               aria-checked={metric === 'bytes'}
+              tabIndex={metric === 'bytes' ? 0 : -1}
               className={`cursor-pointer rounded px-2.5 py-0.5 text-[11px] font-medium transition-colors ${
                 metric === 'bytes'
-                  ? 'bg-cyan-600 text-white'
+                  ? 'bg-cyan-700 text-white'
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
               onClick={() => setMetric('bytes')}
@@ -186,9 +194,10 @@ export default function ProtocolBreakdown({
               type="button"
               role="radio"
               aria-checked={metric === 'packets'}
+              tabIndex={metric === 'packets' ? 0 : -1}
               className={`cursor-pointer rounded px-2.5 py-0.5 text-[11px] font-medium transition-colors ${
                 metric === 'packets'
-                  ? 'bg-cyan-600 text-white'
+                  ? 'bg-cyan-700 text-white'
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
               onClick={() => setMetric('packets')}
@@ -274,7 +283,7 @@ export default function ProtocolBreakdown({
                 Clear protocol filter
               </button>
             ) : (
-              'Click slice to filter'
+              scope === 'all' ? 'Slices show layer occurrences; bars show capture share.' : 'Click slice to filter'
             )}
           </div>
         </div>

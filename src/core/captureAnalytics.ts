@@ -74,7 +74,7 @@ export function calculateThroughputBuckets(
   const lastUsec = options?.maxUsec !== undefined ? options.maxUsec : rawLast;
   const durationUsec = Math.max(1, lastUsec - firstUsec);
 
-  const bucketCount = Math.max(1, Math.min(options?.bucketCount ?? DEFAULT_BUCKET_COUNT, 300));
+  const bucketCount = Math.max(1, Math.floor(Math.min(options?.bucketCount ?? DEFAULT_BUCKET_COUNT, 300, durationUsec)));
   const bucketDurationUsec = durationUsec / bucketCount;
   const bucketDurationSec = Math.max(0.000001, bucketDurationUsec / 1_000_000);
 
@@ -203,7 +203,10 @@ export function calculateProtocolDistribution(
     }
   } else {
     for (const packet of packets) {
+      const seen = new Set<string>();
       packet.protocolIds.forEach((id, idx) => {
+        if (seen.has(id)) return;
+        seen.add(id);
         const name = packet.protocols[idx] ?? id;
         const existing = stats.get(id);
         if (existing) {
@@ -326,7 +329,18 @@ export function extractTcpDetails(packet: CapturePacket): {
     const tcpLayout = packet.packet.layers.find((l) => l.protocolId === 'tcp');
     if (tcpLayout) {
       const tcpEnd = tcpLayout.byteOffset + tcpLayout.headerBytes;
-      payloadLength = Math.max(0, packet.capturedLength - tcpEnd);
+      // Link-layer padding is outside the enclosing IP packet, not TCP data.
+      let packetEnd = packet.capturedLength;
+      for (const layout of packet.packet.layers) {
+        if (layout.byteOffset >= tcpLayout.byteOffset) break;
+        const layer = packet.stack.layers.find((l) => l.uid === layout.uid);
+        if (layout.protocolId === 'ipv4' && typeof layer?.overrides.totalLength === 'number') {
+          packetEnd = Math.min(packetEnd, layout.byteOffset + layer.overrides.totalLength);
+        } else if (layout.protocolId === 'ipv6' && typeof layer?.overrides.payloadLength === 'number' && layer.overrides.payloadLength > 0) {
+          packetEnd = Math.min(packetEnd, layout.byteOffset + layout.headerBytes + layer.overrides.payloadLength);
+        }
+      }
+      payloadLength = Math.max(0, packetEnd - tcpEnd);
     }
   } else {
     // If not serialized, dataOffset in 32-bit words (default 5 words = 20 bytes)
@@ -355,7 +369,7 @@ export function calculateStevensPlot(
   allPackets: CapturePacket[],
   flow: Flow,
 ): StevensPlotData {
-  const flowPackets = packetsInFlow(allPackets, flow);
+  const flowPackets = packetsInFlow(allPackets, flow).sort((a, b) => a.relativeUsec - b.relativeUsec || a.number - b.number);
   const initiatorAddr = flow.initiator.port !== null ? `${flow.initiator.address}:${flow.initiator.port}` : flow.initiator.address;
   const responderAddr = flow.responder.port !== null ? `${flow.responder.address}:${flow.responder.port}` : flow.responder.address;
 
@@ -368,22 +382,29 @@ export function calculateStevensPlot(
 
   const points: TcpPacketPoint[] = [];
 
+  const directionOf = (packet: CapturePacket): 'forward' | 'reverse' =>
+    packet.source === flow.initiator.address && packet.srcPort === flow.initiator.port
+      ? 'forward' : 'reverse';
+  // Resolve both baselines before computing ACKs: the first ACK may precede
+  // the first observed packet from its peer in a mid-stream capture.
+  for (const packet of flowPackets) {
+    const tcp = extractTcpDetails(packet);
+    if (!tcp) continue;
+    if (directionOf(packet) === 'forward') {
+      initialSeqForward ??= tcp.seq;
+    } else {
+      initialSeqReverse ??= tcp.seq;
+    }
+  }
+
   for (const packet of flowPackets) {
     const tcp = extractTcpDetails(packet);
     if (!tcp) continue;
 
-    const packetSrc = packet.srcPort !== null ? `${packet.source}:${packet.srcPort}` : (packet.source ?? '');
-    const isForward = packetSrc === initiatorAddr || packet.source === flow.initiator.address;
-    const direction: 'forward' | 'reverse' = isForward ? 'forward' : 'reverse';
-
-    if (direction === 'forward') {
-      if (initialSeqForward === null) initialSeqForward = tcp.seq;
-    } else {
-      if (initialSeqReverse === null) initialSeqReverse = tcp.seq;
-    }
+    const direction = directionOf(packet);
 
     const isnSelf = direction === 'forward' ? (initialSeqForward ?? tcp.seq) : (initialSeqReverse ?? tcp.seq);
-    const isnPeer = direction === 'forward' ? (initialSeqReverse ?? 0) : (initialSeqForward ?? 0);
+    const isnPeer = direction === 'forward' ? initialSeqReverse : initialSeqForward;
 
     // Compute relative sequence number (32-bit wrapping safe for reasonable captures)
     const relSeq = (tcp.seq - isnSelf + 0x100000000) % 0x100000000;
@@ -391,7 +412,7 @@ export function calculateStevensPlot(
       ? (tcp.ack - isnPeer + 0x100000000) % 0x100000000
       : null;
 
-    const effectiveLength = tcp.flags.syn || tcp.flags.fin ? Math.max(1, tcp.payloadLength) : tcp.payloadLength;
+    const effectiveLength = tcp.payloadLength + Number(tcp.flags.syn) + Number(tcp.flags.fin);
     const seqEnd = relSeq + effectiveLength;
 
     if (direction === 'forward') {

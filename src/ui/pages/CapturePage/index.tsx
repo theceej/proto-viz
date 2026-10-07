@@ -117,6 +117,10 @@ export default function CapturePage() {
   // Flows are grouped from the filtered set so the conversation list answers
   // "what is in what I am looking at", not "what was in the file".
   const matched = useMemo(() => filterPackets(packets, filter), [packets, filter]);
+  const throughputPackets = useMemo(
+    () => filterPackets(packets, { ...filter, timeRange: null }),
+    [packets, filter],
+  );
   const flows = useMemo(() => groupFlows(matched), [matched]);
   const activeFlow = flows.find((flow) => flow.key === flowKey) ?? null;
 
@@ -288,7 +292,7 @@ export default function CapturePage() {
           ) : (
             <div className="flex max-h-[420px] shrink-0 flex-col gap-4 overflow-y-auto border-b border-zinc-800 bg-zinc-950/20 p-4">
               <ThroughputChart
-                packets={matched}
+                packets={throughputPackets}
                 selectedRange={filter.timeRange}
                 onSelectTimeRange={(range) => changeFilter({ ...filter, timeRange: range })}
               />
